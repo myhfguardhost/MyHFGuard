@@ -55,6 +55,7 @@ const Dashboard = () => {
     syncIfDefault()
   }, [patientId, infoQuery.data])
   const vitalsQuery = useQuery({ queryKey: ["patient-vitals", patientId, "weekly"], queryFn: () => getPatientVitals(patientId, "weekly"), refetchOnWindowFocus: false, enabled: !!patientId });
+  const vitalsHourlyQuery = useQuery({ queryKey: ["patient-vitals", patientId, "hourly"], queryFn: () => getPatientVitals(patientId, "hourly"), refetchOnWindowFocus: false, enabled: !!patientId });
   const summary = data?.summary || {};
   const hr = summary.heartRate ?? "--";
   const bpS = summary.bpSystolic ?? "--";
@@ -63,6 +64,7 @@ const Dashboard = () => {
   const stepsToday = summary.stepsToday ?? "--";
   const distanceToday = summary.distanceToday ?? "--";
   const vitals = vitalsQuery.data?.vitals || {};
+  const vitalsHourly = vitalsHourlyQuery.data?.vitals || {};
   const latestTime = (arr?: Array<{ time: string }>) => {
     if (!arr || arr.length === 0) return undefined;
     let max: Date | undefined;
@@ -76,10 +78,10 @@ const Dashboard = () => {
     }
     return max;
   };
-  const lastHr = latestTime(vitals.hr as any);
+  const lastHr = latestTime((vitalsHourly.hr as any) || (vitals.hr as any));
   const lastBp = latestTime(vitals.bp as any);
   const lastWeight = latestTime(vitals.weight as any);
-  const lastSteps = latestTime(vitals.steps as any);
+  const lastSteps = latestTime((vitalsHourly.steps as any) || (vitals.steps as any));
   const lastAny = [lastHr, lastBp, lastWeight, lastSteps].filter(Boolean).sort((a: any, b: any) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
   const lastSyncFromSummary = summary.lastSyncTs ? new Date(summary.lastSyncTs) : undefined;
   const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
