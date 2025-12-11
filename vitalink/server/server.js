@@ -32,6 +32,8 @@ if (process.env.SUPABASE_URL && supabaseKey) {
     async select() { return { data: [], error: null } },
     async insert() { return { data: [], error: null } },
     eq() { return this },
+    gte() { return this },
+    lte() { return this },
     limit() { return this },
     order() { return this },
     or() { return this },
@@ -625,31 +627,43 @@ app.get('/patient/vitals', async (req, res) => {
       weight: [],
     }
   } else {
-    const hr = await supabase
+    const date = (req.query && req.query.date) || null
+    const tzOffRaw = (req.query && req.query.tzOffsetMin)
+    const tzOffsetMin = tzOffRaw != null ? Number(tzOffRaw) : 0
+    let hrQ = supabase
       .from('hr_hour')
-      .select('hour_ts,hr_min,hr_max,hr_avg')
       .eq('patient_id', pid)
-      .order('hour_ts', { ascending: false })
-      .limit(24)
-    if (hr.error) return res.status(400).json({ error: hr.error.message })
-    const spo2 = await supabase
+    let spo2Q = supabase
       .from('spo2_hour')
-      .select('hour_ts,spo2_min,spo2_max,spo2_avg')
       .eq('patient_id', pid)
-      .order('hour_ts', { ascending: false })
-      .limit(24)
-    if (spo2.error) return res.status(400).json({ error: spo2.error.message })
-    const steps = await supabase
+    let stepsQ = supabase
       .from('steps_hour')
-      .select('hour_ts,steps_total')
       .eq('patient_id', pid)
-      .order('hour_ts', { ascending: false })
-      .limit(24)
+    if (date) {
+      const base = new Date(`${date}T00:00:00.000Z`)
+      const start = new Date(base.getTime() - (tzOffsetMin * 60 * 1000))
+      const end = new Date(start.getTime() + (24 * 60 * 60 * 1000) - 1)
+      hrQ = hrQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
+      spo2Q = spo2Q.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
+      stepsQ = stepsQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
+    } else {
+      hrQ = hrQ.order('hour_ts', { ascending: false }).limit(24)
+      spo2Q = spo2Q.order('hour_ts', { ascending: false }).limit(24)
+      stepsQ = stepsQ.order('hour_ts', { ascending: false }).limit(24)
+    }
+    const hr = await hrQ.select('hour_ts,hr_min,hr_max,hr_avg,hr_count')
+    if (hr.error) return res.status(400).json({ error: hr.error.message })
+    const spo2 = await spo2Q.select('hour_ts,spo2_min,spo2_max,spo2_avg')
+    if (spo2.error) return res.status(400).json({ error: spo2.error.message })
+    const steps = await stepsQ.select('hour_ts,steps_total')
     if (steps.error) return res.status(400).json({ error: steps.error.message })
+    const hrArr = date ? (hr.data || []) : (hr.data || []).reverse()
+    const spo2Arr = date ? (spo2.data || []) : (spo2.data || []).reverse()
+    const stepsArr = date ? (steps.data || []) : (steps.data || []).reverse()
     out = {
-      hr: (hr.data || []).reverse().map((r) => ({ time: r.hour_ts, min: Math.round((r.hr_min ?? r.hr_avg) || 0), avg: Math.round(r.hr_avg || 0), max: Math.round((r.hr_max ?? r.hr_avg) || 0), count: r.hr_count })),
-      spo2: (spo2.data || []).reverse().map((r) => ({ time: r.hour_ts, min: Math.round((r.spo2_min ?? r.spo2_avg) || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round((r.spo2_max ?? r.spo2_avg) || 0) })),
-      steps: (steps.data || []).reverse().map((r) => ({ time: r.hour_ts, count: Math.round(r.steps_total || 0) })),
+      hr: hrArr.map((r) => ({ time: r.hour_ts, min: Math.round((r.hr_min ?? r.hr_avg) || 0), avg: Math.round(r.hr_avg || 0), max: Math.round((r.hr_max ?? r.hr_avg) || 0), count: r.hr_count })),
+      spo2: spo2Arr.map((r) => ({ time: r.hour_ts, min: Math.round((r.spo2_min ?? r.spo2_avg) || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round((r.spo2_max ?? r.spo2_avg) || 0) })),
+      steps: stepsArr.map((r) => ({ time: r.hour_ts, count: Math.round(r.steps_total || 0) })),
       bp: [],
       weight: [],
     }
