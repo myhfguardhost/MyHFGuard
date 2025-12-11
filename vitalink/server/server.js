@@ -390,15 +390,18 @@ app.get('/patient/summary', async (req, res) => {
   } catch (_) {}
   if (!lastSyncTs) {
     try {
+      const hrLast = await supabase.from('hr_sample').select('time_ts').eq('patient_id', pid).order('time_ts', { ascending: false }).limit(1)
+      const stepsLast = await supabase.from('steps_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
+      const distLast = await supabase.from('distance_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
       const candidates = []
-      if (row && row.date) candidates.push(row.date)
-      if (srow && srow.date) candidates.push(srow.date)
-      if (drow && drow.date) candidates.push(drow.date)
+      const hrTs = hrLast && hrLast.data && hrLast.data[0] && hrLast.data[0].time_ts
+      const stTs = stepsLast && stepsLast.data && stepsLast.data[0] && stepsLast.data[0].end_ts
+      const diTs = distLast && distLast.data && distLast.data[0] && distLast.data[0].end_ts
+      if (hrTs) candidates.push(hrTs)
+      if (stTs) candidates.push(stTs)
+      if (diTs) candidates.push(diTs)
       if (candidates.length) {
-        const maxTs = Math.max(...candidates.map((d) => {
-          const dt = new Date(typeof d === 'string' ? d : String(d))
-          return dt.getTime()
-        }))
+        const maxTs = Math.max(...candidates.map((d) => new Date(d).getTime()))
         if (Number.isFinite(maxTs)) lastSyncTs = new Date(maxTs).toISOString()
       }
     } catch (_) {}
