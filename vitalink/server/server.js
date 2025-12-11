@@ -380,6 +380,14 @@ app.get('/patient/summary', async (req, res) => {
   const st = await supabase.from('steps_day').select('date,steps_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (st.error) return res.status(400).json({ error: st.error.message })
   const srow = (st.data && st.data[0]) || null
+  const dist = await supabase.from('distance_day').select('date,meters_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
+  const drow = (dist.data && dist.data[0]) || null
+  let lastSyncTs = null
+  try {
+    const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
+    const srow2 = (sync.data && sync.data[0]) || null
+    lastSyncTs = (srow2 && (srow2.last_sync_ts || srow2.updated_at)) || null
+  } catch (_) {}
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
     bpSystolic: null,
@@ -387,6 +395,8 @@ app.get('/patient/summary', async (req, res) => {
     weightKg: null,
     nextAppointmentDate: null,
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
+    distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
+    lastSyncTs,
   }
   return res.status(200).json({ summary })
 })
@@ -840,6 +850,13 @@ app.post('/ingest/steps-events', async (req, res) => {
     console.error('steps_day upsert error', upd.error)
     return res.status(400).json({ error: upd.error.message })
   }
+  try {
+    const maxEnd = items.reduce((m, i) => (!m || (new Date(i.endTs).getTime() > new Date(m).getTime())) ? i.endTs : m, null)
+    const dev = devices && devices.length ? devices[0] : 'unknown'
+    if (maxEnd) {
+      await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
+    }
+  } catch (_) {}
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/distance-events', async (req, res) => {
@@ -893,6 +910,13 @@ app.post('/ingest/distance-events', async (req, res) => {
   if (uph.error) return res.status(400).json({ error: uph.error.message })
   const upd = await supabase.from('distance_day').upsert(dayRows, { onConflict: 'patient_id,date' })
   if (upd.error) return res.status(400).json({ error: upd.error.message })
+  try {
+    const maxEnd = items.reduce((m, i) => (!m || (new Date(i.endTs).getTime() > new Date(m).getTime())) ? i.endTs : m, null)
+    const dev = devices && devices.length ? devices[0] : 'unknown'
+    if (maxEnd) {
+      await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
+    }
+  } catch (_) {}
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/hr-samples', async (req, res) => {
