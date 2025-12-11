@@ -25,3 +25,6 @@ vitalink/web/dist/
 *.tmp
 *.bak
 ~*
+
+# Supabase credentials (contains sensitive keys)
+SUPABASE_CREDENTIALS.md
