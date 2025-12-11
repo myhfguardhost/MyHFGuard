@@ -13,7 +13,7 @@ import QuickActions from "@/components/dashboard/QuickActions";
 import UpcomingReminders from "@/components/dashboard/UpcomingReminders";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/lib/supabase";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, isYesterday, isToday } from "date-fns";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -77,6 +77,15 @@ const Dashboard = () => {
       }
     }
     return max;
+  };
+  const formatDayFriendly = (dt?: Date, src?: Array<{ time: string }>) => {
+    if (!dt) return "--";
+    const isDateOnly = !!(src && src.some((x: any) => typeof x?.time === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.time)));
+    if (isDateOnly) {
+      if (isToday(dt)) return "today";
+      if (isYesterday(dt)) return "yesterday";
+    }
+    return formatDistanceToNow(dt, { addSuffix: true });
   };
   const lastHr = latestTime((vitalsHourly.hr as any) || (vitals.hr as any));
   const lastBp = latestTime(vitals.bp as any);
@@ -179,7 +188,7 @@ const Dashboard = () => {
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
-                  <span>Last: {lastWeight ? formatDistanceToNow(lastWeight, { addSuffix: true }) : "--"}</span>
+                  <span>Last: {formatDayFriendly(lastWeight, vitals.weight as any)}</span>
                 </div>
               </div>
               <div className="p-3 bg-warning/10 rounded-full">

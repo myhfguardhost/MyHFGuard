@@ -165,6 +165,9 @@ const VitalsChart = ({ patientId }: Props) => {
     : stepsSrc
   const hrForMerge = timePeriod === "weekly" ? hrWeeklyPadded : (timePeriod === "monthly" ? hrMonthlyPadded : hr)
   const spo2ForMerge = timePeriod === "weekly" ? spo2WeeklyPadded : (timePeriod === "monthly" ? spo2MonthlyPadded : spo2)
+  const hasHrData = (timePeriod === "daily" ? hrSrc.length : hrForMerge.length) > 0
+  const hasSpo2Data = (timePeriod === "daily" ? spo2Src.length : spo2ForMerge.length) > 0
+  const stepsSelected = timePeriod === "weekly" ? stepsWeeklyPadded : (timePeriod === "monthly" ? stepsMonthlyPadded : stepsDayAgg)
   const merged = (hrForMerge.length || spo2ForMerge.length)
     ? (hrForMerge.length >= spo2ForMerge.length
         ? hrForMerge.map((h, i) => ({
@@ -295,6 +298,8 @@ const VitalsChart = ({ patientId }: Props) => {
               <TabsTrigger value="bloodPressure">Blood Pressure</TabsTrigger>
             </TabsList>
             <TabsContent value="heartRate">
+              {hasHrData ? (
+              <>
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={merged}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -348,8 +353,14 @@ const VitalsChart = ({ patientId }: Props) => {
                   return best.vals.length ? Math.round(best.vals[0]) : undefined
                 })() : calculateStats("restingHeartRate").avg} unit="bpm" />
               </div>
+              </>
+              ) : (
+                <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
+              )()}
             </TabsContent>
             <TabsContent value="spo2">
+              {hasSpo2Data ? (
+              <>
               <ResponsiveContainer width="100%" height={320}>
                 <ComposedChart data={merged}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -383,13 +394,19 @@ const VitalsChart = ({ patientId }: Props) => {
                 <StatCard label="Max SpO2" value={calculateStats("spo2Max").max} unit="%" />
                 <StatCard label="Average SpO2" value={calculateStats("spo2").avg} unit="%" />
               </div>
+              </>
+              ) : (
+                <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
+              )}
             </TabsContent>
             <TabsContent value="weight">
               <div className="flex h-40 items-center justify-center text-muted-foreground">Coming soon</div>
             </TabsContent>
             <TabsContent value="steps">
+              {stepsSelected.length ? (
+              <>
               <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={(timePeriod === "weekly" ? stepsWeeklyPadded : (timePeriod === "monthly" ? stepsMonthlyPadded : stepsDayAgg)).map((s: any) => ({ date: s.time, steps: s.count }))}>
+                <BarChart data={stepsSelected.map((s: any) => ({ date: s.time, steps: s.count }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
                   <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
@@ -404,8 +421,7 @@ const VitalsChart = ({ patientId }: Props) => {
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-4 mt-6">
                 {(() => {
-                  const stepsArr = timePeriod === "weekly" ? stepsWeeklyPadded : (timePeriod === "monthly" ? stepsMonthlyPadded : stepsDayAgg)
-                  const nums = stepsArr.map((x: any) => x.count).filter((n: any) => typeof n === "number")
+                  const nums = stepsSelected.map((x: any) => x.count).filter((n: any) => typeof n === "number")
                   const min = nums.length ? Math.min(...nums) : undefined
                   const max = nums.length ? Math.max(...nums) : undefined
                   const avg = nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) : undefined
@@ -418,6 +434,10 @@ const VitalsChart = ({ patientId }: Props) => {
                   )
                 })()}
               </div>
+              </>
+              ) : (
+                <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
+              )}
             </TabsContent>
             <TabsContent value="bloodPressure">
               <div className="flex h-40 items-center justify-center text-muted-foreground">Coming soon</div>
