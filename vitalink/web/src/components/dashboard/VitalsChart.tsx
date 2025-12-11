@@ -32,9 +32,13 @@ const VitalsChart = ({ patientId }: Props) => {
     const d = new Date(t)
     return isNaN(d.getTime()) ? String(t) : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
   }
-  const hrSrc = (vitals.hr || [])
-  const spo2Src = (vitals.spo2 || [])
-  const stepsSrc = (vitals.steps || [])
+  const selectedDay = formatDate(currentPeriod, "yyyy-MM-dd")
+  const hrSrcRaw = (vitals.hr || [])
+  const spo2SrcRaw = (vitals.spo2 || [])
+  const stepsSrcRaw = (vitals.steps || [])
+  const hrSrc = timePeriod === "daily" ? hrSrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : hrSrcRaw
+  const spo2Src = timePeriod === "daily" ? spo2SrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : spo2SrcRaw
+  const stepsSrc = timePeriod === "daily" ? stepsSrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : stepsSrcRaw
   const hr = period !== "hourly"
     ? Object.entries(hrSrc.reduce((acc: Record<string, { min: number[]; avg: number[]; max: number[] }>, r: any) => {
         const k = toDayKey(r.time)
