@@ -64,15 +64,26 @@ const Dashboard = () => {
   const distanceToday = summary.distanceToday ?? "--";
   const vitals = vitalsQuery.data?.vitals || {};
   const latestTime = (arr?: Array<{ time: string }>) => {
-    const t = arr && arr.length ? arr[arr.length - 1]?.time : undefined;
-    const dt = t ? new Date(t) : undefined;
-    return dt && !Number.isNaN(dt.getTime()) ? dt : undefined;
+    if (!arr || arr.length === 0) return undefined;
+    let max: Date | undefined;
+    for (const item of arr) {
+      const t = item?.time;
+      if (!t) continue;
+      const dt = new Date(t);
+      if (!Number.isNaN(dt.getTime())) {
+        if (!max || dt.getTime() > max.getTime()) max = dt;
+      }
+    }
+    return max;
   };
   const lastHr = latestTime(vitals.hr as any);
   const lastBp = latestTime(vitals.bp as any);
   const lastWeight = latestTime(vitals.weight as any);
   const lastSteps = latestTime(vitals.steps as any);
   const lastAny = [lastHr, lastBp, lastWeight, lastSteps].filter(Boolean).sort((a: any, b: any) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
+  const lastSyncFromSummary = summary.lastSyncTs ? new Date(summary.lastSyncTs) : undefined;
+  const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
+  const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : (summary.lastSyncTs || "unknown");
   
   return (
     <div className="min-h-screen bg-background">
@@ -88,7 +99,7 @@ const Dashboard = () => {
             <Smartphone className="h-4 w-4 text-primary" />
             <AlertDescription className="flex items-center justify-between">
               <span>
-                <strong>Sync Required:</strong> Last synced {lastAny ? formatDistanceToNow(lastAny, { addSuffix: true }) : "unknown"}. Open the MyHFGuard app to synch your latest data.
+                <strong>Sync Required:</strong> Last synced {lastSyncDisplay}. Open the MyHFGuard app to synch your latest data.
               </span>
               <Button variant="ghost" size="sm" onClick={() => setShowSyncNotice(false)} className="ml-4">
                 Dismiss
@@ -204,6 +215,10 @@ const Dashboard = () => {
                 ) : (
                   <p className="text-2xl font-bold text-foreground">{distanceToday} {distanceToday !== "--" && "m"}</p>
                 )}
+                <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>Last: {lastSteps ? formatDistanceToNow(lastSteps, { addSuffix: true }) : "--"}</span>
+                </div>
               </div>
               <div className="p-3 bg-secondary/10 rounded-full">
                 <Activity className="w-6 h-6 text-secondary" />
