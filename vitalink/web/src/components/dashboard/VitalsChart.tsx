@@ -36,9 +36,13 @@ const VitalsChart = ({ patientId }: Props) => {
   const hrSrcRaw = (vitals.hr || [])
   const spo2SrcRaw = (vitals.spo2 || [])
   const stepsSrcRaw = (vitals.steps || [])
+  const bpSrcRaw = (vitals.bp || [])
+  const weightSrcRaw = (vitals.weight || [])
   const hrSrc = timePeriod === "daily" ? hrSrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : hrSrcRaw
   const spo2Src = timePeriod === "daily" ? spo2SrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : spo2SrcRaw
   const stepsSrc = timePeriod === "daily" ? stepsSrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : stepsSrcRaw
+  const bpSrc = timePeriod === "daily" ? bpSrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : bpSrcRaw
+  const weightSrc = timePeriod === "daily" ? weightSrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : weightSrcRaw
   const hr = period !== "hourly"
     ? Object.entries(hrSrc.reduce((acc: Record<string, { min: number[]; avg: number[]; max: number[] }>, r: any) => {
         const k = toDayKey(r.time)
@@ -168,6 +172,14 @@ const VitalsChart = ({ patientId }: Props) => {
   const hasHrData = (timePeriod === "daily" ? hrSrc.length : hrForMerge.length) > 0
   const hasSpo2Data = (timePeriod === "daily" ? spo2Src.length : spo2ForMerge.length) > 0
   const stepsSelected = timePeriod === "weekly" ? stepsWeeklyPadded : (timePeriod === "monthly" ? stepsMonthlyPadded : stepsDayAgg)
+  const stepsNums = stepsSelected.map((x: any) => x.count).filter((n: any) => typeof n === "number")
+  const stepsMin = stepsNums.length ? Math.min(...stepsNums) : undefined
+  const stepsMax = stepsNums.length ? Math.max(...stepsNums) : undefined
+  const stepsAvg = stepsNums.length ? Math.round(stepsNums.reduce((a: number, b: number) => a + b, 0) / stepsNums.length) : undefined
+  const bp = bpSrc.map((r: any) => ({ date: r.time, sys: r.systolic, dia: r.diastolic, pulse: r.pulse }))
+  const hasBpData = bp.length > 0
+  const weight = weightSrc.map((r: any) => ({ date: r.time, value: (typeof r.kg === "number" ? r.kg : (typeof r.weight === "number" ? r.weight : undefined)) }))
+  const hasWeightData = weight.length > 0
   const merged = (hrForMerge.length || spo2ForMerge.length)
     ? (hrForMerge.length >= spo2ForMerge.length
         ? hrForMerge.map((h, i) => ({
@@ -356,7 +368,7 @@ const VitalsChart = ({ patientId }: Props) => {
               </>
               ) : (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
-              )()}
+              )}
             </TabsContent>
             <TabsContent value="spo2">
               {hasSpo2Data ? (
@@ -400,7 +412,19 @@ const VitalsChart = ({ patientId }: Props) => {
               )}
             </TabsContent>
             <TabsContent value="weight">
-              <div className="flex h-40 items-center justify-center text-muted-foreground">Coming soon</div>
+              {hasWeightData ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <ComposedChart data={weight}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number) => [`${value} kg`, ""]} labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))} />
+                  <Line type="monotone" dataKey="value" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 6 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+              ) : (
+                <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
+              )}
             </TabsContent>
             <TabsContent value="steps">
               {stepsSelected.length ? (
@@ -420,19 +444,9 @@ const VitalsChart = ({ patientId }: Props) => {
                 </BarChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-4 mt-6">
-                {(() => {
-                  const nums = stepsSelected.map((x: any) => x.count).filter((n: any) => typeof n === "number")
-                  const min = nums.length ? Math.min(...nums) : undefined
-                  const max = nums.length ? Math.max(...nums) : undefined
-                  const avg = nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) : undefined
-                  return (
-                    <>
-                      <StatCard label="Min Steps" value={min} />
-                      <StatCard label="Max Steps" value={max} />
-                      <StatCard label="Average Steps" value={avg} />
-                    </>
-                  )
-                })()}
+                <StatCard label="Min Steps" value={stepsMin} />
+                <StatCard label="Max Steps" value={stepsMax} />
+              <StatCard label="Average Steps" value={stepsAvg} />
               </div>
               </>
               ) : (
@@ -440,7 +454,21 @@ const VitalsChart = ({ patientId }: Props) => {
               )}
             </TabsContent>
             <TabsContent value="bloodPressure">
-              <div className="flex h-40 items-center justify-center text-muted-foreground">Coming soon</div>
+              {hasBpData ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <ComposedChart data={bp}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number, name: string) => [`${value}${name === 'pulse' ? ' bpm' : ''}`, name === 'sys' ? 'Systolic' : (name === 'dia' ? 'Diastolic' : 'Pulse')]} labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))} />
+                  <Line type="monotone" dataKey="sys" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-1))", r: 6 }} />
+                  <Line type="monotone" dataKey="dia" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 6 }} />
+                  <Line type="monotone" dataKey="pulse" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+              ) : (
+                <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
+              )}
             </TabsContent>
           </Tabs>
         ) : (
