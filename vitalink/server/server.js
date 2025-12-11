@@ -69,16 +69,52 @@ function toDateWithOffset(ts, offsetMin) {
 }
 async function ensurePatient(patientId, info) {
   if (!patientId) return { ok: false, error: 'missing patientId' }
-  const first = (info && info.firstName) ? info.firstName : 'User'
-  const last = (info && info.lastName) ? info.lastName : 'Patient'
+  
+  // Get existing patient data if it exists
+  let existing = null
+  try {
+    const existingRes = await supabase.from('patients').select('dob, first_name, last_name').eq('patient_id', patientId).maybeSingle()
+    if (existingRes && existingRes.data) {
+      existing = existingRes.data
+    }
+  } catch (e) {
+    // If query fails, continue without existing data
+  }
+  
+  // Use provided values, fall back to existing values if patient exists
+  const first = (info && info.firstName) || (existing && existing.first_name) || null
+  const last = (info && info.lastName) || (existing && existing.last_name) || null
+  const dob = (info && info.dateOfBirth) || (existing && existing.dob) || null
+  
+  // Build row - dob is required (NOT NULL constraint)
   const row = {
     patient_id: patientId,
-    first_name: first,
-    last_name: last,
-    date_of_birth: info && info.dateOfBirth ? info.dateOfBirth : undefined,
   }
-  const clean = Object.fromEntries(Object.entries(row).filter(([_, v]) => v !== undefined))
-  const res = await supabase.from('patients').upsert([clean], { onConflict: 'patient_id' })
+  
+  if (first) row.first_name = first
+  if (last) row.last_name = last
+  
+  // dob is required - if not provided and patient doesn't exist, return error
+  if (!dob && !existing) {
+    return { ok: false, error: 'dateOfBirth is required for new patients' }
+  }
+  
+  // Only set dob if we have a value (for new patients) or if updating existing
+  if (dob) {
+    row.dob = dob
+  } else if (existing && existing.dob) {
+    // Keep existing dob if not provided in update
+    row.dob = existing.dob
+  }
+  
+  // Use upsert with onConflict to update existing or insert new
+  const res = await supabase
+    .from('patients')
+    .upsert([row], { 
+      onConflict: 'patient_id',
+      ignoreDuplicates: false 
+    })
+  
   if (res.error) {
     console.error('ensurePatient error', res.error)
     return { ok: false, error: res.error.message }
@@ -161,7 +197,7 @@ app.get('/admin/patient-info', async (req, res) => {
   try {
     const patientRes = await supabase
       .from('patients')
-      .select('patient_id, first_name, last_name, date_of_birth')
+      .select('patient_id, first_name, last_name, dob')
       .eq('patient_id', pid)
       .single()
     
@@ -181,7 +217,7 @@ app.get('/admin/patient-info', async (req, res) => {
         patient_id: patientRes.data.patient_id,
         first_name: patientRes.data.first_name,
         last_name: patientRes.data.last_name,
-        dob: patientRes.data.date_of_birth
+        dob: patientRes.data.dob
       },
       devicesCount,
       warnings: []
@@ -199,7 +235,7 @@ app.get('/api/admin/patients', async (req, res) => {
     
     let query = supabase
       .from('patients')
-      .select('patient_id, first_name, last_name, date_of_birth, created_at')
+      .select('patient_id, first_name, last_name, dob, created_at')
     
     if (pid) {
       query = query.eq('patient_id', pid)
@@ -221,7 +257,7 @@ app.get('/api/admin/patients', async (req, res) => {
           email: authRes.data?.user?.email || null,
           created_at: authRes.data?.user?.created_at || patient.created_at,
           last_sign_in_at: authRes.data?.user?.last_sign_in_at || null,
-          date_of_birth: patient.date_of_birth
+          dob: patient.dob
         }
       } catch (err) {
         return {
@@ -231,7 +267,7 @@ app.get('/api/admin/patients', async (req, res) => {
           email: null,
           created_at: patient.created_at,
           last_sign_in_at: null,
-          date_of_birth: patient.date_of_birth
+          dob: patient.dob
         }
       }
     }))

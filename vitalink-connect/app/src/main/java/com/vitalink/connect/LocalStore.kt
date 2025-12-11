@@ -108,3 +108,4 @@ abstract class LocalDb : RoomDatabase() {
         }
     }
 }
+

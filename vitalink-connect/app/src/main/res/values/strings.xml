@@ -22,3 +22,4 @@
     <string name="hr_today">HR today: min %1$d, max %2$d, avg %3$d</string>
     <string name="hr_diag">HR diagnostics: today %1$d, week %2$d, last %3$s</string>
 </resources>
+

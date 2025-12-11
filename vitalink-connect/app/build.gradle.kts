@@ -1,12 +1,8 @@
 import java.util.Properties
 plugins {
     id("com.android.application") version "8.9.1"
-    
-    // Update Kotlin to 2.1.20
     kotlin("android") version "2.1.20"
     kotlin("plugin.serialization") version "2.1.20"
-    
-    // Update KSP to the matching 2.1.20 version
     id("com.google.devtools.ksp") version "2.1.20-1.0.31"
 }
 
@@ -23,8 +19,6 @@ android {
         val props = Properties()
         val lp = rootProject.file("local.properties")
         if (lp.exists()) lp.inputStream().use { props.load(it) }
-        buildConfigField("String", "SUPABASE_URL", "\"${props.getProperty("SUPABASE_URL", "")}\"")
-        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${props.getProperty("SUPABASE_PUBLISHABLE_KEY", "")}\"")
     }
 
     buildTypes {
@@ -65,7 +59,6 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.1.3"))
-    implementation("io.github.jan-tennert.supabase:auth-kt")
-    implementation("io.ktor:ktor-client-android:3.0.0")
+    implementation("androidx.cardview:cardview:1.0.0")
 }
+

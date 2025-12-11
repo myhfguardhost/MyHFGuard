@@ -65,38 +65,69 @@ class MainActivity : AppCompatActivity() {
             val txt = findViewById<TextView>(R.id.txtOutput)
             txt.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
             val ok = granted.containsAll(permissions)
+            if (ok) {
+                val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
+                sp.edit().putBoolean("first_time_setup", false).apply()
+            }
             applyPermissionsUI(ok)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Force light theme only - must be called before super.onCreate()
+        setTheme(android.R.style.Theme_Material_Light_NoActionBar)
         super.onCreate(savedInstanceState)
+        
         setContentView(R.layout.activity_main)
 
+        // Setup top navigation
+        val txtWelcomeName = findViewById<TextView>(R.id.txtWelcomeName)
+        val btnSettings = findViewById<android.widget.ImageButton>(R.id.btnSettings)
+        val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
+        txtWelcomeName.text = getString(R.string.app_name)
+
+        btnSettings.setOnClickListener {
+            startActivity(android.content.Intent(this, SettingsActivity::class.java))
+        }
+
         val txt = findViewById<TextView>(R.id.txtOutput)
-        val btnGrant = findViewById<Button>(R.id.btnGrant)
-        val btnRead = findViewById<Button>(R.id.btnRead)
-        val btnScan = findViewById<Button>(R.id.btnScan)
-        val btnExport = findViewById<Button>(R.id.btnExport)
+        val cardGrant = findViewById<androidx.cardview.widget.CardView>(R.id.cardGrant)
+        val cardRead = findViewById<androidx.cardview.widget.CardView>(R.id.cardRead)
+        val cardScan = findViewById<androidx.cardview.widget.CardView>(R.id.cardScan)
 
         val status = HealthConnectClient.getSdkStatus(this)
         if (status != HealthConnectClient.SDK_AVAILABLE) {
             txt.text = getString(R.string.availability_missing)
-            btnGrant.isEnabled = false
-            btnRead.isEnabled = false
+            cardGrant.isEnabled = false
+            cardRead.isEnabled = false
             return
         }
 
         client = HealthConnectClient.getOrCreate(this)
+        
+        // Check first-time user (after client is initialized)
+        val isFirstTime = sp.getBoolean("first_time_setup", true)
+        val cardFirstTime = findViewById<androidx.cardview.widget.CardView>(R.id.cardFirstTime)
+        val btnSetupPermissions = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnSetupPermissions)
+        
+        if (isFirstTime) {
+            cardFirstTime.visibility = android.view.View.VISIBLE
+            btnSetupPermissions.setOnClickListener {
+                lifecycleScope.launch {
+                    val granted = client.permissionController.getGrantedPermissions()
+                    if (!granted.containsAll(permissions)) {
+                        requestPermissions.launch(permissions)
+                    }
+                }
+            }
+        } else {
+            cardFirstTime.visibility = android.view.View.GONE
+        }
         val interceptor = HttpLoggingInterceptor()
         interceptor.level = HttpLoggingInterceptor.Level.BASIC
         http = OkHttpClient.Builder().addInterceptor(interceptor).build()
         baseUrl = getString(R.string.server_base_url)
-
-        val pid = currentPatientId()
-        if (pid.isEmpty()) {
-            startActivity(android.content.Intent(this, LoginActivity::class.java))
-        }
+        lifecycleScope.launch { ensurePatientExists() }
 
         fun updateUiForPermissions(grantedSet: Set<String>) {
             val ok = grantedSet.containsAll(permissions)
@@ -108,7 +139,7 @@ class MainActivity : AppCompatActivity() {
             updateUiForPermissions(grantedInitial)
         }
 
-        btnGrant.setOnClickListener {
+        cardGrant.setOnClickListener {
             lifecycleScope.launch {
                 val granted = client.permissionController.getGrantedPermissions()
                 if (!granted.containsAll(permissions)) {
@@ -120,31 +151,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        btnRead.setOnClickListener {
-            lifecycleScope.launch { ensurePatientExists(); readMetricsAndShow(txt); updateLastHourHrLabel(); updateTodayHrLabel(); updateHrDiagnostics(); syncTodayToServer(); refreshReminderNotifications() }
+        cardRead.setOnClickListener {
+            lifecycleScope.launch { 
+                ensurePatientExists()
+                readMetricsAndShow(txt)
+                updateLastHourHrLabel()
+                updateTodayHrLabel()
+                updateHrDiagnostics()
+                syncTodayToServer()
+                refreshReminderNotifications()
+            }
         }
 
         val scanPreview = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { _ -> }
-        btnScan.setOnClickListener {
+        cardScan.setOnClickListener {
             val url = getString(R.string.scan_capture_url)
             try {
                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
                 startActivity(intent)
             } catch (_: Exception) {
                 android.widget.Toast.makeText(this, "Scan link not available", android.widget.Toast.LENGTH_SHORT).show()
-            }
-        }
-        btnExport.setOnClickListener {
-            android.widget.Toast.makeText(this, "Export coming soon", android.widget.Toast.LENGTH_SHORT).show()
-        }
-
-        findViewById<Button>(R.id.btnSwitchUser).apply {
-            text = getString(R.string.logout)
-            setOnClickListener {
-                val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
-                sp.edit().remove("patientId").remove("supabaseAccessToken").remove("userEmail").apply()
-                startActivity(android.content.Intent(this@MainActivity, LoginActivity::class.java))
-                finish()
             }
         }
     }
@@ -177,25 +203,72 @@ class MainActivity : AppCompatActivity() {
         val txt = findViewById<TextView>(R.id.txtOutput)
         txt.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
         applyPermissionsUI(granted.containsAll(permissions))
-        }
+    }
 
     private fun applyPermissionsUI(ok: Boolean) {
-        val btnRead = findViewById<Button>(R.id.btnRead)
-        val bannerBox = findViewById<android.widget.LinearLayout>(R.id.bannerBox)
+        val cardRead = findViewById<androidx.cardview.widget.CardView>(R.id.cardRead)
+        val cardGrant = findViewById<androidx.cardview.widget.CardView>(R.id.cardGrant)
+        val cardScan = findViewById<androidx.cardview.widget.CardView>(R.id.cardScan)
+        val bannerBox = findViewById<androidx.cardview.widget.CardView>(R.id.bannerBox)
         val bannerAccent = findViewById<View>(R.id.bannerAccent)
         val txtBannerTitle = findViewById<TextView>(R.id.txtBannerTitle)
         val txtBannerDesc = findViewById<TextView>(R.id.txtBannerDesc)
-        btnRead.isEnabled = ok
+        val cardFirstTime = findViewById<androidx.cardview.widget.CardView>(R.id.cardFirstTime)
+        
+        cardRead.isEnabled = ok
+        cardRead.alpha = if (ok) 1.0f else 0.5f
+        
+        // Hide first-time card and grant permissions card if permissions granted
         if (ok) {
-            bannerBox.setBackgroundResource(R.drawable.banner_granted)
-            bannerAccent.setBackgroundResource(R.color.bannerGrantedAccent)
-            txtBannerTitle.text = getString(R.string.banner_title_granted)
-            txtBannerDesc.text = getString(R.string.banner_desc_granted)
+            val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
+            sp.edit().putBoolean("first_time_setup", false).apply()
+            cardFirstTime.visibility = android.view.View.GONE
+            cardGrant.visibility = android.view.View.GONE
+            // When permissions granted, make remaining cards fill the space better
+            val cardsContainer = findViewById<android.widget.LinearLayout>(R.id.cardsContainer)
+            cardsContainer.gravity = android.view.Gravity.CENTER
+            // Adjust card margins to fill space better
+            val layoutParamsRead = cardRead.layoutParams as android.widget.LinearLayout.LayoutParams
+            val layoutParamsScan = cardScan.layoutParams as android.widget.LinearLayout.LayoutParams
+            layoutParamsRead.weight = 0.5f
+            layoutParamsScan.weight = 0.5f
+            layoutParamsRead.marginStart = 16
+            layoutParamsRead.marginEnd = 8
+            layoutParamsScan.marginStart = 8
+            layoutParamsScan.marginEnd = 16
+            cardRead.layoutParams = layoutParamsRead
+            cardScan.layoutParams = layoutParamsScan
         } else {
-            bannerBox.setBackgroundResource(R.drawable.banner_required)
-            bannerAccent.setBackgroundResource(R.color.bannerRequiredAccent)
-            txtBannerTitle.text = getString(R.string.banner_title_required)
-            txtBannerDesc.text = getString(R.string.banner_desc_required)
+            cardGrant.visibility = android.view.View.VISIBLE
+            // Reset to default layout when permissions not granted
+            val layoutParamsRead = cardRead.layoutParams as android.widget.LinearLayout.LayoutParams
+            val layoutParamsScan = cardScan.layoutParams as android.widget.LinearLayout.LayoutParams
+            layoutParamsRead.weight = 1f
+            layoutParamsScan.weight = 1f
+            layoutParamsRead.marginStart = 8
+            layoutParamsRead.marginEnd = 8
+            layoutParamsScan.marginStart = 8
+            layoutParamsScan.marginEnd = 8
+            cardRead.layoutParams = layoutParamsRead
+            cardScan.layoutParams = layoutParamsScan
+        }
+        
+        if (ok) {
+            bannerBox.visibility = android.view.View.VISIBLE
+            bannerBox.setCardBackgroundColor(getColor(R.color.bannerGrantedBg))
+            bannerAccent.setBackgroundColor(getColor(R.color.bannerGrantedAccent))
+            txtBannerTitle.text = "Permissions Granted"
+            txtBannerDesc.text = "You can now collect health data"
+            txtBannerTitle.setTextColor(getColor(R.color.foreground))
+            txtBannerDesc.setTextColor(getColor(R.color.foreground))
+        } else {
+            bannerBox.visibility = android.view.View.VISIBLE
+            bannerBox.setCardBackgroundColor(getColor(R.color.bannerRequiredBg))
+            bannerAccent.setBackgroundColor(getColor(R.color.bannerRequiredAccent))
+            txtBannerTitle.text = "Permissions Required"
+            txtBannerDesc.text = "Please grant Health Connect permissions"
+            txtBannerTitle.setTextColor(getColor(R.color.foreground))
+            txtBannerDesc.setTextColor(getColor(R.color.foreground))
         }
     }
 
@@ -204,13 +277,35 @@ class MainActivity : AppCompatActivity() {
         if (pid.isEmpty()) return
         val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
         val email = sp.getString("userEmail", null)
+        val dateOfBirth = sp.getString("dateOfBirth", null) ?: "1970-01-01" // Always provide a default DOB
         val namePart = (email ?: "").substringBefore("@")
         val firstName = namePart.replace(Regex("[^A-Za-z]"), "").ifEmpty { "User" }
         val lastName = "Patient"
-        val json = "{\"patientId\":\"" + pid + "\",\"firstName\":\"" + firstName + "\",\"lastName\":\"" + lastName + "\"}"
-        val body = json.toRequestBody("application/json".toMediaType())
-        val req = Request.Builder().url(baseUrl + "/admin/ensure-patient").post(body).build()
-        withContext(Dispatchers.IO) { try { http.newCall(req).execute().close() } catch (_: Exception) {} }
+        suspend fun sendEnsure(json: String): Pair<Int, String> {
+            val b = json.toRequestBody("application/json".toMediaType())
+            val rb = Request.Builder().url(baseUrl + "/admin/ensure-patient").post(b)
+            val r = rb.build()
+            return withContext(Dispatchers.IO) {
+                try {
+                    http.newCall(r).execute().use { rr ->
+                        val text = rr.body?.string() ?: ""
+                        Pair(rr.code, text)
+                    }
+                } catch (e: Exception) {
+                    Pair(0, e.message ?: "")
+                }
+            }
+        }
+
+        val jsonDob = StringBuilder("{\"patient_id\":\"").append(pid)
+            .append("\",\"owner_id\":\"").append(pid)
+            .append("\",\"first_name\":\"").append(firstName)
+            .append("\",\"last_name\":\"").append(lastName)
+            .append("\",\"dob\":\"").append(dateOfBirth).append("\"}").toString()
+        val (c1, _) = sendEnsure(jsonDob)
+        if (c1 !in 200..299 && c1 != 409) {
+            // no-op
+        }
     }
 
     private suspend fun readMetricsAndShow(txt: TextView) {
@@ -220,68 +315,115 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val nowInstant = Instant.now()
+        val zone = ZoneId.systemDefault()
+        val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yy")
+        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+        
+        val endDate = LocalDateTime.ofInstant(nowInstant, zone).toLocalDate()
         val sevenDaysAgo = nowInstant.minusSeconds(7 * 24 * 60 * 60)
+        val startDate = LocalDateTime.ofInstant(sevenDaysAgo, zone).toLocalDate()
+        
         val steps7d = client.readRecords(
             ReadRecordsRequest(
                 StepsRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant)
             )
         ).records
-        val totalSteps = steps7d.fold(0L) { acc, r -> acc + r.count }
-
+        
         val hr7d = client.readRecords(
             ReadRecordsRequest(
                 HeartRateRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant)
             )
         ).records
-        val samples7d = hr7d.flatMap { it.samples }
-        val avgHr = if (samples7d.isNotEmpty()) (samples7d.sumOf { it.beatsPerMinute } / samples7d.size).toInt() else null
-
-        val zone = ZoneId.systemDefault()
-        val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yy")
-        val endPeriod = nowInstant
-        val startPeriod = endPeriod.minus(30, ChronoUnit.DAYS)
-        val steps30d = client.readRecords(
+        
+        val spo27d = client.readRecords(
             ReadRecordsRequest(
-                StepsRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startPeriod, endPeriod)
+                OxygenSaturationRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant)
             )
         ).records
-        val endDate = LocalDateTime.ofInstant(endPeriod, zone).toLocalDate()
-        val dailyMap = linkedMapOf<java.time.LocalDate, Long>()
-        for (i in 0..29) {
+
+        data class HrAgg(var min: Long = Long.MAX_VALUE, var max: Long = Long.MIN_VALUE, var sum: Long = 0L, var count: Int = 0)
+        data class HrHour(var min: Long = Long.MAX_VALUE, var max: Long = Long.MIN_VALUE, var sum: Long = 0L, var count: Int = 0)
+        data class Spo2Agg(var min: Double = Double.MAX_VALUE, var max: Double = Double.MIN_VALUE, var sum: Double = 0.0, var count: Int = 0)
+        data class Spo2Hour(var min: Double = Double.MAX_VALUE, var max: Double = Double.MIN_VALUE, var sum: Double = 0.0, var count: Int = 0)
+        
+        val dailySteps = linkedMapOf<java.time.LocalDate, Long>()
+        val dailyHr = linkedMapOf<java.time.LocalDate, HrAgg>()
+        val dailySpo2 = linkedMapOf<java.time.LocalDate, Spo2Agg>()
+        
+        val hourlyStepsByDay: MutableMap<java.time.LocalDate, MutableMap<java.time.LocalDateTime, Long>> = linkedMapOf()
+        val hourlyHrByDay: MutableMap<java.time.LocalDate, MutableMap<java.time.LocalDateTime, HrHour>> = linkedMapOf()
+        val hourlySpo2ByDay: MutableMap<java.time.LocalDate, MutableMap<java.time.LocalDateTime, Spo2Hour>> = linkedMapOf()
+        
+        for (i in 0..6) {
             val day = endDate.minusDays(i.toLong())
-            dailyMap[day] = 0L
-        }
-        steps30d.forEach { r ->
-            val day = LocalDateTime.ofInstant(r.endTime, zone).toLocalDate()
-            if (dailyMap.containsKey(day)) {
-                dailyMap[day] = (dailyMap[day] ?: 0L) + r.count
+            dailySteps[day] = 0L
+            dailyHr[day] = HrAgg()
+            dailySpo2[day] = Spo2Agg()
+            hourlyStepsByDay[day] = linkedMapOf()
+            hourlyHrByDay[day] = linkedMapOf()
+            hourlySpo2ByDay[day] = linkedMapOf()
+            
+            for (h in 0..23) {
+                val hour = day.atStartOfDay().plusHours(h.toLong())
+                hourlyStepsByDay[day]!![hour] = 0L
+                hourlyHrByDay[day]!![hour] = HrHour()
+                hourlySpo2ByDay[day]!![hour] = Spo2Hour()
             }
         }
-        val hr30d = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startPeriod, endPeriod)
-            )
-        ).records
-        data class HrAgg(var min: Long = Long.MAX_VALUE, var max: Long = Long.MIN_VALUE, var sum: Long = 0L, var count: Int = 0)
-        val hrDaily = linkedMapOf<java.time.LocalDate, HrAgg>()
-        for (i in 0..29) {
-            val day = endDate.minusDays(i.toLong())
-            hrDaily[day] = HrAgg()
+        
+        steps7d.forEach { r ->
+            val day = LocalDateTime.ofInstant(r.endTime, zone).toLocalDate()
+            val hour = LocalDateTime.ofInstant(r.endTime, zone).truncatedTo(ChronoUnit.HOURS)
+            if (dailySteps.containsKey(day)) {
+                dailySteps[day] = (dailySteps[day] ?: 0L) + r.count
+                hourlyStepsByDay[day]?.let { hourly ->
+                    hourly[hour] = (hourly[hour] ?: 0L) + r.count
+                }
+            }
         }
-        hr30d.forEach { rec ->
+        
+        hr7d.forEach { rec ->
             rec.samples.forEach { s ->
                 val day = LocalDateTime.ofInstant(s.time, zone).toLocalDate()
-                val agg = hrDaily[day]
-                if (agg != null) {
-                    if (s.beatsPerMinute < agg.min) agg.min = s.beatsPerMinute
-                    if (s.beatsPerMinute > agg.max) agg.max = s.beatsPerMinute
-                    agg.sum += s.beatsPerMinute
+                val hour = LocalDateTime.ofInstant(s.time, zone).truncatedTo(ChronoUnit.HOURS)
+                val bpm = s.beatsPerMinute.toLong()
+                
+                dailyHr[day]?.let { agg ->
+                    if (bpm < agg.min) agg.min = bpm
+                    if (bpm > agg.max) agg.max = bpm
+                    agg.sum += bpm
                     agg.count += 1
                 }
+                
+                hourlyHrByDay[day]?.get(hour)?.let { hourAgg ->
+                    if (bpm < hourAgg.min) hourAgg.min = bpm
+                    if (bpm > hourAgg.max) hourAgg.max = bpm
+                    hourAgg.sum += bpm
+                    hourAgg.count += 1
+                }
+            }
+        }
+        
+        spo27d.forEach { r ->
+            val day = LocalDateTime.ofInstant(r.time, zone).toLocalDate()
+            val hour = LocalDateTime.ofInstant(r.time, zone).truncatedTo(ChronoUnit.HOURS)
+            val pct = r.percentage.value
+            
+            dailySpo2[day]?.let { agg ->
+                if (pct < agg.min) agg.min = pct
+                if (pct > agg.max) agg.max = pct
+                agg.sum += pct
+                agg.count += 1
+            }
+            
+            hourlySpo2ByDay[day]?.get(hour)?.let { hourAgg ->
+                if (pct < hourAgg.min) hourAgg.min = pct
+                if (pct > hourAgg.max) hourAgg.max = pct
+                hourAgg.sum += pct
+                hourAgg.count += 1
             }
         }
 
@@ -291,174 +433,91 @@ class MainActivity : AppCompatActivity() {
         fun addCell(text: String, bold: Boolean): TextView {
             val tv = TextView(this)
             tv.text = text
-            tv.setPadding(16, 12, 16, 12)
+            tv.setPadding(12, 10, 12, 10)
             tv.gravity = Gravity.START
             if (bold) tv.setTypeface(tv.typeface, Typeface.BOLD)
             tv.layoutParams = TableRow.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             return tv
         }
+        
+        fun addFullWidthCell(text: String, bold: Boolean): TableRow {
+            val row = TableRow(this)
+            val tv = TextView(this)
+            tv.text = text
+            tv.setPadding(12, 10, 12, 10)
+            tv.gravity = Gravity.START
+            if (bold) tv.setTypeface(tv.typeface, Typeface.BOLD)
+            val params = TableRow.LayoutParams(TableRow.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            params.span = 5
+            tv.layoutParams = params
+            row.addView(tv)
+            return row
+        }
 
-        val header = TableRow(this)
-        header.addView(addCell("Date", true))
-        header.addView(addCell("Steps", true))
-        header.addView(addCell("HR Min", true))
-        header.addView(addCell("HR Max", true))
-        header.addView(addCell("HR Avg", true))
-        tbl.addView(header)
-
-        val days = dailyMap.keys.toList().sorted()
+        val days = dailySteps.keys.toList().sortedDescending()
         days.forEach { day ->
-            val row = TableRow(this)
-            val steps = dailyMap[day] ?: 0L
-            val hrAgg = hrDaily[day]
-            val min = if (hrAgg != null && hrAgg.count > 0) hrAgg.min else 0L
-            val max = if (hrAgg != null && hrAgg.count > 0) hrAgg.max else 0L
-            val avg = if (hrAgg != null && hrAgg.count > 0) (hrAgg.sum / hrAgg.count) else 0L
-            row.addView(addCell(day.format(dateFormatter), false))
-            row.addView(addCell(steps.toString(), false))
-            row.addView(addCell(min.toString(), false))
-            row.addView(addCell(max.toString(), false))
-            row.addView(addCell(avg.toString(), false))
-            tbl.addView(row)
-        }
-
-        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-        val today = LocalDateTime.ofInstant(nowInstant, zone).toLocalDate()
-        val startOfToday = today.atStartOfDay(zone).toInstant()
-        val stepsToday = client.readRecords(
-            ReadRecordsRequest(
-                StepsRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfToday, endPeriod)
-            )
-        ).records
-        val hrToday = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfToday, endPeriod)
-            )
-        ).records
-        val spo2Today = client.readRecords(
-            ReadRecordsRequest(
-                OxygenSaturationRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfToday, endPeriod)
-            )
-        ).records
-
-        val hourlyStepsToday = linkedMapOf<LocalDateTime, Long>()
-        for (i in 0..23) {
-            val slot = today.atStartOfDay().plusHours(i.toLong())
-            val slotZ = slot.atZone(zone).toLocalDateTime()
-            hourlyStepsToday[slotZ] = 0L
-        }
-        stepsToday.forEach { r ->
-            val key = LocalDateTime.ofInstant(r.endTime, zone).truncatedTo(ChronoUnit.HOURS)
-            if (hourlyStepsToday.containsKey(key)) {
-                hourlyStepsToday[key] = (hourlyStepsToday[key] ?: 0L) + r.count
+            val dayLabel = addFullWidthCell(day.format(dateFormatter) + " - Daily Summary", true)
+            tbl.addView(dayLabel)
+            
+            val dayHeader = TableRow(this)
+            dayHeader.addView(addCell("Metric", true))
+            dayHeader.addView(addCell("Steps", true))
+            dayHeader.addView(addCell("HR (Min/Max/Avg)", true))
+            dayHeader.addView(addCell("SpO2 (Min/Max/Avg)", true))
+            dayHeader.addView(addCell("", true))
+            tbl.addView(dayHeader)
+            
+            val dayRow = TableRow(this)
+            val steps = dailySteps[day] ?: 0L
+            val hrAgg = dailyHr[day]
+            val hrMin = if (hrAgg != null && hrAgg.count > 0) hrAgg.min else 0L
+            val hrMax = if (hrAgg != null && hrAgg.count > 0) hrAgg.max else 0L
+            val hrAvg = if (hrAgg != null && hrAgg.count > 0) (hrAgg.sum / hrAgg.count) else 0L
+            val spo2Agg = dailySpo2[day]
+            val spo2Min = if (spo2Agg != null && spo2Agg.count > 0) String.format("%.1f", spo2Agg.min) else "0"
+            val spo2Max = if (spo2Agg != null && spo2Agg.count > 0) String.format("%.1f", spo2Agg.max) else "0"
+            val spo2Avg = if (spo2Agg != null && spo2Agg.count > 0) String.format("%.1f", spo2Agg.sum / spo2Agg.count) else "0"
+            
+            dayRow.addView(addCell("Total", false))
+            dayRow.addView(addCell(steps.toString(), false))
+            dayRow.addView(addCell("$hrMin/$hrMax/$hrAvg", false))
+            dayRow.addView(addCell("$spo2Min/$spo2Max/$spo2Avg", false))
+            dayRow.addView(addCell("", false))
+            tbl.addView(dayRow)
+            
+            val hourlyLabel = addFullWidthCell("  Hourly Breakdown", true)
+            tbl.addView(hourlyLabel)
+            
+            val hourlyHeader = TableRow(this)
+            hourlyHeader.addView(addCell("Hour", true))
+            hourlyHeader.addView(addCell("Steps", true))
+            hourlyHeader.addView(addCell("HR Min", true))
+            hourlyHeader.addView(addCell("HR Max", true))
+            hourlyHeader.addView(addCell("HR Avg", true))
+            tbl.addView(hourlyHeader)
+            
+            val hours = hourlyStepsByDay[day]?.keys?.toList()?.sorted() ?: emptyList()
+            hours.forEach { hour ->
+                val stepsHour = hourlyStepsByDay[day]?.get(hour) ?: 0L
+                val hrHour = hourlyHrByDay[day]?.get(hour)
+                val hrMinH = if (hrHour != null && hrHour.count > 0) hrHour.min else 0L
+                val hrMaxH = if (hrHour != null && hrHour.count > 0) hrHour.max else 0L
+                val hrAvgH = if (hrHour != null && hrHour.count > 0) (hrHour.sum / hrHour.count) else 0L
+                
+                val hourRow = TableRow(this)
+                hourRow.addView(addCell(hour.format(timeFormatter), false))
+                hourRow.addView(addCell(stepsHour.toString(), false))
+                hourRow.addView(addCell(hrMinH.toString(), false))
+                hourRow.addView(addCell(hrMaxH.toString(), false))
+                hourRow.addView(addCell(hrAvgH.toString(), false))
+                tbl.addView(hourRow)
             }
+            
+            val spacer = addFullWidthCell("", false)
+            tbl.addView(spacer)
         }
 
-        data class HrHour(var min: Long = Long.MAX_VALUE, var max: Long = Long.MIN_VALUE, var sum: Long = 0L, var count: Int = 0)
-        val hourlyHrToday = linkedMapOf<LocalDateTime, HrHour>()
-        for (i in 0..23) {
-            val slot = today.atStartOfDay().plusHours(i.toLong())
-            val slotZ = slot.atZone(zone).toLocalDateTime()
-            hourlyHrToday[slotZ] = HrHour()
-        }
-        val hrLog = mutableListOf<Pair<LocalDateTime, Long>>()
-        val spo2Log = mutableListOf<Pair<LocalDateTime, Double>>()
-        hrToday.forEach { rec ->
-            rec.samples.forEach { s ->
-                val key = LocalDateTime.ofInstant(s.time, zone).truncatedTo(ChronoUnit.HOURS)
-                val agg = hourlyHrToday[key]
-                if (agg != null) {
-                    if (s.beatsPerMinute < agg.min) agg.min = s.beatsPerMinute.toLong()
-                    if (s.beatsPerMinute > agg.max) agg.max = s.beatsPerMinute.toLong()
-                    agg.sum += s.beatsPerMinute
-                    agg.count += 1
-                }
-                hrLog.add(LocalDateTime.ofInstant(s.time, zone) to s.beatsPerMinute.toLong())
-            }
-        }
-        spo2Today.forEach { r ->
-            val t = LocalDateTime.ofInstant(r.time, zone)
-            spo2Log.add(t to r.percentage.value)
-        }
-
-        val todayLabel = TableRow(this)
-        todayLabel.addView(addCell("Today Hourly", true))
-        todayLabel.addView(addCell("", true))
-        todayLabel.addView(addCell("", true))
-        todayLabel.addView(addCell("", true))
-        todayLabel.addView(addCell("", true))
-        tbl.addView(todayLabel)
-
-        val headerToday = TableRow(this)
-        headerToday.addView(addCell("Hour", true))
-        headerToday.addView(addCell("Steps", true))
-        headerToday.addView(addCell("HR Min", true))
-        headerToday.addView(addCell("HR Max", true))
-        headerToday.addView(addCell("HR Avg", true))
-        tbl.addView(headerToday)
-
-        val hours = hourlyStepsToday.keys.toList().sorted()
-        hours.forEach { h ->
-            val row = TableRow(this)
-            val steps = hourlyStepsToday[h] ?: 0L
-            val agg = hourlyHrToday[h]
-            val min = if (agg != null && agg.count > 0) agg.min else 0L
-            val max = if (agg != null && agg.count > 0) agg.max else 0L
-            val avg = if (agg != null && agg.count > 0) (agg.sum / agg.count) else 0L
-            row.addView(addCell(h.format(timeFormatter), false))
-            row.addView(addCell(steps.toString(), false))
-            row.addView(addCell(min.toString(), false))
-            row.addView(addCell(max.toString(), false))
-            row.addView(addCell(avg.toString(), false))
-            tbl.addView(row)
-        }
-
-        val cutoff = LocalDateTime.ofInstant(nowInstant.minus(30, ChronoUnit.MINUTES), zone)
-
-        val logsLabel = TableRow(this)
-        logsLabel.addView(addCell("Recent 30 min HR", true))
-        logsLabel.addView(addCell("", true))
-        logsLabel.addView(addCell("", true))
-        logsLabel.addView(addCell("", true))
-        logsLabel.addView(addCell("", true))
-        tbl.addView(logsLabel)
-
-        val headerLogs = TableRow(this)
-        headerLogs.addView(addCell("Time", true))
-        headerLogs.addView(addCell("BPM", true))
-        tbl.addView(headerLogs)
-
-        hrLog.filter { it.first >= cutoff }.sortedBy { it.first }.forEach { (t, bpm) ->
-            val row = TableRow(this)
-            row.addView(addCell(t.format(timeFormatter), false))
-            row.addView(addCell(bpm.toString(), false))
-            tbl.addView(row)
-        }
-
-        val spo2Label = TableRow(this)
-        spo2Label.addView(addCell("Recent 30 min SpO2", true))
-        spo2Label.addView(addCell("", true))
-        spo2Label.addView(addCell("", true))
-        spo2Label.addView(addCell("", true))
-        spo2Label.addView(addCell("", true))
-        tbl.addView(spo2Label)
-
-        val headerSpo2 = TableRow(this)
-        headerSpo2.addView(addCell("Time", true))
-        headerSpo2.addView(addCell("%", true))
-        tbl.addView(headerSpo2)
-
-        spo2Log.filter { it.first >= cutoff }.sortedBy { it.first }.forEach { (t, pct) ->
-            val row = TableRow(this)
-            row.addView(addCell(t.format(timeFormatter), false))
-            row.addView(addCell(pct.toString(), false))
-            tbl.addView(row)
-        }
-
-        txt.text = "Permissions granted"
+        txt.text = "Last 7 days data displayed"
     }
 
     private suspend fun updateLastHourHrLabel() {
@@ -633,7 +692,7 @@ class MainActivity : AppCompatActivity() {
             val offsetMin = zone.rules.getOffset(nowInstant).totalSeconds / 60
             val patientId = currentPatientId()
             if (patientId.isEmpty()) { txt.text = "login required"; return }
-            val db = LocalDb.get(this)
+            val db = LocalDb.get(this@MainActivity)
             val dao = db.dao()
             withContext(Dispatchers.IO) {
                 stepsToday.forEach { r ->
@@ -643,12 +702,11 @@ class MainActivity : AppCompatActivity() {
                 }
                 distanceToday.forEach { r ->
                     val start = r.startTime; val end = r.endTime
-                    val meters = r.distance.inMeters
+                    val meters = r.distance.inMeters.toLong().toLong()
                     val uid = patientId + "|" + originId + "|" + deviceId + "|" + start.toEpochMilli() + "|" + end.toEpochMilli() + "|" + meters
                     dao.insertDistance(PendingDistance(uid, patientId, originId, deviceId, start.toString(), end.toString(), meters, offsetMin))
                 }
                 hrToday.forEach { rec ->
-                
                     rec.samples.forEach { s ->
                         val t = s.time
                         val uid = patientId + "|" + originId + "|" + deviceId + "|" + t.toEpochMilli() + "|" + s.beatsPerMinute
@@ -701,6 +759,7 @@ class MainActivity : AppCompatActivity() {
         }
         val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
         val email = sp.getString("userEmail", null)
+        val dateOfBirth = sp.getString("dateOfBirth", null) ?: "1970-01-01"
         val namePart = (email ?: "").substringBefore("@")
         val firstName = namePart.replace(Regex("[^A-Za-z]"), "").ifEmpty { "User" }
         val lastName = "Patient"
@@ -718,13 +777,14 @@ class MainActivity : AppCompatActivity() {
                 "\"recordUid\":\"" + uid + "\"," +
                 "\"firstName\":\"" + firstName + "\"," +
                 "\"lastName\":\"" + lastName + "\"," +
+                "\"dateOfBirth\":\"" + dateOfBirth + "\"," +
                 "\"tzOffsetMin\":" + offsetMin +
             "}"
         }
         val distanceItems = distanceToday.map { r ->
             val start = r.startTime
             val end = r.endTime
-            val meters = r.distance.inMeters
+            val meters = r.distance.inMeters.toLong()
             val uid = patientId + "|" + originId + "|" + deviceId + "|" + start.toEpochMilli() + "|" + end.toEpochMilli() + "|" + meters
             "{" +
                 "\"patientId\":\"" + patientId + "\"," +
@@ -736,6 +796,7 @@ class MainActivity : AppCompatActivity() {
                 "\"recordUid\":\"" + uid + "\"," +
                 "\"firstName\":\"" + firstName + "\"," +
                 "\"lastName\":\"" + lastName + "\"," +
+                "\"dateOfBirth\":\"" + dateOfBirth + "\"," +
                 "\"tzOffsetMin\":" + offsetMin +
             "}"
         }
@@ -754,6 +815,7 @@ class MainActivity : AppCompatActivity() {
                         "\"recordUid\":\"" + uid + "\"," +
                         "\"firstName\":\"" + firstName + "\"," +
                         "\"lastName\":\"" + lastName + "\"," +
+                        "\"dateOfBirth\":\"" + dateOfBirth + "\"," +
                         "\"tzOffsetMin\":" + offsetMin +
                     "}"
                 )
@@ -780,6 +842,9 @@ class MainActivity : AppCompatActivity() {
                             "\"timeTs\":\"" + t.toString() + "\"," +
                             "\"bpm\":" + s.beatsPerMinute + "," +
                             "\"recordUid\":\"" + uid + "\"," +
+                            "\"firstName\":\"" + firstName + "\"," +
+                            "\"lastName\":\"" + lastName + "\"," +
+                            "\"dateOfBirth\":\"" + dateOfBirth + "\"," +
                             "\"tzOffsetMin\":" + offsetMin +
                         "}"
                     )
@@ -799,6 +864,7 @@ class MainActivity : AppCompatActivity() {
                 "\"recordUid\":\"" + uid + "\"," +
                 "\"firstName\":\"" + firstName + "\"," +
                 "\"lastName\":\"" + lastName + "\"," +
+                "\"dateOfBirth\":\"" + dateOfBirth + "\"," +
                 "\"tzOffsetMin\":" + offsetMin +
             "}"
         }
@@ -815,48 +881,132 @@ class MainActivity : AppCompatActivity() {
         val distanceReq = Request.Builder().url(baseUrl + "/ingest/distance-events").post(distanceBody).build()
         val hrReq = Request.Builder().url(baseUrl + "/ingest/hr-samples").post(hrBody).build()
         val spo2Req = Request.Builder().url(baseUrl + "/ingest/spo2-samples").post(spo2Body).build()
+        // Always save to local DB first (for offline backup)
+        val db = LocalDb.get(this@MainActivity)
+        val dao = db.dao()
+        withContext(Dispatchers.IO) {
+            try {
+                stepsToday.forEach { r ->
+                    val start = r.startTime
+                    val end = r.endTime
+                    val uid = patientId + "|" + originId + "|" + deviceId + "|" + start.toEpochMilli() + "|" + end.toEpochMilli() + "|" + r.count
+                    try {
+                        dao.insertSteps(PendingSteps(uid, patientId, originId, deviceId, start.toString(), end.toString(), r.count, offsetMin))
+                    } catch (_: Exception) {} // Ignore duplicate key errors
+                }
+                distanceToday.forEach { r ->
+                    val start = r.startTime
+                    val end = r.endTime
+                    val meters = r.distance.inMeters.toLong()
+                    val uid = patientId + "|" + originId + "|" + deviceId + "|" + start.toEpochMilli() + "|" + end.toEpochMilli() + "|" + meters
+                    try {
+                        dao.insertDistance(PendingDistance(uid, patientId, originId, deviceId, start.toString(), end.toString(), meters, offsetMin))
+                    } catch (_: Exception) {}
+                }
+                hrToday.forEach { rec ->
+                    rec.samples.forEach { s ->
+                        val t = s.time
+                        val uid = patientId + "|" + originId + "|" + deviceId + "|" + t.toEpochMilli() + "|" + s.beatsPerMinute
+                        try {
+                            dao.insertHr(PendingHr(uid, patientId, originId, deviceId, t.toString(), s.beatsPerMinute, offsetMin))
+                        } catch (_: Exception) {}
+                    }
+                }
+                spo2Today.forEach { r ->
+                    val t = r.time
+                    val uid = patientId + "|" + originId + "|" + deviceId + "|" + t.toEpochMilli() + "|" + r.percentage.value
+                    try {
+                        dao.insertSpo2(PendingSpo2(uid, patientId, originId, deviceId, t.toString(), r.percentage.value, offsetMin))
+                    } catch (_: Exception) {}
+                }
+            } catch (_: Exception) {}
+        }
+        
         var status = ""
         withContext(Dispatchers.IO) {
             val stepsCount = stepsItems.size
             val distanceCount = distanceItems.size
             val hrCount = hrItems.size
             val spo2Count = spo2Items.size
+            var stepsSynced = false
+            var distanceSynced = false
+            var hrSynced = false
+            var spo2Synced = false
+            
             try {
                 val resp = http.newCall(stepsReq).execute()
                 resp.use {
-                    status = "steps=" + stepsCount + ", code=" + it.code
+                    if (it.code == 200) {
+                        status = "steps=" + stepsCount + ", code=200"
+                        stepsSynced = true
+                        // Delete synced items from local DB
+                        val uids = stepsToday.map { r ->
+                            patientId + "|" + originId + "|" + deviceId + "|" + r.startTime.toEpochMilli() + "|" + r.endTime.toEpochMilli() + "|" + r.count
+                        }
+                        dao.deleteSteps(uids)
+                    } else {
+                        status = "steps=" + stepsCount + ", code=" + it.code
+                    }
                 }
             } catch (_: Exception) {
-                status = "steps=" + stepsCount + ", error"
+                status = "steps=" + stepsCount + ", error (saved locally)"
             }
             try {
                 val resp = http.newCall(distanceReq).execute()
                 resp.use {
-                    status = status + "; distance=" + distanceCount + ", code=" + it.code
+                    if (it.code == 200) {
+                        status = status + "; distance=" + distanceCount + ", code=200"
+                        distanceSynced = true
+                        val uids = distanceToday.map { r ->
+                            patientId + "|" + originId + "|" + deviceId + "|" + r.startTime.toEpochMilli() + "|" + r.endTime.toEpochMilli() + "|" + r.distance.inMeters.toLong()
+                        }
+                        dao.deleteDistance(uids)
+                    } else {
+                        status = status + "; distance=" + distanceCount + ", code=" + it.code
+                    }
                 }
             } catch (_: Exception) {
-                status = status + "; distance=" + distanceCount + ", error"
+                status = status + "; distance=" + distanceCount + ", error (saved locally)"
             }
             try {
                 val resp = http.newCall(hrReq).execute()
                 resp.use {
                     if (it.code == 200) {
                         status = status + "; hr=" + hrCount + ", code=200"
+                        hrSynced = true
+                        val uids = mutableListOf<String>()
+                        hrToday.forEach { rec ->
+                            rec.samples.forEach { s ->
+                                uids.add(patientId + "|" + originId + "|" + deviceId + "|" + s.time.toEpochMilli() + "|" + s.beatsPerMinute)
+                            }
+                        }
+                        if (uids.isNotEmpty()) {
+                            dao.deleteHr(uids)
+                        }
                     } else {
                         val err = try { it.body?.string() ?: "" } catch (_: Exception) { "" }
                         status = status + "; hr=" + hrCount + ", code=" + it.code + if (err.isNotEmpty()) ", msg=" + err else ""
                     }
                 }
             } catch (_: Exception) {
-                status = status + "; hr=" + hrCount + ", error"
+                status = status + "; hr=" + hrCount + ", error (saved locally)"
             }
             try {
                 val resp = http.newCall(spo2Req).execute()
                 resp.use {
-                    status = status + "; spo2=" + spo2Count + ", code=" + it.code
+                    if (it.code == 200) {
+                        status = status + "; spo2=" + spo2Count + ", code=200"
+                        spo2Synced = true
+                        val uids = spo2Today.map { r ->
+                            patientId + "|" + originId + "|" + deviceId + "|" + r.time.toEpochMilli() + "|" + r.percentage.value
+                        }
+                        dao.deleteSpo2(uids)
+                    } else {
+                        status = status + "; spo2=" + spo2Count + ", code=" + it.code
+                    }
                 }
             } catch (_: Exception) {
-                status = status + "; spo2=" + spo2Count + ", error"
+                status = status + "; spo2=" + spo2Count + ", error (saved locally)"
             }
             try {
                 val db = LocalDb.get(this@MainActivity)
@@ -947,3 +1097,4 @@ class MainActivity : AppCompatActivity() {
         txt.text = status
     }
 }
+
