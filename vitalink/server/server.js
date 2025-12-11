@@ -388,6 +388,21 @@ app.get('/patient/summary', async (req, res) => {
     const srow2 = (sync.data && sync.data[0]) || null
     lastSyncTs = (srow2 && (srow2.last_sync_ts || srow2.updated_at)) || null
   } catch (_) {}
+  if (!lastSyncTs) {
+    try {
+      const candidates = []
+      if (row && row.date) candidates.push(row.date)
+      if (srow && srow.date) candidates.push(srow.date)
+      if (drow && drow.date) candidates.push(drow.date)
+      if (candidates.length) {
+        const maxTs = Math.max(...candidates.map((d) => {
+          const dt = new Date(typeof d === 'string' ? d : String(d))
+          return dt.getTime()
+        }))
+        if (Number.isFinite(maxTs)) lastSyncTs = new Date(maxTs).toISOString()
+      }
+    } catch (_) {}
+  }
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
     bpSystolic: null,
