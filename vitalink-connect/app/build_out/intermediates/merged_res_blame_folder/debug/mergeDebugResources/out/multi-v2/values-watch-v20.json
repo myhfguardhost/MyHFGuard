@@ -1,0 +1,20 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.vitalink.connect.app-mergeDebugResources-40:/values-watch-v20/values-watch-v20.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\acyp2\\.gradle\\caches\\8.11.1\\transforms\\c096d35957e8e69e9bdce0bc1283466c\\transformed\\appcompat-1.7.0\\res\\values-watch-v20\\values-watch-v20.xml",
+                    "from": {
+                        "startLines": "2,5,8",
+                        "startColumns": "4,4,4",
+                        "startOffsets": "55,214,385",
+                        "endLines": "4,7,10",
+                        "endColumns": "12,12,12",
+                        "endOffsets": "209,380,553"
+                    }
+                }
+            ]
+        }
+    ]
+}

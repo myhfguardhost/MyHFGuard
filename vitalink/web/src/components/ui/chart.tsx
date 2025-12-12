@@ -118,14 +118,7 @@ const IndicatorDashed = ({ color }: { color?: string }) => (
 
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<"div"> & {
-      hideLabel?: boolean
-      hideIndicator?: boolean
-      indicator?: "line" | "dot" | "dashed"
-      nameKey?: string
-      labelKey?: string
-    }
+  any
 >(({ active, payload, className, indicator = "dot", hideLabel = false, hideIndicator = false, label, labelFormatter, labelClassName, formatter, color, nameKey, labelKey }, ref) => {
   const { config } = useChart()
 
@@ -195,11 +188,7 @@ const ChartLegend = RechartsPrimitive.Legend
 
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Legend> &
-    React.ComponentProps<"div"> & {
-      nameKey?: string
-      hideIcon?: boolean
-    }
+  any
 >(({ className, payload, nameKey, hideIcon = false }, ref) => {
   const { config } = useChart()
   if (!payload?.length) return null
