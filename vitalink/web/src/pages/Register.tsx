@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
 import { serverUrl } from "@/lib/api"
+import { toast } from "sonner"
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -52,13 +53,14 @@ const Register = () => {
           }),
         })
       }
-      const payload = userId ? { id: userId, role: "patient" } : { email, role: "patient" }
+      const payload = { email, role: "patient" }
       await fetch(`${API}/admin/promote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
     } catch (_) {}
+    toast.success("Account created. Please check your email to confirm.")
     navigate("/login")
   }
 

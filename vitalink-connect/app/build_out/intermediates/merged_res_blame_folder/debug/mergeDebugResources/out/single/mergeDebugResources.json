@@ -1,0 +1,34 @@
+[
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/layout_activity_register.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/layout/activity_register.xml"
+    },
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/layout_activity_login.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/layout/activity_login.xml"
+    },
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/drawable_edit_text_background.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/drawable/edit_text_background.xml"
+    },
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/layout_activity_main.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/drawable_ic_settings_gear.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/drawable/ic_settings_gear.xml"
+    },
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/drawable_banner_required.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/drawable/banner_required.xml"
+    },
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/drawable_banner_granted.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/drawable/banner_granted.xml"
+    },
+    {
+        "merged": "com.vitalink.connect.app-debug-42:/layout_activity_settings.xml.flat",
+        "source": "com.vitalink.connect.app-main-44:/layout/activity_settings.xml"
+    }
+]

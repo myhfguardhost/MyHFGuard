@@ -92,9 +92,8 @@ const Dashboard = () => {
   const lastWeight = latestTime(vitals.weight as any);
   const lastSteps = latestTime((vitalsHourly.steps as any) || (vitals.steps as any));
   const lastAny = [lastHr, lastBp, lastWeight, lastSteps].filter(Boolean).sort((a: any, b: any) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
-  const lastSyncFromSummary = summary.lastSyncTs ? new Date(summary.lastSyncTs) : undefined;
-  const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
-  const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : (summary.lastSyncTs || "unknown");
+  const lastSync = lastAny;
+  const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : "unknown";
   
   return (
     <div className="min-h-screen bg-background">
