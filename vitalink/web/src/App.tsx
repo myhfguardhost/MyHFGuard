@@ -2,27 +2,9 @@ import { Toaster } from "./components/ui/toaster"
 import { Toaster as Sonner } from "./components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
-import { ThemeProvider } from "next-themes"
-import Navigation from "./components/Navigation"
-import Dashboard from "./pages/Dashboard"
-import VitalsTracker from "./pages/VitalsTracker"
-import Education from "./pages/Education"
-import SelfCheck from "./pages/SelfCheck"
-import ScheduleReminder from "./pages/ScheduleReminder"
-import Medication from "./pages/Medication"
-import Contact from "./pages/Contact"
-import NotFound from "./pages/NotFound"
-import Register from "./pages/Register"
-import Login from "./pages/Login"
-import RequireAuth from "./components/RequireAuth"
-import RequireAdmin from "./components/RequireAdmin"
-import PatientList from "./pages/admin/PatientList"
-import PatientDetail from "./pages/admin/PatientDetail"
-import AdminLogin from "./pages/admin/AdminLogin"
-import AIAssistant from "./pages/AIAssistant"
+import { HashRouter, Routes, Route } from "react-router-dom"
 
-const queryClient = new QueryClient()
+/* ... other imports ... */
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -30,7 +12,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <HashRouter>
           <Navigation />
           <Routes>
             <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
@@ -52,7 +34,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
