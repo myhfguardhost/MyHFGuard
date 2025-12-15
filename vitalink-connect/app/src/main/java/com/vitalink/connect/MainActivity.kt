@@ -75,12 +75,6 @@ class MainActivity : AppCompatActivity() {
                 val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
                 sp.edit().putBoolean("first_time_setup", false).apply()
             }
-            if (hrSamplesStats != null) {
-                val min = hrSamplesStats.first.first
-                val max = hrSamplesStats.first.second
-                val avg = hrSamplesStats.second
-                status = status + "; hr_stats=min " + min + ", max " + max + ", avg " + avg
-            }
             applyPermissionsUI(ok)
         }
     }
@@ -989,17 +983,18 @@ class MainActivity : AppCompatActivity() {
             val hrSamplesStats = if (hrToday.isNotEmpty()) {
                 var min = Int.MAX_VALUE
                 var max = Int.MIN_VALUE
-                var sum = 0
+                var sum = 0L
                 var c = 0
                 hrToday.forEach { rec ->
                     rec.samples.forEach { s ->
-                        min = kotlin.math.min(min, s.beatsPerMinute)
-                        max = kotlin.math.max(max, s.beatsPerMinute)
-                        sum += s.beatsPerMinute
+                        val bpm = s.beatsPerMinute.toInt()
+                        min = kotlin.math.min(min, bpm)
+                        max = kotlin.math.max(max, bpm)
+                        sum += bpm
                         c += 1
                     }
                 }
-                val avg = if (c > 0) sum / c else 0
+                val avg = if (c > 0) (sum / c).toInt() else 0
                 Pair(Pair(min, max), avg)
             } else null
             var stepsSynced = false
@@ -1052,14 +1047,14 @@ class MainActivity : AppCompatActivity() {
                     val body = batch.toRequestBody(jsonType)
                     val req = Request.Builder().url(baseUrl + "/ingest/hr-samples").post(body).build()
                     val resp = http.newCall(req).execute()
-                    resp.use {
-                        if (it.code != 200) {
-                            val err = try { it.body?.string() ?: "" } catch (_: Exception) { "" }
-                            status = status + "; hr_batch=" + (end - sent) + ", code=" + it.code + if (err.isNotEmpty()) ", msg=" + err else ""
-                            ok = false
-                            break
-                        }
+                    if (resp.code != 200) {
+                        val err = try { resp.body?.string() ?: "" } catch (_: Exception) { "" }
+                        status = status + "; hr_batch=" + (end - sent) + ", code=" + resp.code + if (err.isNotEmpty()) ", msg=" + err else ""
+                        ok = false
+                        resp.close()
+                        break
                     }
+                    resp.close()
                     sent = end
                 }
                 if (ok) {
