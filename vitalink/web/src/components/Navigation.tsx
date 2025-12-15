@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { NavLink } from "@/components/NavLink"
-import { Heart, LayoutDashboard, BookOpen, Menu, ClipboardList, CalendarDays, LogOut, Pill } from "lucide-react"
+import { LayoutDashboard, BookOpen, Menu, ClipboardList, CalendarDays, LogOut, Pill } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { supabase } from "@/lib/supabase"
+import logoDark from "@/assets/logo-dark.png"
+import logoLight from "@/assets/logo-light.png"
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -47,10 +49,16 @@ export default function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Heart className="w-6 h-6 text-primary" />
-            </div>
-            <span className="text-xl font-bold text-foreground">MyHFGuard</span>
+            <img 
+              src={logoDark} 
+              alt="MyHFGuard Logo" 
+              className="h-8 w-auto dark:hidden"
+            />
+            <img 
+              src={logoLight} 
+              alt="MyHFGuard Logo" 
+              className="h-8 w-auto hidden dark:block"
+            />
           </div>
           <div className="hidden md:flex items-center gap-1">
             {isLoggedIn && navItems.map((item) => {
