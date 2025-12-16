@@ -5,6 +5,8 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest'
 const app = express()
 app.use(express.json({ limit: '5mb' }))
 app.use((req, res, next) => {
@@ -349,51 +351,137 @@ app.post('/api/process-image', processImageRoute);
 app.post('/api/add-manual-event', addManualEventRoute);
 app.get('/api/health-events', getHealthEventsRoute);
 
-// Simple AI assistant endpoint (rule-based)
+async function buildAiContext(pid) {
+  if (!pid) return {}
+  try {
+    const latestBp = await supabase
+      .from('bp_readings')
+      .select('reading_date,reading_time,systolic,diastolic,pulse')
+      .eq('patient_id', pid)
+      .order('reading_date', { ascending: false })
+      .order('reading_time', { ascending: false })
+      .limit(1)
+    const latestSteps = await supabase
+      .from('steps_day')
+      .select('date,steps_total')
+      .eq('patient_id', pid)
+      .order('date', { ascending: false })
+      .limit(1)
+    const latestHr = await supabase
+      .from('hr_day')
+      .select('date,hr_avg,hr_min,hr_max')
+      .eq('patient_id', pid)
+      .order('date', { ascending: false })
+      .limit(1)
+    return {
+      bp: (latestBp.data && latestBp.data[0]) || null,
+      steps: (latestSteps.data && latestSteps.data[0]) || null,
+      hr: (latestHr.data && latestHr.data[0]) || null,
+    }
+  } catch (e) {
+    console.warn('[ai/chat] context error', e && e.message ? e.message : e)
+    return {}
+  }
+}
+
+async function getGeminiReply({ message, patientContext }) {
+  if (!GEMINI_API_KEY) return null
+  const promptRules = [
+    'You are a concise heart-failure assistant for MyHFGuard.',
+    'Always prioritize safety and encourage clinician follow-up for red flags.',
+    'Red flags: chest pain, severe breathlessness, fainting, sudden weight gain (>2kg/2 days), leg swelling, worsening orthopnea.',
+    'If asked about blood pressure, use latest reading from context when available; otherwise instruct user to log BP.',
+    'If asked about steps/activity, use latest steps from context when available; otherwise mention no recent data.',
+    'If asked about heart rate, use latest HR from context; otherwise say data is missing.',
+    'Keep answers short (2-4 sentences) and actionable.',
+  ].join('\n- ')
+
+  const contextText = patientContext
+    ? `Context (latest): BP=${JSON.stringify(patientContext.bp)}, STEPS=${JSON.stringify(patientContext.steps)}, HR=${JSON.stringify(patientContext.hr)}`
+    : 'Context: none'
+
+  const payload = {
+    contents: [
+      {
+        parts: [
+          {
+            text: `${promptRules}\n\n${contextText}\n\nUser: ${message}`,
+          },
+        ],
+      },
+    ],
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => String(resp.status))
+    throw new Error(`Gemini request failed: ${resp.status} ${txt}`)
+  }
+  const data = await resp.json()
+  const text =
+    data &&
+    data.candidates &&
+    data.candidates[0] &&
+    data.candidates[0].content &&
+    data.candidates[0].content.parts &&
+    data.candidates[0].content.parts[0] &&
+    data.candidates[0].content.parts[0].text
+  return text || null
+}
+
+function ruleBasedReply(msg, pid, context) {
+  let reply = 'I can help with symptoms, vitals, and general guidance.'
+  if (msg.includes('warning')) {
+    reply = 'Warning signs: chest pain, severe breathlessness, fainting, sudden weight gain (>2kg/2 days), leg swelling, worsening orthopnea.'
+  } else if (msg.includes('blood pressure') || msg.includes('bp')) {
+    if (pid && context && context.bp) {
+      const r = context.bp
+      reply = `Latest BP: ${r.systolic}/${r.diastolic} (pulse ${r.pulse}) recorded ${r.reading_date} ${r.reading_time}. High systolic (>140) or diastolic (>90) can indicate hypertension; consult your clinician.`
+    } else if (pid) {
+      reply = 'No BP readings found. Use Vitals Tracker to log your blood pressure.'
+    } else {
+      reply = 'To discuss your blood pressure, please log in so I can access your latest readings.'
+    }
+  } else if (msg.includes('steps') || msg.includes('activity')) {
+    if (pid && context && context.steps) {
+      const r = context.steps
+      reply = `Yesterday's steps: ${Math.round(r.steps_total || 0)}. Aim for consistent daily activity as advised by your care team.`
+    } else if (pid) {
+      reply = 'No recent steps data. Ensure your wearable syncs properly.'
+    } else {
+      reply = 'Please log in to view your activity data.'
+    }
+  }
+  return reply
+}
+
+// AI assistant endpoint (Gemini with rule-based fallback)
 app.post('/api/ai/chat', async (req, res) => {
   try {
-    const msg = (req.body && req.body.message || '').toLowerCase()
+    const rawMsg = (req.body && req.body.message) || ''
+    const msg = rawMsg.toLowerCase()
     const pid = req.body && req.body.patientId
-    let reply = 'I can help with symptoms, vitals, and general guidance.'
-    if (msg.includes('warning')) {
-      reply = 'Warning signs: chest pain, severe breathlessness, fainting, sudden weight gain (>2kg/2 days), leg swelling, worsening orthopnea.'
-    } else if (msg.includes('blood pressure') || msg.includes('bp')) {
-      if (pid) {
-        const last = await supabase
-          .from('bp_readings')
-          .select('reading_date,reading_time,systolic,diastolic,pulse')
-          .eq('patient_id', pid)
-          .order('reading_date', { ascending: false })
-          .order('reading_time', { ascending: false })
-          .limit(1)
-        if (!last.error && (last.data || []).length) {
-          const r = last.data[0]
-          reply = `Latest BP: ${r.systolic}/${r.diastolic} (pulse ${r.pulse}) recorded ${r.reading_date} ${r.reading_time}. High systolic (>140) or diastolic (>90) can indicate hypertension; consult your clinician.`
-        } else {
-          reply = 'No BP readings found. Use Vitals Tracker to log your blood pressure.'
-        }
-      } else {
-        reply = 'To discuss your blood pressure, please log in so I can access your latest readings.'
-      }
-    } else if (msg.includes('steps') || msg.includes('activity')) {
-      if (pid) {
-        const s = await supabase
-          .from('steps_day')
-          .select('date,steps_total')
-          .eq('patient_id', pid)
-          .order('date', { ascending: false })
-          .limit(1)
-        if (!s.error && (s.data || []).length) {
-          const r = s.data[0]
-          reply = `Yesterday's steps: ${Math.round(r.steps_total || 0)}. Aim for consistent daily activity as advised by your care team.`
-        } else {
-          reply = 'No recent steps data. Ensure your wearable syncs properly.'
-        }
-      } else {
-        reply = 'Please log in to view your activity data.'
+    const context = await buildAiContext(pid)
+
+    let reply = null
+    if (GEMINI_API_KEY) {
+      try {
+        reply = await getGeminiReply({ message: rawMsg, patientContext: context })
+      } catch (err) {
+        console.warn('[ai/chat] gemini fallback', err && err.message ? err.message : err)
       }
     }
-    console.log('[ai/chat] reply generated')
+
+    if (!reply) {
+      reply = ruleBasedReply(msg, pid, context)
+    }
+
+    console.log('[ai/chat] reply generated (gemini:', !!reply && !!GEMINI_API_KEY, ')')
     return res.status(200).json({ reply })
   } catch (e) {
     console.error('[ai/chat] error', e)
