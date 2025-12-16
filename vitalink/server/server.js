@@ -4,7 +4,8 @@ require('dotenv').config()
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
+const mult = require('multer');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest'
 const app = express()
@@ -351,143 +352,280 @@ app.post('/api/process-image', processImageRoute);
 app.post('/api/add-manual-event', addManualEventRoute);
 app.get('/api/health-events', getHealthEventsRoute);
 
-async function buildAiContext(pid) {
-  if (!pid) return {}
+// Debug route to list available Gemini models
+app.get('/api/debug/models', async (req, res) => {
   try {
-    const latestBp = await supabase
-      .from('bp_readings')
-      .select('reading_date,reading_time,systolic,diastolic,pulse')
-      .eq('patient_id', pid)
-      .order('reading_date', { ascending: false })
-      .order('reading_time', { ascending: false })
-      .limit(1)
-    const latestSteps = await supabase
-      .from('steps_day')
-      .select('date,steps_total')
-      .eq('patient_id', pid)
-      .order('date', { ascending: false })
-      .limit(1)
-    const latestHr = await supabase
-      .from('hr_day')
-      .select('date,hr_avg,hr_min,hr_max')
-      .eq('patient_id', pid)
-      .order('date', { ascending: false })
-      .limit(1)
-    return {
-      bp: (latestBp.data && latestBp.data[0]) || null,
-      steps: (latestSteps.data && latestSteps.data[0]) || null,
-      hr: (latestHr.data && latestHr.data[0]) || null,
+    const key = process.env.GEMINI_API_KEY
+    if (!key) return res.status(500).json({ error: 'No GEMINI_API_KEY set' })
+
+    // Use global fetch (Node 18+)
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`)
+    if (!response.ok) {
+      const errText = await response.text()
+      return res.status(response.status).json({ error: 'Failed to list models', details: errText })
     }
-  } catch (e) {
-    console.warn('[ai/chat] context error', e && e.message ? e.message : e)
-    return {}
-  }
-}
-
-async function getGeminiReply({ message, patientContext }) {
-  if (!GEMINI_API_KEY) return null
-  const promptRules = [
-    'You are a concise heart-failure assistant for MyHFGuard.',
-    'Always prioritize safety and encourage clinician follow-up for red flags.',
-    'Red flags: chest pain, severe breathlessness, fainting, sudden weight gain (>2kg/2 days), leg swelling, worsening orthopnea.',
-    'If asked about blood pressure, use latest reading from context when available; otherwise instruct user to log BP.',
-    'If asked about steps/activity, use latest steps from context when available; otherwise mention no recent data.',
-    'If asked about heart rate, use latest HR from context; otherwise say data is missing.',
-    'Keep answers short (2-4 sentences) and actionable.',
-  ].join('\n- ')
-
-  const contextText = patientContext
-    ? `Context (latest): BP=${JSON.stringify(patientContext.bp)}, STEPS=${JSON.stringify(patientContext.steps)}, HR=${JSON.stringify(patientContext.hr)}`
-    : 'Context: none'
-
-  const payload = {
-    contents: [
-      {
-        parts: [
-          {
-            text: `${promptRules}\n\n${contextText}\n\nUser: ${message}`,
-          },
-        ],
-      },
-    ],
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  if (!resp.ok) {
-    const txt = await resp.text().catch(() => String(resp.status))
-    throw new Error(`Gemini request failed: ${resp.status} ${txt}`)
-  }
-  const data = await resp.json()
-  const text =
-    data &&
-    data.candidates &&
-    data.candidates[0] &&
-    data.candidates[0].content &&
-    data.candidates[0].content.parts &&
-    data.candidates[0].content.parts[0] &&
-    data.candidates[0].content.parts[0].text
-  return text || null
-}
-
-function ruleBasedReply(msg, pid, context) {
-  let reply = 'I can help with symptoms, vitals, and general guidance.'
-  if (msg.includes('warning')) {
-    reply = 'Warning signs: chest pain, severe breathlessness, fainting, sudden weight gain (>2kg/2 days), leg swelling, worsening orthopnea.'
-  } else if (msg.includes('blood pressure') || msg.includes('bp')) {
-    if (pid && context && context.bp) {
-      const r = context.bp
-      reply = `Latest BP: ${r.systolic}/${r.diastolic} (pulse ${r.pulse}) recorded ${r.reading_date} ${r.reading_time}. High systolic (>140) or diastolic (>90) can indicate hypertension; consult your clinician.`
-    } else if (pid) {
-      reply = 'No BP readings found. Use Vitals Tracker to log your blood pressure.'
-    } else {
-      reply = 'To discuss your blood pressure, please log in so I can access your latest readings.'
-    }
-  } else if (msg.includes('steps') || msg.includes('activity')) {
-    if (pid && context && context.steps) {
-      const r = context.steps
-      reply = `Yesterday's steps: ${Math.round(r.steps_total || 0)}. Aim for consistent daily activity as advised by your care team.`
-    } else if (pid) {
-      reply = 'No recent steps data. Ensure your wearable syncs properly.'
-    } else {
-      reply = 'Please log in to view your activity data.'
-    }
-  }
-  return reply
-}
-
-// AI assistant endpoint (Gemini with rule-based fallback)
-app.post('/api/ai/chat', async (req, res) => {
-  try {
-    const rawMsg = (req.body && req.body.message) || ''
-    const msg = rawMsg.toLowerCase()
-    const pid = req.body && req.body.patientId
-    const context = await buildAiContext(pid)
-
-    let reply = null
-    if (GEMINI_API_KEY) {
-      try {
-        reply = await getGeminiReply({ message: rawMsg, patientContext: context })
-      } catch (err) {
-        console.warn('[ai/chat] gemini fallback', err && err.message ? err.message : err)
-      }
-    }
-
-    if (!reply) {
-      reply = ruleBasedReply(msg, pid, context)
-    }
-
-    console.log('[ai/chat] reply generated (gemini:', !!reply && !!GEMINI_API_KEY, ')')
-    return res.status(200).json({ reply })
-  } catch (e) {
-    console.error('[ai/chat] error', e)
-    return res.status(500).json({ error: 'AI assistant error' })
+    const data = await response.json()
+    return res.json(data)
+  } catch (error) {
+    return res.status(500).json({ error: error.message })
   }
 })
+
+
+// --- DIAGNOSTIC ROUTE ---
+app.get('/api/debug/list-models', async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    // We use a raw fetch to bypass the SDK and ask Google directly
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const data = await response.json();
+
+    // Log to server console so user can see it in Render logs
+    console.log('[Diagnostic] Available Models:', JSON.stringify(data, null, 2));
+
+    // This will return a list of "name": "models/..."
+    res.json(data);
+  } catch (error) {
+    console.error('[Diagnostic] Error listing models:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// AI Symptom Checker Route
+app.post('/api/chat/symptoms', async (req, res) => {
+  try {
+    const { message, patientId } = req.body
+
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' })
+    }
+
+    if (!patientId) {
+      return res.status(400).json({ error: 'Patient ID is required' })
+    }
+
+    // Fetch patient health data from Supabase
+    const healthData = await fetchPatientHealthData(patientId)
+
+    // Initialize Gemini AI
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      systemInstruction: `You are a helpful and caring medical assistant for MyHFGuard App. Your users range from young adults to elderly patients with heart failure.
+
+KEY RULES For Communication:
+1. USE SIMPLE LANGUAGE: Avoid medical jargon. Speak simply and clearly (Grade 6 level).
+2. BE CONCISE: Keep answers short. Use short paragraphs.
+3. BE SUPPORTIVE: Use a warm, kind tone.
+4. FORMATTING: Use bullet points. Bold key terms for easy reading.
+
+IMPORTANT SAFETY:
+- You are not a doctor. Do not diagnose.
+- If symptoms seem severe (chest pain, trouble breathing, stroke signs), tell them to CALL EMERGENCY immediately.
+
+PATIENT CONTEXT:
+The patient you're assisting has heart failure and is being monitored through MyHFGuard App. You have access to their recent health data:
+
+${healthData.summary}
+
+RECENT VITALS:
+- Heart Rate: ${healthData.hr}
+- Blood Pressure: ${healthData.bp}
+- SpO2: ${healthData.spo2}
+- Weight: ${healthData.weight}
+- Steps: ${healthData.steps}
+- Recent Symptoms: ${healthData.symptoms}
+- Current Medications: ${healthData.medications}
+
+Use this data to provide personalized, contextual advice. If you notice concerning trends (e.g., rapid weight gain, low SpO2, irregular heart rate), mention them and strongly recommend contacting their doctor.
+
+Be empathetic, clear, and concise. Use simple language that patients can understand.`
+    })
+
+    // Generate response
+    const result = await model.generateContent(message)
+    const response = result.response
+    const text = response.text()
+
+    return res.status(200).json({
+      response: text,
+      timestamp: new Date().toISOString()
+    })
+
+  } catch (error) {
+    console.error('Symptom checker error:', error)
+    return res.status(500).json({
+      error: 'Failed to process your request. Please try again.',
+      details: error.message
+    })
+  }
+})
+
+// Helper function to fetch patient health data
+async function fetchPatientHealthData(patientId) {
+  try {
+    const today = new Date()
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 7)
+    const dateStr = sevenDaysAgo.toISOString().split('T')[0]
+
+    // Fetch recent vitals
+    const [hrData, bpData, spo2Data, weightData, stepsData, symptomsData, medicationsData] = await Promise.all([
+      // Heart Rate - last 7 days
+      supabase
+        .from('hr_day')
+        .select('date, hr_min, hr_max, hr_avg')
+        .eq('patient_id', patientId)
+        .gte('date', dateStr)
+        .order('date', { ascending: false })
+        .limit(7),
+
+      // Blood Pressure - last 7 readings
+      supabase
+        .from('bp_readings')
+        .select('reading_date, reading_time, systolic, diastolic, pulse')
+        .eq('patient_id', patientId)
+        .order('reading_date', { ascending: false })
+        .order('reading_time', { ascending: false })
+        .limit(7),
+
+      // SpO2 - last 7 days
+      supabase
+        .from('spo2_day')
+        .select('date, spo2_min, spo2_max, spo2_avg')
+        .eq('patient_id', patientId)
+        .gte('date', dateStr)
+        .order('date', { ascending: false })
+        .limit(7),
+
+      // Weight - last 7 days
+      supabase
+        .from('weight_day')
+        .select('date, kg_min, kg_max, kg_avg')
+        .eq('patient_id', patientId)
+        .gte('date', dateStr)
+        .order('date', { ascending: false })
+        .limit(7),
+
+      // Steps - last 7 days
+      supabase
+        .from('steps_day')
+        .select('date, steps_total')
+        .eq('patient_id', patientId)
+        .gte('date', dateStr)
+        .order('date', { ascending: false })
+        .limit(7),
+
+      // Symptoms - last 7 days
+      supabase
+        .from('symptom_log')
+        .select('date, cough, sob_activity, leg_swelling, sudden_weight_gain, abd_discomfort, orthopnea, notes')
+        .eq('patient_id', patientId)
+        .gte('date', dateStr)
+        .order('date', { ascending: false })
+        .limit(7),
+
+      // Current medications
+      supabase
+        .from('medication')
+        .select('name, class, dosage, instructions')
+        .eq('patient_id', patientId)
+        .eq('active', true)
+    ])
+
+    // Format the data
+    const formatHR = (data) => {
+      if (!data || data.length === 0) return 'No recent data'
+      const latest = data[0]
+      return `Latest: ${latest.hr_avg} bpm (range: ${latest.hr_min}-${latest.hr_max}), Trend: ${data.length} days recorded`
+    }
+
+    const formatBP = (data) => {
+      if (!data || data.length === 0) return 'No recent data'
+      const latest = data[0]
+      return `Latest: ${latest.systolic}/${latest.diastolic} mmHg, Pulse: ${latest.pulse} bpm, ${data.length} readings in past week`
+    }
+
+    const formatSpO2 = (data) => {
+      if (!data || data.length === 0) return 'No recent data'
+      const latest = data[0]
+      return `Latest: ${latest.spo2_avg}% (range: ${latest.spo2_min}-${latest.spo2_max}%), ${data.length} days recorded`
+    }
+
+    const formatWeight = (data) => {
+      if (!data || data.length === 0) return 'No recent data'
+      const latest = data[0]
+      const oldest = data[data.length - 1]
+      const change = latest.kg_avg - oldest.kg_avg
+      return `Latest: ${latest.kg_avg} kg, Change over week: ${change > 0 ? '+' : ''}${change.toFixed(1)} kg`
+    }
+
+    const formatSteps = (data) => {
+      if (!data || data.length === 0) return 'No recent data'
+      const avg = data.reduce((sum, d) => sum + d.steps_total, 0) / data.length
+      return `Average: ${Math.round(avg)} steps/day over ${data.length} days`
+    }
+
+    const formatSymptoms = (data) => {
+      if (!data || data.length === 0) return 'No symptoms logged recently'
+      const latest = data[0]
+      const symptoms = []
+      if (latest.cough > 0) symptoms.push(`Cough (${latest.cough}/5)`)
+      if (latest.sob_activity > 0) symptoms.push(`Shortness of breath (${latest.sob_activity}/5)`)
+      if (latest.leg_swelling > 0) symptoms.push(`Leg swelling (${latest.leg_swelling}/5)`)
+      if (latest.sudden_weight_gain > 0) symptoms.push(`Weight gain (${latest.sudden_weight_gain}/5)`)
+      if (latest.abd_discomfort > 0) symptoms.push(`Abdominal discomfort (${latest.abd_discomfort}/5)`)
+      if (latest.orthopnea > 0) symptoms.push(`Difficulty sleeping flat (${latest.orthopnea}/5)`)
+      if (latest.notes) symptoms.push(`Notes: ${latest.notes}`)
+      return symptoms.length > 0 ? symptoms.join(', ') : 'No significant symptoms'
+    }
+
+    const formatMedications = (data) => {
+      if (!data || data.length === 0) return 'No active medications'
+      return data.map(m => `${m.name} (${m.class}) - ${m.dosage || 'As prescribed'}`).join('; ')
+    }
+
+    return {
+      summary: 'Heart failure patient being monitored through MyHFGuard App',
+      hr: formatHR(hrData.data),
+      bp: formatBP(bpData.data),
+      spo2: formatSpO2(spo2Data.data),
+      weight: formatWeight(weightData.data),
+      steps: formatSteps(stepsData.data),
+      symptoms: formatSymptoms(symptomsData.data),
+      medications: formatMedications(medicationsData.data)
+    }
+
+  } catch (error) {
+    console.error('[Helper fetchPatientHealthData] Error fetching patient health data:', error)
+    return {
+      summary: 'Unable to fetch patient data',
+      hr: 'N/A',
+      bp: 'N/A',
+      spo2: 'N/A',
+      weight: 'N/A',
+      steps: 'N/A',
+      symptoms: 'N/A',
+      medications: 'N/A'
+    }
+  }
+}
+
+
+// Health Check
+app.get('/api/health', (req, res) => {
+  const usingServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  res.json({
+    status: 'ok',
+    service: 'vitalink-server',
+    supabase: {
+      connected: !!supabase,
+      usingServiceKey: usingServiceKey, // This tells us if we have admin privileges
+      mode: usingServiceKey ? 'admin' : 'anon'
+    }
+  })
+})
+
 
 // Patient endpoints for dashboard
 app.get('/patient/summary', async (req, res) => {

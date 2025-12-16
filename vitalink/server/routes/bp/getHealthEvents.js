@@ -1,7 +1,6 @@
 module.exports = (supabase) => async (req, res) => {
     try {
         const requestedUserId = req.query.user_id || process.env.MOCK_USER_ID || null;
-        console.log('[getHealthEvents] requestedUserId', requestedUserId)
 
         let query = supabase
             .from('bp_readings')
@@ -31,7 +30,6 @@ module.exports = (supabase) => async (req, res) => {
             reading_time: reading.reading_time
         }));
 
-        console.log('[getHealthEvents] rows', (data || []).length)
         res.json(transformedData);
     } catch (error) {
         console.error('Supabase fetch error:', error);
