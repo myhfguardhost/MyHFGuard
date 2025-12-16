@@ -22,11 +22,11 @@ git push -u origin main
 
 ### Step 2: Update Render Repository
 1. Go to **https://dashboard.render.com**
-2. Click your service (vitalink server)
+2. Click your service (MyHFGuard server)
 3. Go to **Settings** → **Repository**
 4. Click **"Connect a different repository"**
 5. Select your **new/correct repository**
-6. Set **Root Directory** to: `vitalink/server`
+6. Set **Root Directory** to: `vitalink/server` (or the server folder in your MyHFGuard repo)
 7. Click **Save**
 
 ### Step 3: Force Redeploy
@@ -36,7 +36,7 @@ git push -u origin main
 
 ### Step 4: Test
 ```bash
-curl https://vitalink-n78f.onrender.com/health
+curl https://myhfguard.onrender.com/health
 ```
 
 Should return: `ok`

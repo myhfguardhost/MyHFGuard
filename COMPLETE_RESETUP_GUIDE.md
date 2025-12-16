@@ -133,14 +133,14 @@ Wait 30 seconds, then try registration again.
 #### 4.2 Test Server Endpoint
 Open in browser or use curl:
 ```bash
-curl https://vitalink-n78f.onrender.com/health
+curl https://myhfguard.onrender.com/health
 ```
 
 **Expected response:** `ok`
 
 #### 4.3 Test Ensure Patient Endpoint
 ```bash
-curl -X POST https://vitalink-n78f.onrender.com/admin/ensure-patient \
+curl -X POST https://myhfguard.onrender.com/admin/ensure-patient \
   -H "Content-Type: application/json" \
   -d '{
     "patientId": "test-id-123",
@@ -157,7 +157,7 @@ curl -X POST https://vitalink-n78f.onrender.com/admin/ensure-patient \
 #### 5.1 Verify Server URL
 Check `vitalink-connect/app/src/main/res/values/strings.xml`:
 ```xml
-<string name="server_base_url">https://vitalink-n78f.onrender.com</string>
+<string name="server_base_url">https://myhfguard.onrender.com</string>
 ```
 
 Make sure this matches your Render service URL.
@@ -208,7 +208,7 @@ cd vitalink-connect
 
 - [ ] Code pushed to GitHub
 - [ ] Render connected to correct GitHub repository
-- [ ] Render root directory set to `vitalink/server`
+- [ ] Render root directory set to `vitalink/server` (or your MyHFGuard server folder)
 - [ ] Render environment variables configured
 - [ ] Render deployment successful
 - [ ] Supabase database only has `dob` column (not `date_of_birth`)
