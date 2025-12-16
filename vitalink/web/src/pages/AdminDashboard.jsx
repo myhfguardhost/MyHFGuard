@@ -9,30 +9,27 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function fetchAll() {
       try {
-        const au = await fetch(`${API}/admin/auth-users`)
-        if (!au.ok) {
-          const t = await au.text()
-          throw new Error(`auth-users ${au.status} ${au.statusText} ${t}`)
+        // Get patients via supported endpoint
+        const p = await fetch(`${API}/api/admin/patients`)
+        if (!p.ok) {
+          const t = await p.text()
+          throw new Error(`patients ${p.status} ${p.statusText} ${t}`)
         }
-        const aur = await au.json()
-        const patientIds = new Set((aur.users || []).filter(x => x.role === 'patient').map(x => x.id))
-        const u = await fetch(`${API}/admin/users`)
-        if (!u.ok) {
-          const t = await u.text()
-          throw new Error(`users ${u.status} ${u.statusText} ${t}`)
-        }
-        const ur = await u.json()
-        const onlyPatients = (ur.users || []).filter(id => patientIds.has(id))
-        setUsers(onlyPatients)
+        const pr = await p.json()
+        const ids = (pr.patients || []).map(x => x.patient_id)
+        setUsers(ids)
+
+        // Get summary and filter to patient ids
         const s = await fetch(`${API}/admin/summary`)
         if (!s.ok) {
           const t = await s.text()
           throw new Error(`summary ${s.status} ${s.statusText} ${t}`)
         }
         const sr = await s.json()
-        const onlyPatientSummary = (sr.summary || []).filter(item => patientIds.has(item.patientId))
+        const onlyPatientSummary = (sr.summary || []).filter(item => ids.includes(item.patientId))
         setSummary(onlyPatientSummary)
       } catch (e) {
+        console.error('[AdminDashboard] fetchAll error', e)
         setError(String(e))
       }
     }
