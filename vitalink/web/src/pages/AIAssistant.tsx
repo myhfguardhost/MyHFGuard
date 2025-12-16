@@ -158,7 +158,7 @@ export default function AIAssistant() {
                         <div className="mt-4 p-3 border rounded-lg bg-accent/10">
                           <div className="text-sm font-semibold">Warning Signs</div>
                           <div className="text-xs text-muted-foreground">
-                            Chest pain • Severe breathlessness • Fainting • Sudden weight gain (>2kg/2 days) • Leg swelling • Worsening orthopnea
+                            Chest pain • Severe breathlessness • Fainting • Sudden weight gain (&gt;2kg/2 days) • Leg swelling • Worsening orthopnea
                           </div>
                         </div>
                     </div>
