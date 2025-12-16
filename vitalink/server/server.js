@@ -609,15 +609,21 @@ app.get('/patient/vitals', async (req, res) => {
     const date = (req.query && req.query.date) || null
     const tzOffRaw = (req.query && req.query.tzOffsetMin)
     const tzOffsetMin = tzOffRaw != null ? Number(tzOffRaw) : 0
+
+    // In supabase-js v2, filters like eq/gte/lte are available on the builder returned by select/update/delete
     let hrQ = supabase
       .from('hr_hour')
+      .select('hour_ts,hr_min,hr_max,hr_avg,hr_count')
       .eq('patient_id', pid)
     let spo2Q = supabase
       .from('spo2_hour')
+      .select('hour_ts,spo2_min,spo2_max,spo2_avg')
       .eq('patient_id', pid)
     let stepsQ = supabase
       .from('steps_hour')
+      .select('hour_ts,steps_total')
       .eq('patient_id', pid)
+
     if (date) {
       const base = new Date(`${date}T00:00:00.000Z`)
       const start = new Date(base.getTime() - (tzOffsetMin * 60 * 1000))
@@ -630,11 +636,12 @@ app.get('/patient/vitals', async (req, res) => {
       spo2Q = spo2Q.order('hour_ts', { ascending: false }).limit(24)
       stepsQ = stepsQ.order('hour_ts', { ascending: false }).limit(24)
     }
-    const hr = await hrQ.select('hour_ts,hr_min,hr_max,hr_avg,hr_count')
+
+    const hr = await hrQ
     if (hr.error) return res.status(400).json({ error: hr.error.message })
-    const spo2 = await spo2Q.select('hour_ts,spo2_min,spo2_max,spo2_avg')
+    const spo2 = await spo2Q
     if (spo2.error) return res.status(400).json({ error: spo2.error.message })
-    const steps = await stepsQ.select('hour_ts,steps_total')
+    const steps = await stepsQ
     if (steps.error) return res.status(400).json({ error: steps.error.message })
     const hrArr = date ? (hr.data || []) : (hr.data || []).reverse()
     const spo2Arr = date ? (spo2.data || []) : (spo2.data || []).reverse()
