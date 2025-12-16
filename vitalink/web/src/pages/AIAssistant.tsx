@@ -76,18 +76,19 @@ export default function AIAssistant() {
         setLoading(true);
 
         try {
-            // TODO: Connect to backend AI endpoint here.
-            // For now, we simulate a response to demonstrate the UI.
-            // const res = await fetch(`${serverUrl()}/api/ai/chat`, { method: 'POST', body: JSON.stringify({ message: input, patientId }) });
-
-            await new Promise(resolve => setTimeout(resolve, 1200));
+            const res = await fetch(`${serverUrl()}/api/ai/chat`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: input, patientId })
+            })
+            if (!res.ok) throw new Error('AI request failed')
+            const data = await res.json()
             const aiMsg: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: "If you experience chest pain, severe breathlessness, sudden weight gain (>2kg in 2 days), leg swelling, or fainting, seek medical attention. You can log vitals in the Vitals Tracker.",
+                content: data.reply || 'I can help with symptoms, vitals, and general guidance.',
                 timestamp: new Date()
             };
-
             setMessages(prev => [...prev, aiMsg]);
 
         } catch (err: any) {
