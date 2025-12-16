@@ -24,6 +24,7 @@ if (process.env.SUPABASE_URL && supabaseKey) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('[server] SUPABASE_SERVICE_ROLE_KEY missing — using SUPABASE_ANON_KEY (admin routes may fail)')
   }
+  console.log('[server] supabase configured', { url_present: !!process.env.SUPABASE_URL, role_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY })
 } else {
   supabaseMock = true
   console.warn('[server] SUPABASE_URL / SUPABASE_KEY missing — using mock supabase (no writes)')
@@ -347,6 +348,58 @@ try {
 app.post('/api/process-image', processImageRoute);
 app.post('/api/add-manual-event', addManualEventRoute);
 app.get('/api/health-events', getHealthEventsRoute);
+
+// Simple AI assistant endpoint (rule-based)
+app.post('/api/ai/chat', async (req, res) => {
+  try {
+    const msg = (req.body && req.body.message || '').toLowerCase()
+    const pid = req.body && req.body.patientId
+    let reply = 'I can help with symptoms, vitals, and general guidance.'
+    if (msg.includes('warning')) {
+      reply = 'Warning signs: chest pain, severe breathlessness, fainting, sudden weight gain (>2kg/2 days), leg swelling, worsening orthopnea.'
+    } else if (msg.includes('blood pressure') || msg.includes('bp')) {
+      if (pid) {
+        const last = await supabase
+          .from('bp_readings')
+          .select('reading_date,reading_time,systolic,diastolic,pulse')
+          .eq('patient_id', pid)
+          .order('reading_date', { ascending: false })
+          .order('reading_time', { ascending: false })
+          .limit(1)
+        if (!last.error && (last.data || []).length) {
+          const r = last.data[0]
+          reply = `Latest BP: ${r.systolic}/${r.diastolic} (pulse ${r.pulse}) recorded ${r.reading_date} ${r.reading_time}. High systolic (>140) or diastolic (>90) can indicate hypertension; consult your clinician.`
+        } else {
+          reply = 'No BP readings found. Use Vitals Tracker to log your blood pressure.'
+        }
+      } else {
+        reply = 'To discuss your blood pressure, please log in so I can access your latest readings.'
+      }
+    } else if (msg.includes('steps') || msg.includes('activity')) {
+      if (pid) {
+        const s = await supabase
+          .from('steps_day')
+          .select('date,steps_total')
+          .eq('patient_id', pid)
+          .order('date', { ascending: false })
+          .limit(1)
+        if (!s.error && (s.data || []).length) {
+          const r = s.data[0]
+          reply = `Yesterday's steps: ${Math.round(r.steps_total || 0)}. Aim for consistent daily activity as advised by your care team.`
+        } else {
+          reply = 'No recent steps data. Ensure your wearable syncs properly.'
+        }
+      } else {
+        reply = 'Please log in to view your activity data.'
+      }
+    }
+    console.log('[ai/chat] reply generated')
+    return res.status(200).json({ reply })
+  } catch (e) {
+    console.error('[ai/chat] error', e)
+    return res.status(500).json({ error: 'AI assistant error' })
+  }
+})
 
 // Patient endpoints for dashboard
 app.get('/patient/summary', async (req, res) => {
