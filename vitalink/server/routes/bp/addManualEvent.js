@@ -32,6 +32,7 @@ async function checkDuplicateReading(supabase, patientId, sys, dia, pulse) {
 }
 
 module.exports = (supabase) => async (req, res) => {
+    console.log('[addManualEvent] request body', req.body && { type: req.body.type, patientId: req.body.patientId })
     const { type, value1, value2, value3, patientId } = req.body;
 
     // Only handle blood_pressure type for bp_readings table
@@ -82,6 +83,7 @@ module.exports = (supabase) => async (req, res) => {
             throw error;
         }
 
+        console.log('[addManualEvent] inserted', data && data[0] && data[0].id)
         res.json({ success: true, data: data ? data[0] : null });
     } catch (error) {
         console.error('Supabase manual insert error:', error);

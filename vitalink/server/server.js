@@ -143,7 +143,26 @@ async function ensureDevices(devices, patientId) {
   }
   return { ok: true }
 }
-app.get('/health', (req, res) => res.status(200).send('ok'))
+app.get('/health', (req, res) => {
+  console.log('[health] ping ok')
+  return res.status(200).send('ok')
+})
+
+// Connectivity/debug endpoint
+app.get('/debug/connectivity', async (req, res) => {
+  const start = Date.now()
+  console.log('[debug] connectivity check start')
+  const out = { ok: true, supabase: null, timeMs: null }
+  try {
+    const ping = await supabase.from('patients').select('patient_id').limit(1)
+    out.supabase = ping.error ? { ok: false, error: ping.error.message } : { ok: true, count: (ping.data || []).length }
+  } catch (e) {
+    out.supabase = { ok: false, error: e && e.message ? e.message : String(e) }
+  }
+  out.timeMs = Date.now() - start
+  console.log('[debug] connectivity result', out)
+  return res.status(200).json(out)
+})
 app.post('/admin/ensure-patient', async (req, res) => {
   const pid = req.body && req.body.patientId
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
@@ -173,6 +192,7 @@ if (process.env.ENABLE_DEV_ROUTES === 'true') {
 }
 
 app.get('/admin/users', async (req, res) => {
+  console.log('[admin/users] list patients')
   const out = { users: [] }
   const rows = await supabase.from('patients').select('patient_id').limit(1000)
   if (rows.error) return res.status(400).json({ error: rows.error.message })
@@ -180,6 +200,7 @@ app.get('/admin/users', async (req, res) => {
   return res.status(200).json(out)
 })
 app.get('/admin/summary', async (req, res) => {
+  console.log('[admin/summary] start')
   const users = await supabase.from('patients').select('patient_id').limit(1000)
   if (users.error) return res.status(400).json({ error: users.error.message })
   const ids = (users.data || []).map((r) => r.patient_id)
@@ -195,6 +216,7 @@ app.get('/admin/summary', async (req, res) => {
       spo2: (o.data && o.data[0]) || null,
     })
   }
+  console.log('[admin/summary] count', out.length)
   return res.status(200).json({ summary: out })
 })
 
@@ -330,6 +352,7 @@ app.get('/api/health-events', getHealthEventsRoute);
 app.get('/patient/summary', async (req, res) => {
   const pid = (req.query && req.query.patientId)
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
+  console.log('[patient/summary] pid', pid)
   const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (hr.error) return res.status(400).json({ error: hr.error.message })
   const row = (hr.data && hr.data[0]) || null
@@ -372,6 +395,7 @@ app.get('/patient/summary', async (req, res) => {
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
     lastSyncTs,
   }
+  console.log('[patient/summary] summary computed')
   return res.status(200).json({ summary })
 })
 
@@ -379,6 +403,7 @@ app.get('/patient/vitals', async (req, res) => {
   const pid = (req.query && req.query.patientId)
   const period = (req.query && req.query.period) || 'hourly'
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
+  console.log('[patient/vitals] pid', pid, 'period', period)
   let out = { hr: [], spo2: [], steps: [], bp: [], weight: [] }
   if (period === 'weekly') {
     const hr = await supabase
@@ -622,6 +647,9 @@ app.get('/patient/vitals', async (req, res) => {
       weight: [],
     }
   }
+  console.log('[patient/vitals] response size', {
+    hr: out.hr.length, spo2: out.spo2.length, steps: out.steps.length, bp: out.bp.length, weight: out.weight.length
+  })
   return res.status(200).json(out)
 })
 app.get('/admin/auth-generate-link', async (req, res) => {

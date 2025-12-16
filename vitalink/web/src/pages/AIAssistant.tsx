@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, User, Sparkles, Loader2, StopCircle } from "lucide-react";
+import { Bot, Send, User, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { serverUrl } from "@/lib/api";
 
 interface Message {
     id: string;
@@ -19,7 +19,7 @@ export default function AIAssistant() {
         {
             id: '1',
             role: 'assistant',
-            content: 'Hello! I am your AI Health Assistant. How can I help you today? You can ask me about your symptoms, vitals, or general health advice.',
+            content: 'Hello! I am your AI Health Assistant. I can help with symptoms, vitals, and general advice. Try: "What do my BP readings mean?", "Show warning signs", or "How to log today\'s BP".',
             timestamp: new Date()
         }
     ]);
@@ -27,6 +27,12 @@ export default function AIAssistant() {
     const [loading, setLoading] = useState(false);
     const [patientId, setPatientId] = useState<string | null>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const [suggestions] = useState<string[]>([
+        "How to log today\'s blood pressure",
+        "What does high systolic mean?",
+        "Show heart failure warning signs",
+        "Explain my weekly vitals chart"
+    ])
 
     useEffect(() => {
         async function getUser() {
@@ -36,6 +42,16 @@ export default function AIAssistant() {
             }
         }
         getUser();
+        (async () => {
+          try {
+            const res = await fetch(`${serverUrl()}/health`)
+            if (!res.ok) throw new Error(String(res.status))
+            console.log('[AIAssistant] backend health ok')
+          } catch (e) {
+            console.error('[AIAssistant] backend health failed', e)
+            toast.error('Server connectivity issue')
+          }
+        })()
     }, []);
 
     useEffect(() => {
@@ -64,12 +80,11 @@ export default function AIAssistant() {
             // For now, we simulate a response to demonstrate the UI.
             // const res = await fetch(`${serverUrl()}/api/ai/chat`, { method: 'POST', body: JSON.stringify({ message: input, patientId }) });
 
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate delay
-
+            await new Promise(resolve => setTimeout(resolve, 1200));
             const aiMsg: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: "I'm currently being integrated! Soon I'll be able to analyze your symptoms and vitals directly. For now, please consult the Vitals Tracker to log your health data.",
+                content: "If you experience chest pain, severe breathlessness, sudden weight gain (>2kg in 2 days), leg swelling, or fainting, seek medical attention. You can log vitals in the Vitals Tracker.",
                 timestamp: new Date()
             };
 
@@ -133,6 +148,19 @@ export default function AIAssistant() {
                                 </div>
                             </div>
                         )}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {suggestions.map((s, i) => (
+                            <Button key={i} variant="outline" size="sm" onClick={() => setInput(s)}>
+                              {s}
+                            </Button>
+                          ))}
+                        </div>
+                        <div className="mt-4 p-3 border rounded-lg bg-accent/10">
+                          <div className="text-sm font-semibold">Warning Signs</div>
+                          <div className="text-xs text-muted-foreground">
+                            Chest pain • Severe breathlessness • Fainting • Sudden weight gain (>2kg/2 days) • Leg swelling • Worsening orthopnea
+                          </div>
+                        </div>
                     </div>
                 </CardContent>
 
