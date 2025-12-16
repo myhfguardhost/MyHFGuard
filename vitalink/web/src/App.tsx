@@ -20,7 +20,7 @@ import RequireAdmin from "./components/RequireAdmin"
 import PatientList from "./pages/admin/PatientList"
 import PatientDetail from "./pages/admin/PatientDetail"
 import AdminLogin from "./pages/admin/AdminLogin"
-import AIAssistant from "./pages/AIAssistant"
+import SymptomChecker from "./pages/SymptomChecker"
 
 const queryClient = new QueryClient()
 
@@ -40,7 +40,7 @@ const App = () => (
             <Route path="/self-check" element={<RequireAuth><SelfCheck /></RequireAuth>} />
             <Route path="/schedule" element={<RequireAuth><ScheduleReminder /></RequireAuth>} />
             <Route path="/medication" element={<RequireAuth><Medication /></RequireAuth>} />
-            <Route path="/ai-assistant" element={<RequireAuth><AIAssistant /></RequireAuth>} />
+            <Route path="/ai-assistant" element={<RequireAuth><SymptomChecker /></RequireAuth>} />
             <Route path="/contact" element={<RequireAuth><Contact /></RequireAuth>} />
 
             {/* Admin Routes */}
