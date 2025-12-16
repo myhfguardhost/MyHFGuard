@@ -4,7 +4,7 @@ require('dotenv').config()
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const mult = require('multer');
+const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest'
