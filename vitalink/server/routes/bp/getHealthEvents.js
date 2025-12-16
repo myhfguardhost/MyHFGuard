@@ -2,13 +2,14 @@ module.exports = (supabase) => async (req, res) => {
     try {
         const requestedUserId = req.query.user_id || process.env.MOCK_USER_ID || null;
 
+        if (!requestedUserId) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
         let query = supabase
             .from('bp_readings')
-            .select('*');
-
-        if (requestedUserId) {
-            query = query.eq('patient_id', requestedUserId);
-        }
+            .select('*')
+            .eq('patient_id', requestedUserId);
 
         const { data, error } = await query
             .order('reading_date', { ascending: false })
