@@ -38,7 +38,7 @@ WHERE dob IS NULL;
 
 **Steps:**
 1. Go to https://render.com/dashboard
-2. Find your service (likely named "vitalink" or similar)
+2. Find your service (likely named "MyHFGuard" or similar)
 3. Click on it → Go to **Logs** tab
 4. Look for recent errors when data sync happens
 
@@ -82,12 +82,12 @@ ensurePatient error: [error message]
 1. In your Android app, check the server URL in `strings.xml`:
    - File: `vitalink-connect/app/src/main/res/values/strings.xml`
    - Look for `server_base_url`
-   - Should be: `https://vitalink-n78f.onrender.com` (or your Render URL)
+   - Should be: `https://myhfguard.onrender.com` (or your Render URL)
 
 2. Test server health endpoint:
    - Open browser or use curl:
    ```bash
-   curl https://vitalink-n78f.onrender.com/health
+   curl https://myhfguard.onrender.com/health
    ```
    - Should return: `ok`
 
@@ -143,7 +143,7 @@ WHERE patient_id = 'YOUR_PATIENT_ID_HERE';
 1. Use Postman or curl to test `/admin/ensure-patient` endpoint:
 
 ```bash
-curl -X POST https://vitalink-n78f.onrender.com/admin/ensure-patient \
+curl -X POST https://myhfguard.onrender.com/admin/ensure-patient \
   -H "Content-Type: application/json" \
   -d '{
     "patientId": "test-patient-id-123",

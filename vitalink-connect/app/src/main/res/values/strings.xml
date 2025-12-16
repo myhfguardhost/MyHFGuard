@@ -4,7 +4,8 @@
     <string name="read_steps">Read Steps</string>
     <string name="collect_health_data">Collect Health Data</string>
     <string name="scan_to_capture">Scan to Capture</string>
-    <string name="scan_capture_url">https://lowremons04-vitalink-hcvbz7czo-lowjiayuan04-1076s-projects.vercel.app/</string>
+    <!-- Use non-vitalink URL for scan/capture frontend -->
+    <string name="scan_capture_url">https://myhfguard.onrender.com</string>
     <string name="export_data">Export Data</string>
     <string name="logout">Logout</string>
     <string name="availability_missing">Health Connect not available</string>
