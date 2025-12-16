@@ -1,3 +1,4 @@
+// Default to the Render URL used in this codebase (non-vitalink)
 const DEFAULT_URL = 'https://myhfguard.onrender.com'
 import { supabase } from "./supabase"
 
