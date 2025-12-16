@@ -1,4 +1,4 @@
-const DEFAULT_URL = 'http://localhost:3001'
+const DEFAULT_URL = 'https://myhfguard.onrender.com'
 import { supabase } from "./supabase"
 
 export function serverUrl() {
