@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest'
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest'
 const app = express()
 app.use(express.json({ limit: '5mb' }))
 app.use((req, res, next) => {
