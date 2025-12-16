@@ -71,7 +71,7 @@ function toDateWithOffset(ts, offsetMin) {
 }
 async function ensurePatient(patientId, info) {
   if (!patientId) return { ok: false, error: 'missing patientId' }
-  
+
   // Get existing patient data if it exists
   let existing = null
   try {
@@ -82,25 +82,25 @@ async function ensurePatient(patientId, info) {
   } catch (e) {
     // If query fails, continue without existing data
   }
-  
+
   // Use provided values, fall back to existing values if patient exists
   const first = (info && info.firstName) || (existing && existing.first_name) || null
   const last = (info && info.lastName) || (existing && existing.last_name) || null
   const dob = (info && info.dateOfBirth) || (existing && existing.dob) || null
-  
+
   // Build row - dob is required (NOT NULL constraint)
   const row = {
     patient_id: patientId,
   }
-  
+
   if (first) row.first_name = first
   if (last) row.last_name = last
-  
+
   // dob is required - if not provided and patient doesn't exist, return error
   if (!dob && !existing) {
     return { ok: false, error: 'dateOfBirth is required for new patients' }
   }
-  
+
   // Only set dob if we have a value (for new patients) or if updating existing
   if (dob) {
     row.dob = dob
@@ -108,15 +108,15 @@ async function ensurePatient(patientId, info) {
     // Keep existing dob if not provided in update
     row.dob = existing.dob
   }
-  
+
   // Use upsert with onConflict to update existing or insert new
   const res = await supabase
     .from('patients')
-    .upsert([row], { 
+    .upsert([row], {
       onConflict: 'patient_id',
-      ignoreDuplicates: false 
+      ignoreDuplicates: false
     })
-  
+
   if (res.error) {
     console.error('ensurePatient error', res.error)
     return { ok: false, error: res.error.message }
@@ -160,7 +160,7 @@ app.post('/admin/ensure-patient', async (req, res) => {
     if (role !== 'patient') {
       await supabase.auth.admin.updateUserById(pid, { app_metadata: { role: 'patient' } })
     }
-  } catch (_) {}
+  } catch (_) { }
   return res.status(200).json({ ok: true })
 })
 
@@ -202,25 +202,25 @@ app.get('/admin/summary', async (req, res) => {
 app.get('/admin/patient-info', async (req, res) => {
   const pid = req.query && req.query.patientId
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
-  
+
   try {
     const patientRes = await supabase
       .from('patients')
       .select('patient_id, first_name, last_name, dob')
       .eq('patient_id', pid)
       .single()
-    
+
     if (patientRes.error) {
       return res.status(404).json({ error: 'Patient not found' })
     }
-    
+
     const devicesRes = await supabase
       .from('devices')
       .select('device_id')
       .eq('patient_id', pid)
-    
+
     const devicesCount = devicesRes.data ? devicesRes.data.length : 0
-    
+
     return res.status(200).json({
       patient: {
         patient_id: patientRes.data.patient_id,
@@ -237,66 +237,20 @@ app.get('/admin/patient-info', async (req, res) => {
   }
 })
 
-// Get all patients for admin
-app.get('/api/admin/patients', async (req, res) => {
-  try {
-    const pid = req.query && req.query.patientId
-    
-    let query = supabase
-      .from('patients')
-      .select('patient_id, first_name, last_name, dob, created_at')
-    
-    if (pid) {
-      query = query.eq('patient_id', pid)
-    }
-    
-    const { data, error } = await query.limit(1000)
-    
-    if (error) {
-      return res.status(400).json({ error: error.message })
-    }
-    
-    const patientsWithAuth = await Promise.all((data || []).map(async (patient) => {
-      try {
-        const authRes = await supabase.auth.admin.getUserById(patient.patient_id)
-        return {
-          patient_id: patient.patient_id,
-          first_name: patient.first_name || 'User',
-          last_name: patient.last_name || 'Patient',
-          email: authRes.data?.user?.email || null,
-          created_at: authRes.data?.user?.created_at || patient.created_at,
-          last_sign_in_at: authRes.data?.user?.last_sign_in_at || null,
-          dob: patient.dob
-        }
-      } catch (err) {
-        return {
-          patient_id: patient.patient_id,
-          first_name: patient.first_name || 'User',
-          last_name: patient.last_name || 'Patient',
-          email: null,
-          created_at: patient.created_at,
-          last_sign_in_at: null,
-          dob: patient.dob
-        }
-      }
-    }))
-    
-    return res.status(200).json({ patients: patientsWithAuth })
-  } catch (error) {
-    console.error('Error fetching patients:', error)
-    return res.status(500).json({ error: 'Internal server error' })
-  }
-})
+const getPatientsRoute = require('./routes/admin/getPatients')(supabase);
+app.get('/api/admin/patients', getPatientsRoute);
 
 // Admin login endpoint
-app.post('/api/admin/login', async (req, res) => {
+const adminLoginRoute = require('./routes/admin/login')(supabase);
+app.post('/api/admin/login', adminLoginRoute);
+/* app.post('/api/admin/login', async (req, res) => {
   try {
     const { email, password } = req.body
-    
+
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' })
     }
-    
+
     // Query the admins table
     const { data, error } = await supabase
       .from('admins')
@@ -304,27 +258,27 @@ app.post('/api/admin/login', async (req, res) => {
       .eq('email', email.toLowerCase())
       .eq('is_active', true)
       .single()
-    
+
     if (error || !data) {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
-    
+
     // Simple password check (in production, use bcrypt)
     // For now, we'll check if password matches the stored hash
     // You should replace this with proper bcrypt comparison
     if (data.password_hash !== password && data.password_hash !== 'PLACEHOLDER') {
       return res.status(401).json({ error: 'Invalid email or password' })
     }
-    
+
     // If password is PLACEHOLDER, accept any password (for initial setup)
     // In production, you should hash the password properly
-    
+
     // Update last login time
     await supabase
       .from('admins')
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', data.id)
-    
+
     // Return admin data (without password hash)
     return res.status(200).json({
       admin: {
@@ -340,7 +294,7 @@ app.post('/api/admin/login', async (req, res) => {
     console.error('Admin login error:', error)
     return res.status(500).json({ error: 'Internal server error' })
   }
-})
+}) */
 
 
 // --- Blood Pressure Module Routes ---
@@ -389,7 +343,7 @@ app.get('/patient/summary', async (req, res) => {
     const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
     const srow2 = (sync.data && sync.data[0]) || null
     lastSyncTs = (srow2 && (srow2.last_sync_ts || srow2.updated_at)) || null
-  } catch (_) {}
+  } catch (_) { }
   if (!lastSyncTs) {
     try {
       const hrLast = await supabase.from('hr_sample').select('time_ts').eq('patient_id', pid).order('time_ts', { ascending: false }).limit(1)
@@ -406,7 +360,7 @@ app.get('/patient/summary', async (req, res) => {
         const maxTs = Math.max(...candidates.map((d) => new Date(d).getTime()))
         if (Number.isFinite(maxTs)) lastSyncTs = new Date(maxTs).toISOString()
       }
-    } catch (_) {}
+    } catch (_) { }
   }
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
@@ -888,7 +842,7 @@ app.post('/ingest/steps-events', async (req, res) => {
     if (maxEnd) {
       await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
     }
-  } catch (_) {}
+  } catch (_) { }
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/distance-events', async (req, res) => {
@@ -948,7 +902,7 @@ app.post('/ingest/distance-events', async (req, res) => {
     if (maxEnd) {
       await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
     }
-  } catch (_) {}
+  } catch (_) { }
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/hr-samples', async (req, res) => {

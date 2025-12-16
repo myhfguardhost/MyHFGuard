@@ -2,7 +2,7 @@ import { Toaster } from "./components/ui/toaster"
 import { Toaster as Sonner } from "./components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { HashRouter, Routes, Route } from "react-router-dom"
 import { ThemeProvider } from "next-themes"
 import Navigation from "./components/Navigation"
 import Dashboard from "./pages/Dashboard"
@@ -20,6 +20,7 @@ import RequireAdmin from "./components/RequireAdmin"
 import PatientList from "./pages/admin/PatientList"
 import PatientDetail from "./pages/admin/PatientDetail"
 import AdminLogin from "./pages/admin/AdminLogin"
+import AIAssistant from "./pages/AIAssistant"
 
 const queryClient = new QueryClient()
 
@@ -29,7 +30,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <HashRouter>
           <Navigation />
           <Routes>
             <Route path="/" element={<RequireAuth><Dashboard /></RequireAuth>} />
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/self-check" element={<RequireAuth><SelfCheck /></RequireAuth>} />
             <Route path="/schedule" element={<RequireAuth><ScheduleReminder /></RequireAuth>} />
             <Route path="/medication" element={<RequireAuth><Medication /></RequireAuth>} />
+            <Route path="/ai-assistant" element={<RequireAuth><AIAssistant /></RequireAuth>} />
             <Route path="/contact" element={<RequireAuth><Contact /></RequireAuth>} />
 
             {/* Admin Routes */}
@@ -50,7 +52,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
