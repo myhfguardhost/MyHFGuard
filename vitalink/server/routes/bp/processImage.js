@@ -73,7 +73,10 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
         }
 
         console.log('[processImage] Starting Python process...');
-        const pythonArgs = ['python', scriptPath, imagePath];
+        // Allow overriding python command for Render; default to python3 to
+        // match the Docker image packages.
+        const pythonCmd = process.env.PYTHON_CMD || 'python3';
+        const pythonArgs = [pythonCmd, scriptPath, imagePath];
         const pythonProcess = spawn(pythonArgs[0], pythonArgs.slice(1));
 
         let rawOutput = '';

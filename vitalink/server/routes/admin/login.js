@@ -24,8 +24,10 @@ module.exports = (supabase) => async (req, res) => {
             .eq('is_active', true)
             .single();
 
+        let resolvedAdmin = admin || null;
+
         // If no match, allow PLACEHOLDER to accept any password (bootstrap mode)
-        if (error || !admin) {
+        if (error || !resolvedAdmin) {
             const { data: placeholder, error: err2 } = await supabase
                 .from('admins')
                 .select('*')
@@ -33,20 +35,21 @@ module.exports = (supabase) => async (req, res) => {
                 .eq('password_hash', 'PLACEHOLDER')
                 .eq('is_active', true)
                 .maybeSingle();
+
             if (err2 || !placeholder) {
                 return res.status(401).json({ error: 'Invalid email or password' });
             }
+            resolvedAdmin = placeholder;
         }
 
         // Update last login time
         await supabase
             .from('admins')
             .update({ last_login_at: new Date().toISOString() })
-            .eq('id', admin.id);
+            .eq('id', resolvedAdmin.id);
 
         // Return admin data (without password hash)
-        const row = admin || placeholder
-        const { password_hash, ...adminData } = row;
+        const { password_hash, ...adminData } = resolvedAdmin;
 
         res.json({
             success: true,
