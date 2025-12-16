@@ -73,11 +73,14 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
         }
 
         console.log('[processImage] Starting Python process...');
-        // Allow overriding python command for Render; default to python3 to
-        // match the Docker image packages.
-        const pythonCmd = process.env.PYTHON_CMD || 'python3';
-        const pythonArgs = [pythonCmd, scriptPath, imagePath];
+        // Use python3 explicitly for Linux/Docker environments
+        const pythonArgs = ['python3', scriptPath, imagePath];
         const pythonProcess = spawn(pythonArgs[0], pythonArgs.slice(1));
+
+        pythonProcess.on('error', (err) => {
+            console.error('[processImage] Failed to start Python process:', err);
+            return res.status(500).json({ error: 'Failed to start OCR process.', details: err.message });
+        });
 
         let rawOutput = '';
         let errorOutput = '';
@@ -138,35 +141,10 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
                         return res.status(400).json({ error: 'PULSE value is out of range (30-240).' });
                     }
 
-                    console.log('[processImage] Checking for duplicates...');
-                    // Check for duplicate
-                    const isDuplicate = await checkDuplicateReading(supabase, patientId, sys, dia, pulse);
-                    if (isDuplicate) {
-                        console.log('[processImage] Duplicate detected');
-                        return res.status(400).json({
-                            error: 'Duplicate reading detected. Please wait at least 10 seconds before recording another similar reading.'
-                        });
-                    }
-
-                    console.log('[processImage] Inserting to database...');
-                    const now = new Date();
-                    const readingDate = now.toISOString().split('T')[0];
-                    const readingTime = now.toTimeString().split(' ')[0];
-
-                    let { error: supabaseError } = await supabase.from('bp_readings').insert([{
-                        patient_id: patientId,
-                        reading_date: readingDate,
-                        reading_time: readingTime,
-                        systolic: sys,
-                        diastolic: dia,
-                        pulse: pulse
-                    }]);
-
-                    if (supabaseError) {
-                        console.error('[processImage] Supabase insert error:', supabaseError);
-                    } else {
-                        console.log('[processImage] Successfully inserted to database');
-                    }
+                    // REMOVED AUTO-SAVE: The frontend will handle saving after user verification.
+                    // console.log('[processImage] Inserting to database...');
+                    // ... insertion code removed ...
+                    console.log('[processImage] OCR successful, returning values for verification.');
                 }
 
                 console.log('[processImage] Sending response...');
