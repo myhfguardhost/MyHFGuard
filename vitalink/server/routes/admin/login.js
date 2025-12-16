@@ -12,15 +12,12 @@ module.exports = (supabase) => async (req, res) => {
             return res.status(400).json({ error: 'Email and password are required' });
         }
 
-        // Hash the provided password
-        const passwordHash = hashPassword(password);
-
         // Query the admins table
         const { data: admin, error } = await supabase
             .from('admins')
             .select('*')
             .eq('email', email.toLowerCase().trim())
-            .eq('password_hash', passwordHash)
+            .eq('password_hash', password) // Comparing plain text password directly as requested
             .eq('is_active', true)
             .single();
 
