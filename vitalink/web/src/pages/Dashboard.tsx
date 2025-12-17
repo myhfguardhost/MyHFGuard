@@ -13,7 +13,7 @@ import QuickActions from "@/components/dashboard/QuickActions";
 import UpcomingReminders from "@/components/dashboard/UpcomingReminders";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase } from "@/lib/supabase";
-import { formatDistanceToNow, isYesterday, isToday } from "date-fns";
+import { formatDistanceToNow, isYesterday, isToday, subMonths, startOfDay, endOfDay, eachDayOfInterval, format } from "date-fns";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -21,6 +21,11 @@ const Dashboard = () => {
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("patientId") || undefined : undefined
   );
   const [showSyncNotice, setShowSyncNotice] = useState(true);
+
+  // State for admin-style vitals
+  const [adminVitals, setAdminVitals] = useState<any>({ hr: [], spo2: [], steps: [], bp: [] });
+  const [adminVitalsLoading, setAdminVitalsLoading] = useState(true);
+
   useEffect(() => {
     let mounted = true;
     async function init() {
@@ -32,8 +37,114 @@ const Dashboard = () => {
     init();
     return () => { mounted = false };
   }, [patientId]);
+
   const { data, isLoading } = useQuery({ queryKey: ["patient-summary", patientId], queryFn: () => getPatientSummary(patientId), refetchOnWindowFocus: false, enabled: !!patientId });
   const infoQuery = useQuery({ queryKey: ["patient-info", patientId], queryFn: () => getPatientInfo(patientId), refetchOnWindowFocus: false, enabled: !!patientId });
+
+  // Fetch Admin-style vitals (Exact mirror of PatientDetail.tsx)
+  useEffect(() => {
+    async function fetchAdminVitals() {
+      if (!patientId) return;
+      setAdminVitalsLoading(true);
+      try {
+        const to = new Date();
+        const from = subMonths(to, 1);
+
+        // Format dates for Supabase (YYYY-MM-DD)
+        const startStr = format(startOfDay(from), 'yyyy-MM-dd');
+        const endStr = format(endOfDay(to), 'yyyy-MM-dd');
+
+        const { data: hrData } = await supabase.from('hr_day').select('*').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr).order('date', { ascending: false });
+        const { data: spo2Data } = await supabase.from('spo2_day').select('*').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr).order('date', { ascending: false });
+        const { data: stepsData } = await supabase.from('steps_day').select('*').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr).order('date', { ascending: false });
+        const { data: bpData } = await supabase.from('bp_readings').select('*').eq('patient_id', patientId).gte('reading_date', startStr).lte('reading_date', endStr).order('reading_date', { ascending: false }).order('reading_time', { ascending: false });
+
+        // Helper function to fill missing dates
+        const fillMissingDates = (data: any[], dateField: string) => {
+          const dataMap = new Map();
+          data.forEach(item => dataMap.set(item[dateField], item));
+          const allDates = eachDayOfInterval({ start: from, end: to });
+          return allDates.map(date => {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            return dataMap.get(dateStr) || { [dateField]: dateStr };
+          });
+        };
+
+        const formatDateLabel = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        const hrDataFilled = fillMissingDates(hrData || [], 'date');
+        const spo2DataFilled = fillMissingDates(spo2Data || [], 'date');
+        const stepsDataFilled = fillMissingDates(stepsData || [], 'date');
+
+        const newVitals = {
+          hr: hrDataFilled.map(r => ({
+            fullDate: r.date,
+            date: formatDateLabel(r.date),
+            min: r.hr_min || null,
+            avg: r.hr_avg || null,
+            max: r.hr_max || null,
+            // Match api.ts implicit structure if needed, or just use what PatientAdminCharts expects
+            time: r.date // Compat for charts expecting 'time' or 'date'
+          })),
+          spo2: spo2DataFilled.map(r => ({
+            fullDate: r.date,
+            date: formatDateLabel(r.date),
+            min: r.spo2_min || null,
+            avg: r.spo2_avg || null,
+            max: r.spo2_max || null,
+            time: r.date
+          })),
+          steps: stepsDataFilled.map(r => ({
+            fullDate: r.date,
+            date: formatDateLabel(r.date),
+            count: r.steps_total || null,
+            time: r.date
+          })),
+          bp: (() => {
+            const bpByDate = new Map<string, any[]>();
+            (bpData || []).forEach(r => {
+              const d = r.reading_date;
+              if (!bpByDate.has(d)) bpByDate.set(d, []);
+              bpByDate.get(d)?.push(r);
+            });
+            const allDates = eachDayOfInterval({ start: from, end: to });
+            const bpDataFilled: any[] = [];
+            allDates.forEach(dateObj => {
+              const dateStr = format(dateObj, 'yyyy-MM-dd');
+              const readings = bpByDate.get(dateStr);
+              if (readings && readings.length > 0) {
+                const sortedReadings = [...readings].sort((a, b) => a.reading_time.localeCompare(b.reading_time));
+                sortedReadings.forEach(r => {
+                  bpDataFilled.push({
+                    fullDate: r.reading_date,
+                    time: `${r.reading_date}T${r.reading_time}`, // ISO formatish
+                    date: `${formatDateLabel(r.reading_date)} ${r.reading_time.substring(0, 5)}`,
+                    systolic: r.systolic,
+                    diastolic: r.diastolic,
+                    pulse: r.pulse
+                  });
+                });
+              } else {
+                bpDataFilled.push({
+                  fullDate: dateStr,
+                  time: dateStr,
+                  date: formatDateLabel(dateStr),
+                  systolic: null, diastolic: null, pulse: null
+                });
+              }
+            });
+            return bpDataFilled;
+          })()
+        };
+        setAdminVitals(newVitals);
+      } catch (e) {
+        console.error("Error fetching admin vitals", e);
+      } finally {
+        setAdminVitalsLoading(false);
+      }
+    }
+    fetchAdminVitals();
+  }, [patientId]);
 
   useEffect(() => {
     async function syncIfDefault() {
@@ -54,19 +165,21 @@ const Dashboard = () => {
     }
     syncIfDefault()
   }, [patientId, infoQuery.data])
-  // Use monthly data for the charts to match Admin dashboard style (approx 30 days)
-  const vitalsQuery = useQuery({ queryKey: ["patient-vitals", patientId, "monthly"], queryFn: () => getPatientVitals(patientId, "monthly"), refetchOnWindowFocus: false, enabled: !!patientId });
-  // Keep hourly query for calculating "Last" values correctly
+
+  // Keep hourly query for calculating "Last" values correctly (small quick query)
   const vitalsHourlyQuery = useQuery({ queryKey: ["patient-vitals", patientId, "hourly"], queryFn: () => getPatientVitals(patientId, "hourly"), refetchOnWindowFocus: false, enabled: !!patientId });
+
   const summary = data?.summary || {};
   const hr = summary.heartRate ?? "--";
   const bpS = summary.bpSystolic ?? "--";
   const bpD = summary.bpDiastolic ?? "--";
+  const bpP = summary.bpPulse ?? "--";
   const weight = summary.weightKg ?? "--";
   const stepsToday = summary.stepsToday ?? "--";
   const distanceToday = summary.distanceToday ?? "--";
-  const vitals = vitalsQuery.data?.vitals || {};
+
   const vitalsHourly = vitalsHourlyQuery.data?.vitals || {};
+
   const latestTime = (arr?: Array<{ time: string }>) => {
     if (!arr || arr.length === 0) return undefined;
     let max: Date | undefined;
@@ -80,6 +193,7 @@ const Dashboard = () => {
     }
     return max;
   };
+
   const formatDayFriendly = (dt?: Date, src?: Array<{ time: string }>) => {
     if (!dt) return "--";
     const isDateOnly = !!(src && src.some((x: any) => typeof x?.time === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.time)));
@@ -89,16 +203,16 @@ const Dashboard = () => {
     }
     return formatDistanceToNow(dt, { addSuffix: true });
   };
-  const lastHr = latestTime((vitalsHourly.hr as any) || (vitals.hr as any));
-  const lastBp = latestTime(vitals.bp as any);
-  const lastWeight = latestTime(vitals.weight as any);
-  const lastSteps = latestTime((vitalsHourly.steps as any) || (vitals.steps as any));
+
+  const lastHr = latestTime((vitalsHourly.hr as any));
+  const lastBp = latestTime((vitalsHourly.bp as any)); // Using hourly for latest
+  const lastWeight = latestTime((vitalsHourly.weight as any));
+  const lastSteps = latestTime((vitalsHourly.steps as any));
+
   const lastAny = [lastHr, lastBp, lastWeight, lastSteps].filter(Boolean).sort((a: any, b: any) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
   const lastSyncFromSummary = summary.lastSyncTs ? new Date(summary.lastSyncTs) : undefined;
   const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
   const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : (summary.lastSyncTs || "unknown");
-
-
 
   return (
     <div className="min-h-screen bg-background">
@@ -132,7 +246,11 @@ const Dashboard = () => {
               <Plus className="w-6 h-6" />
               Collect Data
             </Button>
-            <Button size="lg" className="w-full h-20 text-lg gap-3" variant="secondary" onClick={() => navigate("/vitals")}>
+            <Button
+              size="lg"
+              className="w-full h-20 text-lg gap-3 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => navigate("/vitals")}
+            >
               <Camera className="w-6 h-6" />
               Capture Blood Pressure
             </Button>
@@ -168,7 +286,7 @@ const Dashboard = () => {
                 {isLoading ? (
                   <Skeleton className="h-6 w-28" />
                 ) : (
-                  <p className="text-2xl font-bold text-foreground">{bpS}/{bpD}</p>
+                  <p className="text-2xl font-bold text-foreground">{bpS}/{bpD}/{bpP}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -192,7 +310,7 @@ const Dashboard = () => {
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
-                  <span>Last: {formatDayFriendly(lastWeight, vitals.weight as any)}</span>
+                  <span>Last: {formatDayFriendly(lastWeight, vitalsHourly.weight as any)}</span>
                 </div>
               </div>
               <div className="p-3 bg-warning/10 rounded-full">
@@ -244,7 +362,7 @@ const Dashboard = () => {
 
         {/* Vital Trends - Full Width */}
         <div className="mb-8">
-          <PatientAdminCharts vitals={vitals} />
+          <PatientAdminCharts vitals={adminVitals} />
         </div>
       </div>
       <ThemeToggle />
