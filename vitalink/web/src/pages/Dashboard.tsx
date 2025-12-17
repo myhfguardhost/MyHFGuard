@@ -50,7 +50,7 @@ const Dashboard = () => {
       try {
         await fetch(`${serverUrl()}/admin/ensure-patient`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patientId, firstName, lastName, dateOfBirth }) })
         infoQuery.refetch()
-      } catch (_) {}
+      } catch (_) { }
     }
     syncIfDefault()
   }, [patientId, infoQuery.data])
@@ -95,7 +95,7 @@ const Dashboard = () => {
   const lastSyncFromSummary = summary.lastSyncTs ? new Date(summary.lastSyncTs) : undefined;
   const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
   const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : (summary.lastSyncTs || "unknown");
-  
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -128,7 +128,7 @@ const Dashboard = () => {
               <Plus className="w-6 h-6" />
               Collect Data
             </Button>
-            <Button size="lg" className="w-full h-20 text-lg gap-3" variant="secondary" onClick={() => navigate(patientId ? `/self-check?patientId=${encodeURIComponent(patientId)}` : "/self-check")}>
+            <Button size="lg" className="w-full h-20 text-lg gap-3" variant="secondary" onClick={() => navigate("/vitals")}>
               <Camera className="w-6 h-6" />
               Capture Blood Pressure
             </Button>
