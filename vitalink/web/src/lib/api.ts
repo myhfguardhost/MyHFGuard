@@ -21,6 +21,7 @@ export type PatientSummary = {
   heartRate?: number
   bpSystolic?: number
   bpDiastolic?: number
+  bpPulse?: number
   weightKg?: number
   nextAppointmentDate?: string
   stepsToday?: number
