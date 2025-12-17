@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getPatientSummary, getPatientVitals, getPatientInfo, serverUrl } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import VitalsChart from "@/components/dashboard/VitalsChart";
+import PatientAdminCharts from "@/components/dashboard/PatientAdminCharts";
 import RecentReadings from "@/components/dashboard/RecentReadings";
 import QuickActions from "@/components/dashboard/QuickActions";
 import UpcomingReminders from "@/components/dashboard/UpcomingReminders";
@@ -54,7 +54,9 @@ const Dashboard = () => {
     }
     syncIfDefault()
   }, [patientId, infoQuery.data])
-  const vitalsQuery = useQuery({ queryKey: ["patient-vitals", patientId, "weekly"], queryFn: () => getPatientVitals(patientId, "weekly"), refetchOnWindowFocus: false, enabled: !!patientId });
+  // Use monthly data for the charts to match Admin dashboard style (approx 30 days)
+  const vitalsQuery = useQuery({ queryKey: ["patient-vitals", patientId, "monthly"], queryFn: () => getPatientVitals(patientId, "monthly"), refetchOnWindowFocus: false, enabled: !!patientId });
+  // Keep hourly query for calculating "Last" values correctly
   const vitalsHourlyQuery = useQuery({ queryKey: ["patient-vitals", patientId, "hourly"], queryFn: () => getPatientVitals(patientId, "hourly"), refetchOnWindowFocus: false, enabled: !!patientId });
   const summary = data?.summary || {};
   const hr = summary.heartRate ?? "--";
@@ -242,7 +244,7 @@ const Dashboard = () => {
 
         {/* Vital Trends - Full Width */}
         <div className="mb-8">
-          <VitalsChart patientId={patientId} />
+          <PatientAdminCharts vitals={vitals} />
         </div>
       </div>
       <ThemeToggle />

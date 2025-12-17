@@ -42,7 +42,7 @@ export type PatientVitals = {
   hr?: Array<{ time: string; min: number; avg: number; max: number }>
   spo2?: Array<{ time: string; min: number; avg: number; max: number }>
   steps?: Array<{ time: string; count: number }>
-  bp?: Array<{ time: string; systolic: number; diastolic: number }>
+  bp?: Array<{ time: string; systolic: number; diastolic: number; pulse: number }>
   weight?: Array<{ time: string; kg: number }>
 }
 
