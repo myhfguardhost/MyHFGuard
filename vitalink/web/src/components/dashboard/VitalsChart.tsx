@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Cell } from "recharts"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Cell, ReferenceLine } from "recharts"
 import { Activity, Droplet, Weight, TrendingUp, Heart, ChevronLeft, ChevronRight } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { getPatientVitals } from "@/lib/api"
@@ -45,127 +45,127 @@ const VitalsChart = ({ patientId }: Props) => {
   const weightSrc = timePeriod === "daily" ? weightSrcRaw.filter((r: any) => toDayKey(r.time) === selectedDay) : weightSrcRaw
   const hr = period !== "hourly"
     ? Object.entries(hrSrc.reduce((acc: Record<string, { min: number[]; avg: number[]; max: number[] }>, r: any) => {
-        const k = toDayKey(r.time)
-        const o = acc[k] || { min: [], avg: [], max: [] }
-        if (typeof r.min === "number") o.min.push(r.min)
-        if (typeof r.avg === "number") o.avg.push(r.avg)
-        if (typeof r.max === "number") o.max.push(r.max)
-        acc[k] = o
-        return acc
-      }, {})).map(([k, v]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a, b) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
-        .sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
+      const k = toDayKey(r.time)
+      const o = acc[k] || { min: [], avg: [], max: [] }
+      if (typeof r.min === "number") o.min.push(r.min)
+      if (typeof r.avg === "number") o.avg.push(r.avg)
+      if (typeof r.max === "number") o.max.push(r.max)
+      acc[k] = o
+      return acc
+    }, {})).map(([k, v]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a, b) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
+      .sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
     : hrSrc
   const spo2 = period !== "hourly"
     ? Object.entries(spo2Src.reduce((acc: Record<string, { min: number[]; avg: number[]; max: number[] }>, r: any) => {
-        const k = toDayKey(r.time)
-        const o = acc[k] || { min: [], avg: [], max: [] }
-        if (typeof r.min === "number") o.min.push(r.min)
-        if (typeof r.avg === "number") o.avg.push(r.avg)
-        if (typeof r.max === "number") o.max.push(r.max)
-        acc[k] = o
-        return acc
-      }, {})).map(([k, v]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a, b) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
-        .sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
+      const k = toDayKey(r.time)
+      const o = acc[k] || { min: [], avg: [], max: [] }
+      if (typeof r.min === "number") o.min.push(r.min)
+      if (typeof r.avg === "number") o.avg.push(r.avg)
+      if (typeof r.max === "number") o.max.push(r.max)
+      acc[k] = o
+      return acc
+    }, {})).map(([k, v]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a, b) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
+      .sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
     : spo2Src
   const hrWeeklyPadded = timePeriod === "weekly"
     ? (() => {
-        const baseArr = hr.length ? hr : hrSrc
-        const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
-        const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
-        const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(monday)
-          d.setDate(monday.getDate() + i)
-          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-          const v = byKey.get(k) || {}
-          out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
-        }
-        return out
-      })()
+      const baseArr = hr.length ? hr : hrSrc
+      const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
+      const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
+      const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        const v = byKey.get(k) || {}
+        out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
+      }
+      return out
+    })()
     : hr
   const spo2WeeklyPadded = timePeriod === "weekly"
     ? (() => {
-        const baseArr = spo2.length ? spo2 : spo2Src
-        const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
-        const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
-        const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(monday)
-          d.setDate(monday.getDate() + i)
-          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-          const v = byKey.get(k) || {}
-          out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
-        }
-        return out
-      })()
+      const baseArr = spo2.length ? spo2 : spo2Src
+      const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
+      const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
+      const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        const v = byKey.get(k) || {}
+        out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
+      }
+      return out
+    })()
     : spo2
   const hrMonthlyPadded = timePeriod === "monthly"
     ? (() => {
-        const baseArr = hr.length ? hr : hrSrc
-        const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
-        const lastDay = new Date(y, m + 1, 0).getDate()
-        const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
-        const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
-        for (let day = 1; day <= lastDay; day++) {
-          const d = new Date(y, m, day)
-          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-          const v = byKey.get(k) || {}
-          out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
-        }
-        return out
-      })()
+      const baseArr = hr.length ? hr : hrSrc
+      const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
+      const lastDay = new Date(y, m + 1, 0).getDate()
+      const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
+      const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
+      for (let day = 1; day <= lastDay; day++) {
+        const d = new Date(y, m, day)
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        const v = byKey.get(k) || {}
+        out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
+      }
+      return out
+    })()
     : hr
   const spo2MonthlyPadded = timePeriod === "monthly"
     ? (() => {
-        const baseArr = spo2.length ? spo2 : spo2Src
-        const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
-        const lastDay = new Date(y, m + 1, 0).getDate()
-        const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
-        const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
-        for (let day = 1; day <= lastDay; day++) {
-          const d = new Date(y, m, day)
-          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-          const v = byKey.get(k) || {}
-          out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
-        }
-        return out
-      })()
+      const baseArr = spo2.length ? spo2 : spo2Src
+      const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
+      const lastDay = new Date(y, m + 1, 0).getDate()
+      const byKey = new Map<string, { min?: number; avg?: number; max?: number }>(baseArr.map((d: any) => [String(d.time), { min: d.min, avg: d.avg, max: d.max }]))
+      const out: Array<{ time: string; min?: number; avg?: number; max?: number }> = []
+      for (let day = 1; day <= lastDay; day++) {
+        const d = new Date(y, m, day)
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        const v = byKey.get(k) || {}
+        out.push({ time: k, min: v.min, avg: v.avg, max: v.max })
+      }
+      return out
+    })()
     : spo2
   const stepsDayAgg = timePeriod === "weekly" || timePeriod === "monthly"
     ? Object.entries(stepsSrc.reduce((acc: Record<string, number>, r: any) => {
-        const k = toDayKey(r.time)
-        acc[k] = (acc[k] || 0) + (typeof r.count === "number" ? r.count : 0)
-        return acc
-      }, {})).map(([k, v]) => ({ time: k, count: v })).sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
-      : stepsSrc
+      const k = toDayKey(r.time)
+      acc[k] = (acc[k] || 0) + (typeof r.count === "number" ? r.count : 0)
+      return acc
+    }, {})).map(([k, v]) => ({ time: k, count: v })).sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
+    : stepsSrc
   const stepsWeeklyPadded = timePeriod === "weekly"
     ? (() => {
-        const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
-        const byKey = new Map<string, number>(stepsDayAgg.map((d: any) => [String(d.time), d.count]))
-        const out: Array<{ time: string; count?: number }> = []
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(monday)
-          d.setDate(monday.getDate() + i)
-          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-          out.push({ time: k, count: byKey.has(k) ? byKey.get(k) : undefined })
-        }
-        return out
-      })()
+      const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
+      const byKey = new Map<string, number>(stepsDayAgg.map((d: any) => [String(d.time), d.count]))
+      const out: Array<{ time: string; count?: number }> = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        out.push({ time: k, count: byKey.has(k) ? byKey.get(k) : undefined })
+      }
+      return out
+    })()
     : stepsSrc
   const stepsMonthlyPadded = timePeriod === "monthly"
     ? (() => {
-        const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
-        const first = new Date(y, m, 1)
-        const last = new Date(y, m + 1, 0)
-        const byKey = new Map<string, number>(stepsDayAgg.map((d: any) => [String(d.time), d.count]))
-        const out: Array<{ time: string; count?: number }> = []
-        for (let day = 1; day <= last.getDate(); day++) {
-          const d = new Date(y, m, day)
-          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-          out.push({ time: k, count: byKey.has(k) ? byKey.get(k) : undefined })
-        }
-        return out
-      })()
+      const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
+      const first = new Date(y, m, 1)
+      const last = new Date(y, m + 1, 0)
+      const byKey = new Map<string, number>(stepsDayAgg.map((d: any) => [String(d.time), d.count]))
+      const out: Array<{ time: string; count?: number }> = []
+      for (let day = 1; day <= last.getDate(); day++) {
+        const d = new Date(y, m, day)
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+        out.push({ time: k, count: byKey.has(k) ? byKey.get(k) : undefined })
+      }
+      return out
+    })()
     : stepsSrc
   const hrForMerge = timePeriod === "weekly" ? hrWeeklyPadded : (timePeriod === "monthly" ? hrMonthlyPadded : hr)
   const spo2ForMerge = timePeriod === "weekly" ? spo2WeeklyPadded : (timePeriod === "monthly" ? spo2MonthlyPadded : spo2)
@@ -182,26 +182,26 @@ const VitalsChart = ({ patientId }: Props) => {
   const hasWeightData = weight.length > 0
   const merged = (hrForMerge.length || spo2ForMerge.length)
     ? (hrForMerge.length >= spo2ForMerge.length
-        ? hrForMerge.map((h, i) => ({
-            date: h.time,
-            heartRate: h.avg,
-            heartRateMin: h.min,
-            heartRateMax: h.max,
-            restingHeartRate: (h as any).resting,
-            spo2: spo2ForMerge[i]?.avg,
-            spo2Min: spo2ForMerge[i]?.min,
-            spo2Max: spo2ForMerge[i]?.max,
-          }))
-        : spo2ForMerge.map((o, i) => ({
-            date: o.time,
-            heartRate: hrForMerge[i]?.avg,
-            heartRateMin: hrForMerge[i]?.min,
-            heartRateMax: hrForMerge[i]?.max,
-            restingHeartRate: (hrForMerge[i] as any)?.resting,
-            spo2: o.avg,
-            spo2Min: o.min,
-            spo2Max: o.max,
-          })))
+      ? hrForMerge.map((h, i) => ({
+        date: h.time,
+        heartRate: h.avg,
+        heartRateMin: h.min,
+        heartRateMax: h.max,
+        restingHeartRate: (h as any).resting,
+        spo2: spo2ForMerge[i]?.avg,
+        spo2Min: spo2ForMerge[i]?.min,
+        spo2Max: spo2ForMerge[i]?.max,
+      }))
+      : spo2ForMerge.map((o, i) => ({
+        date: o.time,
+        heartRate: hrForMerge[i]?.avg,
+        heartRateMin: hrForMerge[i]?.min,
+        heartRateMax: hrForMerge[i]?.max,
+        restingHeartRate: (hrForMerge[i] as any)?.resting,
+        spo2: o.avg,
+        spo2Min: o.min,
+        spo2Max: o.max,
+      })))
     : []
 
   const getDateRangeLabel = () => {
@@ -311,161 +311,164 @@ const VitalsChart = ({ patientId }: Props) => {
             </TabsList>
             <TabsContent value="heartRate">
               {hasHrData ? (
-              <>
-              <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={merged}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
-                    labelStyle={{ color: "hsl(var(--foreground))" }}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const d: any = payload[0].payload
-                        return (
-                          <div className="bg-card border border-border rounded-lg p-3">
-                            <p className="text-xs text-muted-foreground mb-2">{timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(d.date), "PP") : formatTimeHM(d.date)}</p>
-                            <p className="text-sm"><span className="text-chart-1">●</span> Max: {d.heartRateMax ?? "--"} bpm</p>
-                            <p className="text-sm"><span className="text-chart-2">●</span> Avg: {d.heartRate ?? "--"} bpm</p>
-                            <p className="text-sm"><span className="text-chart-3">●</span> Min: {d.heartRateMin ?? "--"} bpm</p>
-                          </div>
-                        )
+                <>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <ComposedChart data={merged}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
+                        labelStyle={{ color: "hsl(var(--foreground))" }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d: any = payload[0].payload
+                            return (
+                              <div className="bg-card border border-border rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-2">{timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(d.date), "PP") : formatTimeHM(d.date)}</p>
+                                <p className="text-sm"><span className="text-chart-1">●</span> Max: {d.heartRateMax ?? "--"} bpm</p>
+                                <p className="text-sm"><span className="text-chart-2">●</span> Avg: {d.heartRate ?? "--"} bpm</p>
+                                <p className="text-sm"><span className="text-chart-3">●</span> Min: {d.heartRateMin ?? "--"} bpm</p>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Line type="monotone" dataKey="heartRateMax" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} />
+                      <Line type="monotone" dataKey="heartRate" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} />
+                      <Line type="monotone" dataKey="heartRateMin" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <StatCard label="Min HR" value={calculateStats("heartRateMin").min} unit="bpm" />
+                    <StatCard label="Max HR" value={calculateStats("heartRateMax").max} unit="bpm" />
+                    <StatCard label="Average HR" value={calculateStats("heartRate").avg} unit="bpm" />
+                    <StatCard label="Resting HR" value={timePeriod === "daily" ? (() => {
+                      const hours = (vitals.hr || [])
+                      const night = hours
+                        .map((r: any) => ({ d: new Date(r.time as any), avg: r.avg, count: r.count }))
+                        .filter((x: any) => !Number.isNaN(x.d.getTime()) && x.d.getUTCHours() >= 0 && x.d.getUTCHours() <= 6 && (x.count || 0) >= 10)
+                        .sort((a: any, b: any) => a.d.getTime() - b.d.getTime())
+                      if (!night.length) return undefined
+                      let best = { score: Infinity, vals: [] as number[] }
+                      for (let i = 0; i < night.length; i++) {
+                        const w = [night[i], night[i + 1], night[i + 2]].filter(Boolean)
+                        if (w.length) {
+                          const score = w.reduce((s, x) => s + (x.avg || 0), 0) / w.length
+                          const vals = w.map(x => x.avg || 0).sort((a, b) => a - b)
+                          const mid = Math.floor(vals.length / 2)
+                          const median = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2
+                          if (score < best.score) best = { score, vals: [median] }
+                        }
                       }
-                      return null
-                    }}
-                  />
-                  <Line type="monotone" dataKey="heartRateMax" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} />
-                  <Line type="monotone" dataKey="heartRate" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} />
-                  <Line type="monotone" dataKey="heartRateMin" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <StatCard label="Min HR" value={calculateStats("heartRateMin").min} unit="bpm" />
-                <StatCard label="Max HR" value={calculateStats("heartRateMax").max} unit="bpm" />
-                <StatCard label="Average HR" value={calculateStats("heartRate").avg} unit="bpm" />
-                <StatCard label="Resting HR" value={timePeriod === "daily" ? (() => {
-                  const hours = (vitals.hr || [])
-                  const night = hours
-                    .map((r: any) => ({ d: new Date(r.time as any), avg: r.avg, count: r.count }))
-                    .filter((x: any) => !Number.isNaN(x.d.getTime()) && x.d.getUTCHours() >= 0 && x.d.getUTCHours() <= 6 && (x.count || 0) >= 10)
-                    .sort((a: any,b: any)=>a.d.getTime()-b.d.getTime())
-                  if (!night.length) return undefined
-                  let best = { score: Infinity, vals: [] as number[] }
-                  for (let i = 0; i < night.length; i++) {
-                    const w = [night[i], night[i+1], night[i+2]].filter(Boolean)
-                    if (w.length) {
-                      const score = w.reduce((s, x) => s + (x.avg || 0), 0) / w.length
-                      const vals = w.map(x => x.avg || 0).sort((a,b)=>a-b)
-                      const mid = Math.floor(vals.length/2)
-                      const median = vals.length % 2 ? vals[mid] : (vals[mid-1]+vals[mid])/2
-                      if (score < best.score) best = { score, vals: [median] }
-                    }
-                  }
-                  return best.vals.length ? Math.round(best.vals[0]) : undefined
-                })() : calculateStats("restingHeartRate").avg} unit="bpm" />
-              </div>
-              </>
+                      return best.vals.length ? Math.round(best.vals[0]) : undefined
+                    })() : calculateStats("restingHeartRate").avg} unit="bpm" />
+                  </div>
+                </>
               ) : (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
               )}
             </TabsContent>
             <TabsContent value="spo2">
               {hasSpo2Data ? (
-              <>
-              <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={merged}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={[90, 100]} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
-                    labelStyle={{ color: "hsl(var(--foreground))" }}
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const d: any = payload[0].payload
-                        return (
-                          <div className="bg-card border border-border rounded-lg p-3">
-                            <p className="text-xs text-muted-foreground mb-2">{timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(d.date), "PP") : formatTimeHM(d.date)}</p>
-                            <p className="text-sm"><span className="text-chart-1">●</span> Max: {d.spo2Max ?? "--"}%</p>
-                            <p className="text-sm"><span className="text-chart-2">●</span> Avg: {d.spo2 ?? "--"}%</p>
-                            <p className="text-sm"><span className="text-chart-3">●</span> Min: {d.spo2Min ?? "--"}%</p>
-                          </div>
-                        )
-                      }
-                      return null
-                    }}
-                  />
-                  <Line type="monotone" dataKey="spo2Max" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} />
-                  <Line type="monotone" dataKey="spo2" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} />
-                  <Line type="monotone" dataKey="spo2Min" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <StatCard label="Min SpO2" value={calculateStats("spo2Min").min} unit="%" />
-                <StatCard label="Max SpO2" value={calculateStats("spo2Max").max} unit="%" />
-                <StatCard label="Average SpO2" value={calculateStats("spo2").avg} unit="%" />
-              </div>
-              </>
+                <>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <ComposedChart data={merged}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={[90, 100]} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
+                        labelStyle={{ color: "hsl(var(--foreground))" }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d: any = payload[0].payload
+                            return (
+                              <div className="bg-card border border-border rounded-lg p-3">
+                                <p className="text-xs text-muted-foreground mb-2">{timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(d.date), "PP") : formatTimeHM(d.date)}</p>
+                                <p className="text-sm"><span className="text-chart-1">●</span> Max: {d.spo2Max ?? "--"}%</p>
+                                <p className="text-sm"><span className="text-chart-2">●</span> Avg: {d.spo2 ?? "--"}%</p>
+                                <p className="text-sm"><span className="text-chart-3">●</span> Min: {d.spo2Min ?? "--"}%</p>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Line type="monotone" dataKey="spo2Max" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} />
+                      <Line type="monotone" dataKey="spo2" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} />
+                      <Line type="monotone" dataKey="spo2Min" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <StatCard label="Min SpO2" value={calculateStats("spo2Min").min} unit="%" />
+                    <StatCard label="Max SpO2" value={calculateStats("spo2Max").max} unit="%" />
+                    <StatCard label="Average SpO2" value={calculateStats("spo2").avg} unit="%" />
+                  </div>
+                </>
               ) : (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
               )}
             </TabsContent>
             <TabsContent value="weight">
               {hasWeightData ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={weight}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number) => [`${value} kg`, ""]} labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))} />
-                  <Line type="monotone" dataKey="value" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 6 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart data={weight}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number) => [`${value} kg`, ""]} labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))} />
+                    <Line type="monotone" dataKey="value" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 6 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
               )}
             </TabsContent>
             <TabsContent value="steps">
               {stepsSelected.length ? (
-              <>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={stepsSelected.map((s: any) => ({ date: s.time, steps: s.count }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
-                    labelStyle={{ color: "hsl(var(--foreground))" }}
-                    formatter={(value: number) => [`${value} steps`, ""]}
-                    labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))}
-                  />
-                  <Bar dataKey="steps" fill="hsl(var(--chart-2))" />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <StatCard label="Min Steps" value={stepsMin} />
-                <StatCard label="Max Steps" value={stepsMax} />
-              <StatCard label="Average Steps" value={stepsAvg} />
-              </div>
-              </>
+                <>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={stepsSelected.map((s: any) => ({ date: s.time, steps: s.count }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
+                        labelStyle={{ color: "hsl(var(--foreground))" }}
+                        formatter={(value: number) => [`${value} steps`, ""]}
+                        labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))}
+                      />
+                      <Bar dataKey="steps" fill="hsl(var(--chart-2))" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <StatCard label="Min Steps" value={stepsMin} />
+                    <StatCard label="Max Steps" value={stepsMax} />
+                    <StatCard label="Average Steps" value={stepsAvg} />
+                  </div>
+                </>
               ) : (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
               )}
             </TabsContent>
             <TabsContent value="bloodPressure">
               {hasBpData ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={bp}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number, name: string) => [`${value}${name === 'pulse' ? ' bpm' : ''}`, name === 'sys' ? 'Systolic' : (name === 'dia' ? 'Diastolic' : 'Pulse')]} labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))} />
-                  <Line type="monotone" dataKey="sys" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-1))", r: 6 }} />
-                  <Line type="monotone" dataKey="dia" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-3))", r: 6 }} />
-                  <Line type="monotone" dataKey="pulse" stroke="transparent" strokeWidth={0} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
+                <ResponsiveContainer width="100%" height={320}>
+                  <ComposedChart data={bp}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={[40, 200]} />
+                    <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number, name: string) => [`${value}${name === 'pulse' ? ' bpm' : ''}`, name === 'sys' ? 'Systolic' : (name === 'dia' ? 'Diastolic' : 'Pulse')]} labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))} />
+                    <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
+                    <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
+
+                    <Line type="monotone" dataKey="sys" stroke="#8884d8" strokeWidth={3} name="Systolic" dot={{ fill: "#8884d8", r: 4 }} />
+                    <Line type="monotone" dataKey="dia" stroke="#82ca9d" strokeWidth={3} name="Diastolic" dot={{ fill: "#82ca9d", r: 4 }} />
+                    <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} name="Pulse" dot={{ fill: "#ffc658", r: 4 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
               )}

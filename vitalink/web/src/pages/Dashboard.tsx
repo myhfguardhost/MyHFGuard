@@ -50,7 +50,7 @@ const Dashboard = () => {
       try {
         await fetch(`${serverUrl()}/admin/ensure-patient`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patientId, firstName, lastName, dateOfBirth }) })
         infoQuery.refetch()
-      } catch (_) {}
+      } catch (_) { }
     }
     syncIfDefault()
   }, [patientId, infoQuery.data])
@@ -92,6 +92,10 @@ const Dashboard = () => {
   const lastWeight = latestTime(vitals.weight as any);
   const lastSteps = latestTime((vitalsHourly.steps as any) || (vitals.steps as any));
   const lastAny = [lastHr, lastBp, lastWeight, lastSteps].filter(Boolean).sort((a: any, b: any) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
+  const lastSyncFromSummary = summary.lastSyncTs ? new Date(summary.lastSyncTs) : undefined;
+  const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
+  const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : (summary.lastSyncTs || "unknown");
+
   const lastSync = lastAny;
   const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : "unknown";
   
@@ -127,7 +131,7 @@ const Dashboard = () => {
               <Plus className="w-6 h-6" />
               Collect Data
             </Button>
-            <Button size="lg" className="w-full h-20 text-lg gap-3" variant="secondary" onClick={() => navigate(patientId ? `/self-check?patientId=${encodeURIComponent(patientId)}` : "/self-check")}>
+            <Button size="lg" className="w-full h-20 text-lg gap-3" variant="secondary" onClick={() => navigate("/vitals")}>
               <Camera className="w-6 h-6" />
               Capture Blood Pressure
             </Button>

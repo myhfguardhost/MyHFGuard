@@ -14,7 +14,6 @@ const navItems = [
   { to: "/vitals", label: "Vitals", icon: Activity },
   { to: "/ai-assistant", label: "AI Assistant", icon: Bot },
   { to: "/education", label: "Education", icon: BookOpen },
-  { to: "/admin/patients", label: "Admin", icon: LayoutDashboard }, // Assuming reusing icon or use another if available
 ]
 
 export default function Navigation() {
