@@ -640,7 +640,7 @@ app.get('/patient/summary', async (req, res) => {
   const srow = (st.data && st.data[0]) || null
   const dist = await supabase.from('distance_day').select('date,meters_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   const drow = (dist.data && dist.data[0]) || null
-  const bp = await supabase.from('bp_readings').select('systolic,diastolic').eq('patient_id', pid).order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(1)
+  const bp = await supabase.from('bp_readings').select('systolic,diastolic,pulse').eq('patient_id', pid).order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(1)
   const bpRow = (bp.data && bp.data[0]) || null
   let lastSyncTs = null
   try {
@@ -670,6 +670,7 @@ app.get('/patient/summary', async (req, res) => {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
     bpSystolic: bpRow ? bpRow.systolic : null,
     bpDiastolic: bpRow ? bpRow.diastolic : null,
+    bpPulse: bpRow ? bpRow.pulse : null,
     weightKg: null,
     nextAppointmentDate: null,
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
