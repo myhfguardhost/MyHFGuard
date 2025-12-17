@@ -41,18 +41,24 @@ import android.app.NotificationManager
 import androidx.core.app.NotificationManagerCompat
 import android.content.pm.PackageManager
 import android.Manifest
+import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var client: HealthConnectClient
     private lateinit var http: OkHttpClient
     private lateinit var baseUrl: String
+    private lateinit var supabase: SupabaseClient
+    
     private fun currentPatientId(): String {
         val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
         return sp.getString("patientId", null) ?: ""
     }
     private val originId = "android_health_connect"
-    private val permissions: Set<String> = setOf(
+    private val permissions: Set<HealthPermission> = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
@@ -60,7 +66,7 @@ class MainActivity : AppCompatActivity() {
     )
     private val requestPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
-    ) { granted: Set<String> ->
+    ) { granted: Set<HealthPermission> ->
         lifecycleScope.launch {
             val txt = findViewById<TextView>(R.id.txtOutput)
             txt.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
@@ -68,6 +74,12 @@ class MainActivity : AppCompatActivity() {
             if (ok) {
                 val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
                 sp.edit().putBoolean("first_time_setup", false).apply()
+            }
+            if (hrSamplesStats != null) {
+                val min = hrSamplesStats.first.first
+                val max = hrSamplesStats.first.second
+                val avg = hrSamplesStats.second
+                status = status + "; hr_stats=min " + min + ", max " + max + ", avg " + avg
             }
             applyPermissionsUI(ok)
         }
@@ -78,12 +90,56 @@ class MainActivity : AppCompatActivity() {
         setTheme(android.R.style.Theme_Material_Light_NoActionBar)
         super.onCreate(savedInstanceState)
         
+        // Initialize Supabase
+        val supabaseUrl = getString(R.string.supabase_url)
+        val supabaseKey = getString(R.string.supabase_anon_key)
+        supabase = createSupabaseClient(
+            supabaseUrl = supabaseUrl,
+            supabaseKey = supabaseKey
+        ) {
+            install(Auth)
+        }
+        
+        // Check if user is logged in (check SharedPreferences first for quick check)
+        val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
+        val patientId = sp.getString("patientId", null)
+        if (patientId.isNullOrEmpty()) {
+            // No patient ID, redirect to login
+            startActivity(android.content.Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
+        
         setContentView(R.layout.activity_main)
+        
+        // Verify session in background
+        lifecycleScope.launch {
+            try {
+                val session = supabase.auth.currentSessionOrNull()
+                if (session == null) {
+                    // Session expired, redirect to login
+                    sp.edit().remove("patientId").remove("supabaseAccessToken").apply()
+                    startActivity(android.content.Intent(this@MainActivity, LoginActivity::class.java))
+                    finish()
+                    return@launch
+                }
+                
+                // Save access token if available
+                val token = session.accessToken?.toString()
+                if (!token.isNullOrEmpty()) {
+                    sp.edit().putString("supabaseAccessToken", token).apply()
+                }
+            } catch (e: Exception) {
+                // If session check fails, redirect to login
+                sp.edit().remove("patientId").remove("supabaseAccessToken").apply()
+                startActivity(android.content.Intent(this@MainActivity, LoginActivity::class.java))
+                finish()
+            }
+        }
 
         // Setup top navigation
         val txtWelcomeName = findViewById<TextView>(R.id.txtWelcomeName)
         val btnSettings = findViewById<android.widget.ImageButton>(R.id.btnSettings)
-        val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
         txtWelcomeName.text = getString(R.string.app_name)
 
         btnSettings.setOnClickListener {
@@ -152,7 +208,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         cardRead.setOnClickListener {
-            lifecycleScope.launch { 
+            lifecycleScope.launch {
+                val granted = client.permissionController.getGrantedPermissions()
+                if (!granted.containsAll(permissions)) {
+                    requestPermissions.launch(permissions)
+                    return@launch
+                }
                 ensurePatientExists()
                 readMetricsAndShow(txt)
                 updateLastHourHrLabel()
@@ -870,16 +931,13 @@ class MainActivity : AppCompatActivity() {
         }
         val stepsJson = "[" + stepsItems.joinToString(",") + "]"
         val distanceJson = "[" + distanceItems.joinToString(",") + "]"
-        val hrJson = "[" + hrItems.joinToString(",") + "]"
         val spo2Json = "[" + spo2Items.joinToString(",") + "]"
         val jsonType = "application/json".toMediaType()
         val stepsBody: RequestBody = stepsJson.toRequestBody(jsonType)
         val distanceBody: RequestBody = distanceJson.toRequestBody(jsonType)
-        val hrBody: RequestBody = hrJson.toRequestBody(jsonType)
         val spo2Body: RequestBody = spo2Json.toRequestBody(jsonType)
         val stepsReq = Request.Builder().url(baseUrl + "/ingest/steps-events").post(stepsBody).build()
         val distanceReq = Request.Builder().url(baseUrl + "/ingest/distance-events").post(distanceBody).build()
-        val hrReq = Request.Builder().url(baseUrl + "/ingest/hr-samples").post(hrBody).build()
         val spo2Req = Request.Builder().url(baseUrl + "/ingest/spo2-samples").post(spo2Body).build()
         // Always save to local DB first (for offline backup)
         val db = LocalDb.get(this@MainActivity)
@@ -928,6 +986,22 @@ class MainActivity : AppCompatActivity() {
             val distanceCount = distanceItems.size
             val hrCount = hrItems.size
             val spo2Count = spo2Items.size
+            val hrSamplesStats = if (hrToday.isNotEmpty()) {
+                var min = Int.MAX_VALUE
+                var max = Int.MIN_VALUE
+                var sum = 0
+                var c = 0
+                hrToday.forEach { rec ->
+                    rec.samples.forEach { s ->
+                        min = kotlin.math.min(min, s.beatsPerMinute)
+                        max = kotlin.math.max(max, s.beatsPerMinute)
+                        sum += s.beatsPerMinute
+                        c += 1
+                    }
+                }
+                val avg = if (c > 0) sum / c else 0
+                Pair(Pair(min, max), avg)
+            } else null
             var stepsSynced = false
             var distanceSynced = false
             var hrSynced = false
@@ -969,23 +1043,36 @@ class MainActivity : AppCompatActivity() {
                 status = status + "; distance=" + distanceCount + ", error (saved locally)"
             }
             try {
-                val resp = http.newCall(hrReq).execute()
-                resp.use {
-                    if (it.code == 200) {
-                        status = status + "; hr=" + hrCount + ", code=200"
-                        hrSynced = true
-                        val uids = mutableListOf<String>()
-                        hrToday.forEach { rec ->
-                            rec.samples.forEach { s ->
-                                uids.add(patientId + "|" + originId + "|" + deviceId + "|" + s.time.toEpochMilli() + "|" + s.beatsPerMinute)
-                            }
+                val batchSize = 300
+                var sent = 0
+                var ok = true
+                while (sent < hrItems.size) {
+                    val end = kotlin.math.min(sent + batchSize, hrItems.size)
+                    val batch = "[" + hrItems.subList(sent, end).joinToString(",") + "]"
+                    val body = batch.toRequestBody(jsonType)
+                    val req = Request.Builder().url(baseUrl + "/ingest/hr-samples").post(body).build()
+                    val resp = http.newCall(req).execute()
+                    resp.use {
+                        if (it.code != 200) {
+                            val err = try { it.body?.string() ?: "" } catch (_: Exception) { "" }
+                            status = status + "; hr_batch=" + (end - sent) + ", code=" + it.code + if (err.isNotEmpty()) ", msg=" + err else ""
+                            ok = false
+                            break
                         }
-                        if (uids.isNotEmpty()) {
-                            dao.deleteHr(uids)
+                    }
+                    sent = end
+                }
+                if (ok) {
+                    status = status + "; hr=" + hrCount + ", code=200"
+                    hrSynced = true
+                    val uids = mutableListOf<String>()
+                    hrToday.forEach { rec ->
+                        rec.samples.forEach { s ->
+                            uids.add(patientId + "|" + originId + "|" + deviceId + "|" + s.time.toEpochMilli() + "|" + s.beatsPerMinute)
                         }
-                    } else {
-                        val err = try { it.body?.string() ?: "" } catch (_: Exception) { "" }
-                        status = status + "; hr=" + hrCount + ", code=" + it.code + if (err.isNotEmpty()) ", msg=" + err else ""
+                    }
+                    if (uids.isNotEmpty()) {
+                        dao.deleteHr(uids)
                     }
                 }
             } catch (_: Exception) {

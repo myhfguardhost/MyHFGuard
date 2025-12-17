@@ -1,0 +1,249 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.vitalink.connect"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.health.READ_STEPS" />
+11-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:2:5-75
+11-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:2:22-73
+12    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+12-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:3:5-78
+12-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:3:22-76
+13    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+13-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:4:5-80
+13-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:4:22-78
+14    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+14-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:5:5-87
+14-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:5:22-85
+15    <uses-permission android:name="android.permission.INTERNET" />
+15-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:6:5-66
+15-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:6:22-64
+16    <uses-permission android:name="android.permission.CAMERA" />
+16-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:7:5-64
+16-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:7:22-62
+17    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+17-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:8:5-76
+17-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:8:22-74
+18
+19    <permission
+19-->[androidx.core:core:1.13.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\fca540c7a8915307ba0a47f0be1e0707\transformed\core-1.13.1\AndroidManifest.xml:22:5-24:47
+20        android:name="com.vitalink.connect.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+20-->[androidx.core:core:1.13.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\fca540c7a8915307ba0a47f0be1e0707\transformed\core-1.13.1\AndroidManifest.xml:23:9-81
+21        android:protectionLevel="signature" />
+21-->[androidx.core:core:1.13.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\fca540c7a8915307ba0a47f0be1e0707\transformed\core-1.13.1\AndroidManifest.xml:24:9-44
+22
+23    <uses-permission android:name="com.vitalink.connect.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+23-->[androidx.core:core:1.13.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\fca540c7a8915307ba0a47f0be1e0707\transformed\core-1.13.1\AndroidManifest.xml:26:5-97
+23-->[androidx.core:core:1.13.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\fca540c7a8915307ba0a47f0be1e0707\transformed\core-1.13.1\AndroidManifest.xml:26:22-94
+24
+25    <application
+25-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:9:5-53:19
+26        android:name="com.vitalink.connect.VitalinkApplication"
+26-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:10:9-44
+27        android:allowBackup="true"
+27-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:14:9-35
+28        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+28-->[androidx.core:core:1.13.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\fca540c7a8915307ba0a47f0be1e0707\transformed\core-1.13.1\AndroidManifest.xml:28:18-86
+29        android:debuggable="true"
+30        android:extractNativeLibs="false"
+31        android:forceDarkAllowed="false"
+31-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:17:9-41
+32        android:icon="@android:drawable/sym_def_app_icon"
+32-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:13:9-58
+33        android:label="@string/app_name"
+33-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:12:9-41
+34        android:supportsRtl="true"
+34-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:15:9-35
+35        android:testOnly="true"
+36        android:theme="@style/Theme.Material3.Light.NoActionBar"
+36-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:16:9-65
+37        android:usesCleartextTraffic="true" >
+37-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:11:9-44
+38        <activity
+38-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:18:9-25:20
+39            android:name="com.vitalink.connect.LoginActivity"
+39-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:19:13-42
+40            android:exported="true" >
+40-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:20:13-36
+41            <intent-filter>
+41-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:21:13-24:29
+42                <action android:name="android.intent.action.MAIN" />
+42-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:22:17-68
+42-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:22:25-66
+43
+44                <category android:name="android.intent.category.LAUNCHER" />
+44-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:23:17-76
+44-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:23:27-74
+45            </intent-filter>
+46        </activity>
+47        <activity
+47-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:26:9-28:38
+48            android:name="com.vitalink.connect.RegisterActivity"
+48-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:27:13-45
+49            android:exported="true" />
+49-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:28:13-36
+50        <activity
+50-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:29:9-31:38
+51            android:name="com.vitalink.connect.MainActivity"
+51-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:30:13-41
+52            android:exported="true" />
+52-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:31:13-36
+53        <activity
+53-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:32:9-34:38
+54            android:name="com.vitalink.connect.SettingsActivity"
+54-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:33:13-45
+55            android:exported="true" />
+55-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:34:13-36
+56        <activity
+56-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:35:9-41:20
+57            android:name="com.vitalink.connect.PermissionsRationaleActivity"
+57-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:36:13-57
+58            android:exported="true" >
+58-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:37:13-36
+59            <intent-filter>
+59-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:38:13-40:29
+60                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+60-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:39:17-92
+60-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:39:25-89
+61            </intent-filter>
+62        </activity>
+63
+64        <activity-alias
+64-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:42:9-51:26
+65            android:name="com.vitalink.connect.ViewPermissionUsageActivity"
+65-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:43:13-55
+66            android:exported="true"
+66-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:44:13-36
+67            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+67-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:46:13-80
+68            android:targetActivity="com.vitalink.connect.PermissionsRationaleActivity" >
+68-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:45:13-67
+69            <intent-filter>
+69-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:47:13-50:29
+70                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+70-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:48:17-86
+70-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:48:25-83
+71
+72                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+72-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:49:17-87
+72-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:49:27-84
+73            </intent-filter>
+74        </activity-alias>
+75
+76        <receiver
+76-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:52:9-78
+77            android:name="com.vitalink.connect.ReminderReceiver"
+77-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:52:19-51
+78            android:exported="false" />
+78-->C:\Users\acyp2\OneDrive\Desktop\MyHFGuard-1\vitalink-connect\app\src\main\AndroidManifest.xml:52:52-76
+79
+80        <service
+80-->[androidx.health.connect:connect-client:1.2.0-alpha02] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\63ce1ea52fa1055c45202cab946ae62b\transformed\jetified-connect-client-1.2.0-alpha02\AndroidManifest.xml:24:9-32:19
+81            android:name="androidx.health.platform.client.impl.sdkservice.HealthDataSdkService"
+81-->[androidx.health.connect:connect-client:1.2.0-alpha02] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\63ce1ea52fa1055c45202cab946ae62b\transformed\jetified-connect-client-1.2.0-alpha02\AndroidManifest.xml:25:13-96
+82            android:enabled="true"
+82-->[androidx.health.connect:connect-client:1.2.0-alpha02] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\63ce1ea52fa1055c45202cab946ae62b\transformed\jetified-connect-client-1.2.0-alpha02\AndroidManifest.xml:26:13-35
+83            android:exported="true" >
+83-->[androidx.health.connect:connect-client:1.2.0-alpha02] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\63ce1ea52fa1055c45202cab946ae62b\transformed\jetified-connect-client-1.2.0-alpha02\AndroidManifest.xml:27:13-36
+84            <intent-filter>
+84-->[androidx.health.connect:connect-client:1.2.0-alpha02] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\63ce1ea52fa1055c45202cab946ae62b\transformed\jetified-connect-client-1.2.0-alpha02\AndroidManifest.xml:29:13-31:29
+85                <action android:name="androidx.health.platform.client.ACTION_BIND_SDK_SERVICE" />
+85-->[androidx.health.connect:connect-client:1.2.0-alpha02] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\63ce1ea52fa1055c45202cab946ae62b\transformed\jetified-connect-client-1.2.0-alpha02\AndroidManifest.xml:30:17-98
+85-->[androidx.health.connect:connect-client:1.2.0-alpha02] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\63ce1ea52fa1055c45202cab946ae62b\transformed\jetified-connect-client-1.2.0-alpha02\AndroidManifest.xml:30:25-95
+86            </intent-filter>
+87        </service>
+88
+89        <provider
+89-->[androidx.emoji2:emoji2:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\d1b6dd6ae98a7c4ef0d6a6b974398c6a\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:24:9-32:20
+90            android:name="androidx.startup.InitializationProvider"
+90-->[androidx.emoji2:emoji2:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\d1b6dd6ae98a7c4ef0d6a6b974398c6a\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:25:13-67
+91            android:authorities="com.vitalink.connect.androidx-startup"
+91-->[androidx.emoji2:emoji2:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\d1b6dd6ae98a7c4ef0d6a6b974398c6a\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:26:13-68
+92            android:exported="false" >
+92-->[androidx.emoji2:emoji2:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\d1b6dd6ae98a7c4ef0d6a6b974398c6a\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:27:13-37
+93            <meta-data
+93-->[androidx.emoji2:emoji2:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\d1b6dd6ae98a7c4ef0d6a6b974398c6a\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:29:13-31:52
+94                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+94-->[androidx.emoji2:emoji2:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\d1b6dd6ae98a7c4ef0d6a6b974398c6a\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:30:17-75
+95                android:value="androidx.startup" />
+95-->[androidx.emoji2:emoji2:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\d1b6dd6ae98a7c4ef0d6a6b974398c6a\transformed\jetified-emoji2-1.3.0\AndroidManifest.xml:31:17-49
+96            <meta-data
+96-->[io.github.jan-tennert.supabase:auth-kt-android-debug:3.1.3] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\7c50ee908048599aff45eaff20b2fe5a\transformed\jetified-auth-kt-debug\AndroidManifest.xml:14:13-16:52
+97                android:name="io.github.jan.supabase.auth.SupabaseInitializer"
+97-->[io.github.jan-tennert.supabase:auth-kt-android-debug:3.1.3] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\7c50ee908048599aff45eaff20b2fe5a\transformed\jetified-auth-kt-debug\AndroidManifest.xml:15:17-79
+98                android:value="androidx.startup" />
+98-->[io.github.jan-tennert.supabase:auth-kt-android-debug:3.1.3] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\7c50ee908048599aff45eaff20b2fe5a\transformed\jetified-auth-kt-debug\AndroidManifest.xml:16:17-49
+99            <meta-data
+99-->[androidx.lifecycle:lifecycle-process:2.8.7] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\1b83707bce20fb8389f03373a890b205\transformed\jetified-lifecycle-process-2.8.7\AndroidManifest.xml:29:13-31:52
+100                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+100-->[androidx.lifecycle:lifecycle-process:2.8.7] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\1b83707bce20fb8389f03373a890b205\transformed\jetified-lifecycle-process-2.8.7\AndroidManifest.xml:30:17-78
+101                android:value="androidx.startup" />
+101-->[androidx.lifecycle:lifecycle-process:2.8.7] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\1b83707bce20fb8389f03373a890b205\transformed\jetified-lifecycle-process-2.8.7\AndroidManifest.xml:31:17-49
+102            <meta-data
+102-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:29:13-31:52
+103                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:30:17-85
+104                android:value="androidx.startup" />
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:31:17-49
+105            <meta-data
+105-->[com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\1d9dac3e0e9863dfdbbb7ecdc82af7a4\transformed\jetified-multiplatform-settings-no-arg-debug\AndroidManifest.xml:29:13-31:52
+106                android:name="com.russhwolf.settings.SettingsInitializer"
+106-->[com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\1d9dac3e0e9863dfdbbb7ecdc82af7a4\transformed\jetified-multiplatform-settings-no-arg-debug\AndroidManifest.xml:30:17-74
+107                android:value="androidx.startup" />
+107-->[com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\1d9dac3e0e9863dfdbbb7ecdc82af7a4\transformed\jetified-multiplatform-settings-no-arg-debug\AndroidManifest.xml:31:17-49
+108        </provider>
+109
+110        <service
+110-->[androidx.room:room-runtime:2.6.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\15996223072e2e2bf254a21b7b9a9992\transformed\room-runtime-2.6.1\AndroidManifest.xml:24:9-28:63
+111            android:name="androidx.room.MultiInstanceInvalidationService"
+111-->[androidx.room:room-runtime:2.6.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\15996223072e2e2bf254a21b7b9a9992\transformed\room-runtime-2.6.1\AndroidManifest.xml:25:13-74
+112            android:directBootAware="true"
+112-->[androidx.room:room-runtime:2.6.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\15996223072e2e2bf254a21b7b9a9992\transformed\room-runtime-2.6.1\AndroidManifest.xml:26:13-43
+113            android:exported="false" />
+113-->[androidx.room:room-runtime:2.6.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\15996223072e2e2bf254a21b7b9a9992\transformed\room-runtime-2.6.1\AndroidManifest.xml:27:13-37
+114
+115        <receiver
+115-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:34:9-52:20
+116            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+116-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:35:13-76
+117            android:directBootAware="false"
+117-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:36:13-44
+118            android:enabled="true"
+118-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:37:13-35
+119            android:exported="true"
+119-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:38:13-36
+120            android:permission="android.permission.DUMP" >
+120-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:39:13-57
+121            <intent-filter>
+121-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:40:13-42:29
+122                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+122-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:17-91
+122-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:41:25-88
+123            </intent-filter>
+124            <intent-filter>
+124-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:43:13-45:29
+125                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+125-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:17-85
+125-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:44:25-82
+126            </intent-filter>
+127            <intent-filter>
+127-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:46:13-48:29
+128                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+128-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:17-88
+128-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:47:25-85
+129            </intent-filter>
+130            <intent-filter>
+130-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:49:13-51:29
+131                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+131-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:17-95
+131-->[androidx.profileinstaller:profileinstaller:1.3.1] C:\Users\acyp2\.gradle\caches\8.11.1\transforms\83cc723e3ea81deb694aaadc1fdb8478\transformed\jetified-profileinstaller-1.3.1\AndroidManifest.xml:50:25-92
+132            </intent-filter>
+133        </receiver>
+134    </application>
+135
+136</manifest>

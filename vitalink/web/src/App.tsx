@@ -21,6 +21,7 @@ import PatientList from "./pages/admin/PatientList"
 import PatientDetail from "./pages/admin/PatientDetail"
 import AdminLogin from "./pages/admin/AdminLogin"
 import SymptomChecker from "./pages/SymptomChecker"
+import AuthCallback from "./pages/AuthCallback"
 
 const queryClient = new QueryClient()
 
@@ -50,6 +51,7 @@ const App = () => (
 
             <Route path="/register" element={<Register />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </HashRouter>
