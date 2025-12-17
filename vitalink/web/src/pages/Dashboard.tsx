@@ -96,9 +96,8 @@ const Dashboard = () => {
   const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
   const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : (summary.lastSyncTs || "unknown");
 
-  const lastSync = lastAny;
-  const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : "unknown";
-  
+
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">

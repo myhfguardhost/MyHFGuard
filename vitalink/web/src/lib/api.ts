@@ -25,6 +25,7 @@ export type PatientSummary = {
   nextAppointmentDate?: string
   stepsToday?: number
   distanceToday?: number
+  lastSyncTs?: string
 }
 
 // removed implicit session-based patient id; caller must provide patientId explicitly
