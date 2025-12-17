@@ -458,9 +458,10 @@ const VitalsChart = ({ patientId }: Props) => {
                 <ResponsiveContainer width="100%" height={320}>
                   <ComposedChart data={bp}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "10px" }} tickFormatter={(v) => (timePeriod === "weekly" ? formatDate(new Date(v), "EEE dd") : (timePeriod === "monthly" ? formatDate(new Date(v), "dd") : formatTimeHM(v)))} angle={-15} textAnchor="end" height={50} />
                     <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={[40, 200]} />
                     <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number, name: string) => [`${value}${name === 'pulse' ? ' bpm' : ''}`, name === 'sys' ? 'Systolic' : (name === 'dia' ? 'Diastolic' : 'Pulse')]} labelFormatter={(label: string) => (timePeriod === "weekly" || timePeriod === "monthly" ? formatDate(new Date(label), "PP") : formatTimeHM(label))} />
+                    <Legend verticalAlign="top" height={36} />
                     <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
                     <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
 
