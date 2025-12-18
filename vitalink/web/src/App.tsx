@@ -22,6 +22,7 @@ import PatientDetail from "./pages/admin/PatientDetail"
 import AdminLogin from "./pages/admin/AdminLogin"
 import SymptomChecker from "./pages/SymptomChecker"
 import AuthCallback from "./pages/AuthCallback"
+import DebugVitals from "./pages/DebugVitals"
 
 const queryClient = new QueryClient()
 
@@ -43,6 +44,8 @@ const App = () => (
             <Route path="/medication" element={<RequireAuth><Medication /></RequireAuth>} />
             <Route path="/ai-assistant" element={<RequireAuth><SymptomChecker /></RequireAuth>} />
             <Route path="/contact" element={<RequireAuth><Contact /></RequireAuth>} />
+            <Route path="/debug-vitals" element={<RequireAuth><DebugVitals /></RequireAuth>} />
+            <Route path="/debug/vitals" element={<RequireAuth><DebugVitals /></RequireAuth>} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />

@@ -7,13 +7,13 @@ import { useQuery } from "@tanstack/react-query";
 import { getPatientSummary, getPatientVitals, getPatientInfo, serverUrl } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import PatientAdminCharts from "@/components/dashboard/PatientAdminCharts";
 import RecentReadings from "@/components/dashboard/RecentReadings";
 import QuickActions from "@/components/dashboard/QuickActions";
 import UpcomingReminders from "@/components/dashboard/UpcomingReminders";
 import ThemeToggle from "@/components/ThemeToggle";
+import VitalsChart from "@/components/dashboard/VitalsChart";
 import { supabase } from "@/lib/supabase";
-import { formatDistanceToNow, isYesterday, isToday, subMonths, startOfDay, endOfDay, eachDayOfInterval, format } from "date-fns";
+import { formatDistanceToNow, isYesterday, isToday } from "date-fns";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -21,10 +21,6 @@ const Dashboard = () => {
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("patientId") || undefined : undefined
   );
   const [showSyncNotice, setShowSyncNotice] = useState(true);
-
-  // State for admin-style vitals
-  const [adminVitals, setAdminVitals] = useState<any>({ hr: [], spo2: [], steps: [], bp: [] });
-  const [adminVitalsLoading, setAdminVitalsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -40,111 +36,6 @@ const Dashboard = () => {
 
   const { data, isLoading } = useQuery({ queryKey: ["patient-summary", patientId], queryFn: () => getPatientSummary(patientId), refetchOnWindowFocus: false, enabled: !!patientId });
   const infoQuery = useQuery({ queryKey: ["patient-info", patientId], queryFn: () => getPatientInfo(patientId), refetchOnWindowFocus: false, enabled: !!patientId });
-
-  // Fetch Admin-style vitals (Exact mirror of PatientDetail.tsx)
-  useEffect(() => {
-    async function fetchAdminVitals() {
-      if (!patientId) return;
-      setAdminVitalsLoading(true);
-      try {
-        const to = new Date();
-        const from = subMonths(to, 1);
-
-        // Format dates for Supabase (YYYY-MM-DD)
-        const startStr = format(startOfDay(from), 'yyyy-MM-dd');
-        const endStr = format(endOfDay(to), 'yyyy-MM-dd');
-
-        const { data: hrData } = await supabase.from('hr_day').select('*').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr).order('date', { ascending: false });
-        const { data: spo2Data } = await supabase.from('spo2_day').select('*').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr).order('date', { ascending: false });
-        const { data: stepsData } = await supabase.from('steps_day').select('*').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr).order('date', { ascending: false });
-        const { data: bpData } = await supabase.from('bp_readings').select('*').eq('patient_id', patientId).gte('reading_date', startStr).lte('reading_date', endStr).order('reading_date', { ascending: false }).order('reading_time', { ascending: false });
-
-        // Helper function to fill missing dates
-        const fillMissingDates = (data: any[], dateField: string) => {
-          const dataMap = new Map();
-          data.forEach(item => dataMap.set(item[dateField], item));
-          const allDates = eachDayOfInterval({ start: from, end: to });
-          return allDates.map(date => {
-            const dateStr = format(date, 'yyyy-MM-dd');
-            return dataMap.get(dateStr) || { [dateField]: dateStr };
-          });
-        };
-
-        const formatDateLabel = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-        const hrDataFilled = fillMissingDates(hrData || [], 'date');
-        const spo2DataFilled = fillMissingDates(spo2Data || [], 'date');
-        const stepsDataFilled = fillMissingDates(stepsData || [], 'date');
-
-        const newVitals = {
-          hr: hrDataFilled.map(r => ({
-            fullDate: r.date,
-            date: formatDateLabel(r.date),
-            min: r.hr_min || null,
-            avg: r.hr_avg || null,
-            max: r.hr_max || null,
-            // Match api.ts implicit structure if needed, or just use what PatientAdminCharts expects
-            time: r.date // Compat for charts expecting 'time' or 'date'
-          })),
-          spo2: spo2DataFilled.map(r => ({
-            fullDate: r.date,
-            date: formatDateLabel(r.date),
-            min: r.spo2_min || null,
-            avg: r.spo2_avg || null,
-            max: r.spo2_max || null,
-            time: r.date
-          })),
-          steps: stepsDataFilled.map(r => ({
-            fullDate: r.date,
-            date: formatDateLabel(r.date),
-            count: r.steps_total || null,
-            time: r.date
-          })),
-          bp: (() => {
-            const bpByDate = new Map<string, any[]>();
-            (bpData || []).forEach(r => {
-              const d = r.reading_date;
-              if (!bpByDate.has(d)) bpByDate.set(d, []);
-              bpByDate.get(d)?.push(r);
-            });
-            const allDates = eachDayOfInterval({ start: from, end: to });
-            const bpDataFilled: any[] = [];
-            allDates.forEach(dateObj => {
-              const dateStr = format(dateObj, 'yyyy-MM-dd');
-              const readings = bpByDate.get(dateStr);
-              if (readings && readings.length > 0) {
-                const sortedReadings = [...readings].sort((a, b) => a.reading_time.localeCompare(b.reading_time));
-                sortedReadings.forEach(r => {
-                  bpDataFilled.push({
-                    fullDate: r.reading_date,
-                    time: `${r.reading_date}T${r.reading_time}`, // ISO formatish
-                    date: `${formatDateLabel(r.reading_date)} ${r.reading_time.substring(0, 5)}`,
-                    systolic: r.systolic,
-                    diastolic: r.diastolic,
-                    pulse: r.pulse
-                  });
-                });
-              } else {
-                bpDataFilled.push({
-                  fullDate: dateStr,
-                  time: dateStr,
-                  date: formatDateLabel(dateStr),
-                  systolic: null, diastolic: null, pulse: null
-                });
-              }
-            });
-            return bpDataFilled;
-          })()
-        };
-        setAdminVitals(newVitals);
-      } catch (e) {
-        console.error("Error fetching admin vitals", e);
-      } finally {
-        setAdminVitalsLoading(false);
-      }
-    }
-    fetchAdminVitals();
-  }, [patientId]);
 
   useEffect(() => {
     async function syncIfDefault() {
@@ -360,9 +251,8 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Vital Trends - Full Width */}
         <div className="mb-8">
-          <PatientAdminCharts vitals={adminVitals} />
+          <VitalsChart patientId={patientId} />
         </div>
       </div>
       <ThemeToggle />

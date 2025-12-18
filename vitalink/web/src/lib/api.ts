@@ -57,7 +57,8 @@ export async function getPatientVitals(patientId?: string, period?: "hourly" | "
   const url = qp.length ? `${serverUrl()}/patient/vitals?${qp.join("&")}` : `${serverUrl()}/patient/vitals`
   const res = await fetch(url)
   if (!res.ok) return { vitals: {} as PatientVitals }
-  return res.json() as Promise<{ vitals: PatientVitals }>
+  const data = await res.json()
+  return { vitals: (data.vitals || data) as PatientVitals }
 }
 
 export type PatientReminders = Array<{ id: string; date: string; title: string; notes?: string }>
