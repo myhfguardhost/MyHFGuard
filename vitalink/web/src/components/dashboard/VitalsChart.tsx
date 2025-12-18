@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,13 @@ const VitalsChart = ({ patientId }: Props) => {
   const [timePeriod, setTimePeriod] = useState<"daily" | "weekly" | "monthly">("daily")
   const [currentPeriod, setCurrentPeriod] = useState(new Date())
   const period = timePeriod === "weekly" ? "weekly" : (timePeriod === "monthly" ? "monthly" : "hourly")
+
+  useEffect(() => {
+    if (timePeriod === "daily" && activeTab === "weight") {
+      setActiveTab("heartRate")
+    }
+  }, [timePeriod, activeTab])
+
   const { data, isLoading } = useQuery({
     queryKey: ["patient-vitals", patientId, period, formatDate(currentPeriod, "yyyy-MM-dd"), (0 - new Date().getTimezoneOffset())],
     queryFn: () => getPatientVitals(
@@ -41,11 +48,11 @@ const VitalsChart = ({ patientId }: Props) => {
   }
 
   const toDayKey = (t: string) => {
-    // Preserve date in UTC regardless of client tz
+    // Use local time for consistent bucketing with chart axes
     const hasTz = /Z|[+-]\d{2}:\d{2}$/.test(t)
     const d = new Date(hasTz ? t : (t + "Z"))
     if (isNaN(d.getTime())) return String(t)
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
   }
 
   const formatXAxis = (v: string) => {
@@ -289,8 +296,44 @@ const VitalsChart = ({ patientId }: Props) => {
   const stepsAvg = stepsNums.length ? Math.round(stepsNums.reduce((a: number, b: number) => a + b, 0) / stepsNums.length) : undefined
   const bp = bpSrc.map((r: any) => ({ date: r.time, sys: r.systolic, dia: r.diastolic, pulse: r.pulse }))
   const hasBpData = bp.length > 0
-  const weight = weightSrc.map((r: any) => ({ date: r.time, value: (typeof r.kg === "number" ? r.kg : (typeof r.weight === "number" ? r.weight : undefined)) }))
-  const hasWeightData = weight.length > 0
+
+  const weightWeeklyPadded = timePeriod === "weekly"
+    ? (() => {
+        const baseArr = weightSrc
+        const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
+        const byKey = new Map<string, number>(baseArr.map((d: any) => [toDayKey(d.time), (d.value !== undefined ? d.value : (typeof d.kg === "number" ? d.kg : (typeof d.weight === "number" ? d.weight : undefined)))]))
+        const out: Array<{ time: string; value?: number }> = []
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday)
+          d.setDate(monday.getDate() + i)
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+          out.push({ time: k, value: byKey.get(k) })
+        }
+        return out
+      })()
+    : weightSrc
+
+  const weightMonthlyPadded = timePeriod === "monthly"
+    ? (() => {
+        const baseArr = weightSrc
+        const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
+        const lastDay = new Date(y, m + 1, 0).getDate()
+        const byKey = new Map<string, number>(baseArr.map((d: any) => [toDayKey(d.time), (d.value !== undefined ? d.value : (typeof d.kg === "number" ? d.kg : (typeof d.weight === "number" ? d.weight : undefined)))]))
+        const out: Array<{ time: string; value?: number }> = []
+        for (let day = 1; day <= lastDay; day++) {
+          const d = new Date(y, m, day)
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+          out.push({ time: k, value: byKey.get(k) })
+        }
+        return out
+      })()
+    : weightSrc
+
+  const weight = (timePeriod === "weekly" ? weightWeeklyPadded : (timePeriod === "monthly" ? weightMonthlyPadded : weightSrc)).map((r: any) => ({
+      date: r.time,
+      value: r.value !== undefined ? r.value : (typeof r.kg === "number" ? r.kg : (typeof r.weight === "number" ? r.weight : undefined))
+  }))
+  const hasWeightData = weight.some((r: any) => r.value !== undefined)
   const merged = (hrForMerge.length || spo2ForMerge.length)
     ? (hrForMerge.length >= spo2ForMerge.length
         ? hrForMerge.map((h, i) => ({
@@ -413,10 +456,10 @@ const VitalsChart = ({ patientId }: Props) => {
           <div className="flex h-full items-center justify-center text-muted-foreground">Loading…</div>
         ) : merged.length ? (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-5 mb-6">
+            <TabsList className={`grid w-full mb-6 ${timePeriod === "daily" ? "grid-cols-4" : "grid-cols-5"}`}>
               <TabsTrigger value="heartRate">Heart Rate</TabsTrigger>
               <TabsTrigger value="spo2">SpO2</TabsTrigger>
-              <TabsTrigger value="weight">Weight</TabsTrigger>
+              {timePeriod !== "daily" && <TabsTrigger value="weight">Weight</TabsTrigger>}
               <TabsTrigger value="steps">Steps</TabsTrigger>
               <TabsTrigger value="bloodPressure">Blood Pressure</TabsTrigger>
             </TabsList>
@@ -525,13 +568,13 @@ const VitalsChart = ({ patientId }: Props) => {
             <TabsContent value="weight">
               {hasWeightData ? (
               <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={weight}>
+                <BarChart data={weight}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
-                  <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number) => [`${value} kg`, ""]} labelFormatter={formatTooltipLabel} />
-                  <Line type="monotone" dataKey="value" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-3))", r: 6 }} connectNulls={false} />
-                </ComposedChart>
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={['auto', 'auto']} />
+                  <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.2)' }} contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number) => [`${value} kg`, ""]} labelFormatter={formatTooltipLabel} />
+                  <Bar dataKey="value" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                </BarChart>
               </ResponsiveContainer>
               ) : (
                 <div className="flex h-40 items-center justify-center text-muted-foreground">No record</div>
@@ -551,7 +594,7 @@ const VitalsChart = ({ patientId }: Props) => {
                     formatter={(value: number) => [`${value} steps`, ""]}
                     labelFormatter={formatTooltipLabel}
                   />
-                  <Bar dataKey="steps" fill="hsl(var(--chart-2))" />
+                  <Bar dataKey="steps" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} maxBarSize={50} />
                 </BarChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-4 mt-6">
