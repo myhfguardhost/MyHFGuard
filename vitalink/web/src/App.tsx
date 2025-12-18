@@ -24,6 +24,8 @@ import SymptomChecker from "./pages/SymptomChecker"
 import AuthCallback from "./pages/AuthCallback"
 import DebugVitals from "./pages/DebugVitals"
 
+const ENABLE_DEBUG = (import.meta as any).env?.VITE_ENABLE_DEBUG === '1'
+
 const queryClient = new QueryClient()
 
 const App = () => (
@@ -44,8 +46,12 @@ const App = () => (
             <Route path="/medication" element={<RequireAuth><Medication /></RequireAuth>} />
             <Route path="/ai-assistant" element={<RequireAuth><SymptomChecker /></RequireAuth>} />
             <Route path="/contact" element={<RequireAuth><Contact /></RequireAuth>} />
-            <Route path="/debug-vitals" element={<RequireAuth><DebugVitals /></RequireAuth>} />
-            <Route path="/debug/vitals" element={<RequireAuth><DebugVitals /></RequireAuth>} />
+            {ENABLE_DEBUG && (
+              <>
+                <Route path="/debug-vitals" element={<RequireAuth><DebugVitals /></RequireAuth>} />
+                <Route path="/debug/vitals" element={<RequireAuth><DebugVitals /></RequireAuth>} />
+              </>
+            )}
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
