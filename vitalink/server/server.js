@@ -694,8 +694,9 @@ app.get('/patient/summary', async (req, res) => {
 })
 
 app.get('/patient/vitals', async (req, res) => {
-  const pid = (req.query && req.query.patientId)
-  const period = (req.query && req.query.period) || 'hourly'
+  try {
+    const pid = (req.query && req.query.patientId)
+    const period = (req.query && req.query.period) || 'hourly'
   const dateStr = (req.query && req.query.date) || null
   // Use 480 offset for Malaysia Time (UTC+8)
   const tzOffsetMin = 480
@@ -767,6 +768,15 @@ app.get('/patient/vitals', async (req, res) => {
       .order('reading_time', { ascending: true })
     if (bp.error) return res.status(400).json({ error: bp.error.message })
 
+    // Fetch weight using existing schema (kg_avg)
+    const weight = await supabase
+      .from('weight_day')
+      .select('date,kg_avg')
+      .eq('patient_id', pid)
+      .gte('date', startS)
+      .lte('date', endS)
+      .order('date', { ascending: true })
+
     const hrDays = (hr.data || [])
     // Calculate resting HR from hourly data for the week range
     let restingMap = new Map()
@@ -836,7 +846,7 @@ app.get('/patient/vitals', async (req, res) => {
         diastolic: r.diastolic,
         pulse: r.pulse
       })),
-      weight: [],
+      weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
     }
   } else if (period === 'monthly') {
     let start, end
@@ -886,6 +896,15 @@ app.get('/patient/vitals', async (req, res) => {
       .order('reading_date', { ascending: true })
       .order('reading_time', { ascending: true })
     if (bp.error) return res.status(400).json({ error: bp.error.message })
+
+    // Fetch weight using existing schema (kg_avg)
+    const weight = await supabase
+      .from('weight_day')
+      .select('date,kg_avg')
+      .eq('patient_id', pid)
+      .gte('date', startStr)
+      .lte('date', endStr)
+      .order('date', { ascending: true })
 
     const hrDays = (hr.data || [])
     let restingMap = new Map()
@@ -946,7 +965,7 @@ app.get('/patient/vitals', async (req, res) => {
         diastolic: r.diastolic,
         pulse: r.pulse
       })),
-      weight: [],
+      weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
     }
   } else {
     const date = (req.query && req.query.date) || null
@@ -970,6 +989,10 @@ app.get('/patient/vitals', async (req, res) => {
       .from('bp_readings')
       .select('reading_date,reading_time,systolic,diastolic,pulse')
       .eq('patient_id', pid)
+    let weightQ = supabase
+      .from('weight_day')
+      .select('date,kg_avg')
+      .eq('patient_id', pid)
 
     if (date) {
       // DB stores local time as UTC, so we query the date directly
@@ -981,11 +1004,13 @@ app.get('/patient/vitals', async (req, res) => {
       stepsQ = stepsQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
       const dateStr = date // YYYY-MM-DD
       bpQ = bpQ.eq('reading_date', dateStr).order('reading_time', { ascending: true })
+      weightQ = weightQ.eq('date', dateStr)
     } else {
       hrQ = hrQ.order('hour_ts', { ascending: false }).limit(24)
       spo2Q = spo2Q.order('hour_ts', { ascending: false }).limit(24)
       stepsQ = stepsQ.order('hour_ts', { ascending: false }).limit(24)
       bpQ = bpQ.order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(24)
+      weightQ = weightQ.order('date', { ascending: false }).limit(7)
     }
 
     const hr = await hrQ
@@ -996,12 +1021,11 @@ app.get('/patient/vitals', async (req, res) => {
     if (steps.error) return res.status(400).json({ error: steps.error.message })
     const bp = await bpQ
     if (bp.error) return res.status(400).json({ error: bp.error.message })
+    const weight = await weightQ
 
     let hrArr = date ? (hr.data || []) : (hr.data || []).reverse()
     let spo2Arr = date ? (spo2.data || []) : (spo2.data || []).reverse()
     let stepsArr = date ? (steps.data || []) : (steps.data || []).reverse()
-
-    if (hrArr.length > 0) console.log('[patient/vitals] first hr row:', hrArr[0])
 
     if (date && hrArr.length === 0 && spo2Arr.length === 0 && stepsArr.length === 0) {
       const hr2 = await supabase
@@ -1049,13 +1073,17 @@ app.get('/patient/vitals', async (req, res) => {
           pulse: r.pulse
         }))
         .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()),
-      weight: [],
+      weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
     }
   }
   console.log('[patient/vitals] response size', {
     hr: out.hr.length, spo2: out.spo2.length, steps: out.steps.length, bp: out.bp.length, weight: out.weight.length
   })
   return res.status(200).json({ vitals: out })
+  } catch (err) {
+    console.error('[patient/vitals] CRITICAL ERROR:', err)
+    return res.status(500).json({ error: 'Internal Server Error', details: err.message })
+  }
 })
 app.get('/admin/auth-generate-link', async (req, res) => {
   const email = req.query && req.query.email
@@ -1487,6 +1515,103 @@ app.post('/ingest/spo2-samples', async (req, res) => {
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 
+// Ingest weight samples (manual/self-check)
+app.post('/ingest/weight-samples', async (req, res) => {
+  const items = Array.isArray(req.body) ? req.body : [req.body]
+  if (!items.length) return res.status(200).json({ inserted: 0, upserted_day: 0 })
+  const patientId = items[0].patientId
+  const vp = await validatePatientId(patientId)
+  if (!vp.ok) return res.status(400).json({ error: `invalid patient: ${vp.error}` })
+
+  const origins = [...new Set(items.map((i) => i.originId).filter(Boolean))]
+  const devices = [...new Set(items.map((i) => i.deviceId).filter(Boolean))]
+  const info = { firstName: items[0] && items[0].firstName, lastName: items[0] && items[0].lastName, dateOfBirth: items[0] && items[0].dateOfBirth }
+  const ep = await ensurePatient(patientId, info)
+  if (!ep.ok) return res.status(400).json({ error: `patient upsert failed: ${ep.error}` })
+  const eo = await ensureOrigins(origins)
+  if (!eo.ok) return res.status(400).json({ error: `origin upsert failed: ${eo.error}` })
+  const ed = await ensureDevices(devices, patientId)
+  if (!ed.ok) return res.status(400).json({ error: `device upsert failed: ${ed.error}` })
+
+  const raw = items.map((i) => ({
+    patient_id: i.patientId,
+    origin_id: i.originId || 'manual',
+    device_id: i.deviceId || 'selfcheck',
+    time_ts: i.timeTs,
+    kg: i.kg,
+    record_uid: i.recordUid,
+  }))
+  const ins = await supabase.from('weight_sample').upsert(raw, { onConflict: 'record_uid', ignoreDuplicates: true })
+  if (ins.error) {
+    console.error('weight_sample upsert error', ins.error)
+    return res.status(400).json({ error: ins.error.message })
+  }
+
+  const dayAgg = new Map()
+  for (const i of items) {
+    const offset = i.tzOffsetMin || 0
+    const d = toDateWithOffset(i.timeTs, offset)
+    const dk = `${i.patientId}|${d}`
+    const da = dayAgg.get(dk) || { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY, sum: 0, count: 0 }
+    da.min = Math.min(da.min, i.kg)
+    da.max = Math.max(da.max, i.kg)
+    da.sum += i.kg
+    da.count += 1
+    dayAgg.set(dk, da)
+  }
+  const dayRows = []
+  for (const [k, a] of dayAgg) {
+    const [pid, d] = k.split('|')
+    const avg = a.count ? Math.round((a.sum / a.count) * 10) / 10 : 0
+    dayRows.push({ patient_id: pid, date: d, kg_min: a.min, kg_max: a.max, kg_avg: avg })
+  }
+  
+  // Use try/catch for weight_day to avoid blocking sample ingest
+  try {
+    const upd = await supabase.from('weight_day').upsert(dayRows, { onConflict: 'patient_id,date' })
+    if (upd.error) console.error('weight_day upsert error (non-fatal)', upd.error)
+  } catch (e) {
+    console.error('weight_day upsert exception', e)
+  }
+  
+  return res.status(200).json({ inserted: (ins.data || []).length, upserted_day: dayRows.length })
+})
+
+// Ingest symptom log (manual/self-check)
+app.post('/ingest/symptom-log', async (req, res) => {
+  const i = req.body || {}
+  if (!i || !i.patientId) return res.status(400).json({ error: 'missing patientId' })
+  const vp = await validatePatientId(i.patientId)
+  if (!vp.ok) return res.status(400).json({ error: `invalid patient: ${vp.error}` })
+
+  const info = { firstName: i.firstName, lastName: i.lastName, dateOfBirth: i.dateOfBirth }
+  const ep = await ensurePatient(i.patientId, info)
+  if (!ep.ok) return res.status(400).json({ error: `patient upsert failed: ${ep.error}` })
+
+  const offset = i.tzOffsetMin || 0
+  const dateStr = toDateWithOffset(i.timeTs || new Date().toISOString(), offset)
+  const raw = {
+    patient_id: i.patientId,
+    logged_at: i.timeTs || new Date().toISOString(),
+    date: dateStr,
+    cough: i.cough ?? 0,
+    sob_activity: i.breathlessness ?? 0,
+    leg_swelling: i.swelling ?? 0,
+    sudden_weight_gain: i.weightGain ?? 0,
+    abd_discomfort: i.abdomen ?? 0,
+    orthopnea: i.sleeping ?? 0,
+    notes: i.notes || '',
+    origin_id: i.originId || 'manual',
+    record_uid: i.recordUid,
+  }
+  const ins = await supabase.from('symptom_log').insert(raw)
+  if (ins.error) {
+    console.error('symptom_log insert error', ins.error)
+    return res.status(400).json({ error: ins.error.message })
+  }
+  return res.status(200).json({ inserted: 1 })
+})
+
 app.get('/debug-db', async (req, res) => {
   const pid = req.query.patientId
   if (!pid) return res.json({ error: 'missing patientId' })
@@ -1496,4 +1621,4 @@ app.get('/debug-db', async (req, res) => {
 })
 
 const port = process.env.PORT || 3001
-app.listen(port, () => process.stdout.write(`server:${port}\n`))
+const server = app.listen(port, () => process.stdout.write(`server:${port}\n`))

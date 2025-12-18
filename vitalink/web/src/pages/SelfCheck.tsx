@@ -54,12 +54,18 @@ const SelfCheck = () => {
     try {
       const kg = parseFloat(weightKg)
       const res = await postWeightSample({ patientId, kg })
+      if ((res as any)?.error) throw new Error((res as any).error)
       setToast({ type: 'success', message: 'Weight saved' })
       setTimeout(() => setToast(null), 3000)
       setWeightKg("")
+      // For development, we allow multiple submissions
       const today = new Date().toISOString().slice(0, 10)
       localStorage.setItem(`weight:lastDate:${patientId}`, today)
       setWeightSubmittedToday(true)
+    } catch (e: any) {
+      console.error(e)
+      setToast({ type: 'error', message: e.message || 'Failed to save weight' })
+      setTimeout(() => setToast(null), 3000)
     } finally {
       setSubmitting(false)
     }
@@ -72,9 +78,14 @@ const SelfCheck = () => {
       if ((res as any)?.error) throw new Error((res as any).error)
       setToast({ type: 'success', message: 'Symptoms saved' })
       setTimeout(() => setToast(null), 3000)
+      // For development, we allow multiple submissions
       const today = new Date().toISOString().slice(0, 10)
       localStorage.setItem(`symptoms:lastDate:${patientId}`, today)
       setSymptomsSubmittedToday(true)
+    } catch (e: any) {
+      console.error(e)
+      setToast({ type: 'error', message: e.message || 'Failed to save symptoms' })
+      setTimeout(() => setToast(null), 3000)
     } finally {
       setSubmitting(false)
     }
