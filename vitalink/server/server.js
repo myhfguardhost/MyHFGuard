@@ -1087,6 +1087,63 @@ app.get('/patient/vitals', async (req, res) => {
     return res.status(500).json({ error: 'Internal Server Error', details: err.message })
   }
 })
+
+// Patient Reminders
+app.get('/patient/reminders', async (req, res) => {
+  const pid = req.query && req.query.patientId
+  if (!pid) return res.status(400).json({ error: 'missing patientId' })
+  const r = await supabase.from('reminders').select('*').eq('patient_id', pid).order('due_ts', { ascending: true })
+  if (r.error) return res.status(400).json({ error: r.error.message })
+  const reminders = (r.data || []).map((x) => ({
+    id: x.id,
+    date: x.due_ts,
+    title: x.title,
+    notes: x.notes
+  }))
+  return res.status(200).json({ reminders })
+})
+
+app.post('/patient/reminders', async (req, res) => {
+  const { patientId, title, date, notes } = req.body
+  if (!patientId || !title || !date) return res.status(400).json({ error: 'missing fields' })
+  const raw = {
+    patient_id: patientId,
+    title,
+    type: 'general',
+    due_ts: date,
+    notes,
+    status: 'upcoming'
+  }
+  const r = await supabase.from('reminders').insert(raw).select()
+  if (r.error) return res.status(400).json({ error: r.error.message })
+  const row = r.data && r.data[0]
+  return res.status(200).json({ reminder: { id: row.id, date: row.due_ts, title: row.title, notes: row.notes } })
+})
+
+app.delete('/patient/reminders/:id', async (req, res) => {
+  const id = req.params.id
+  const pid = req.query.patientId
+  if (!id || !pid) return res.status(400).json({ error: 'missing id or patientId' })
+  const r = await supabase.from('reminders').delete().eq('id', id).eq('patient_id', pid)
+  if (r.error) return res.status(400).json({ error: r.error.message })
+  return res.status(200).json({ ok: true, id })
+})
+
+app.post('/patient/reminders-edit', async (req, res) => {
+  const { patientId, id, title, date, notes } = req.body
+  if (!patientId || !id) return res.status(400).json({ error: 'missing id' })
+  const updates = {}
+  if (title) updates.title = title
+  if (date) updates.due_ts = date
+  if (notes !== undefined) updates.notes = notes
+  updates.updated_at = new Date().toISOString()
+  
+  const r = await supabase.from('reminders').update(updates).eq('id', id).eq('patient_id', patientId).select()
+  if (r.error) return res.status(400).json({ error: r.error.message })
+  const row = r.data && r.data[0]
+  return res.status(200).json({ reminder: { id: row.id, date: row.due_ts, title: row.title, notes: row.notes } })
+})
+
 app.get('/admin/auth-generate-link', async (req, res) => {
   const email = req.query && req.query.email
   if (!email) return res.status(400).json({ error: 'missing email' })
