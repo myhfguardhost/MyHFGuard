@@ -52,6 +52,11 @@ const Login = () => {
           <CardDescription className="text-center">Enter your credentials to login</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex justify-end mb-4">
+            <Link to="/admin/login">
+              <Button variant="ghost" size="sm">Admin Login</Button>
+            </Link>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

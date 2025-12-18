@@ -7,11 +7,11 @@ import { useQuery } from "@tanstack/react-query";
 import { getPatientSummary, getPatientVitals, getPatientInfo, serverUrl } from "@/lib/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import VitalsChart from "@/components/dashboard/VitalsChart";
 import RecentReadings from "@/components/dashboard/RecentReadings";
 import QuickActions from "@/components/dashboard/QuickActions";
 import UpcomingReminders from "@/components/dashboard/UpcomingReminders";
 import ThemeToggle from "@/components/ThemeToggle";
+import VitalsChart from "@/components/dashboard/VitalsChart";
 import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow, isYesterday, isToday } from "date-fns";
 
@@ -21,6 +21,7 @@ const Dashboard = () => {
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("patientId") || undefined : undefined
   );
   const [showSyncNotice, setShowSyncNotice] = useState(true);
+
   useEffect(() => {
     let mounted = true;
     async function init() {
@@ -32,6 +33,7 @@ const Dashboard = () => {
     init();
     return () => { mounted = false };
   }, [patientId]);
+
   const { data, isLoading } = useQuery({ queryKey: ["patient-summary", patientId], queryFn: () => getPatientSummary(patientId), refetchOnWindowFocus: false, enabled: !!patientId });
   const infoQuery = useQuery({ queryKey: ["patient-info", patientId], queryFn: () => getPatientInfo(patientId), refetchOnWindowFocus: false, enabled: !!patientId });
 
@@ -50,21 +52,25 @@ const Dashboard = () => {
       try {
         await fetch(`${serverUrl()}/admin/ensure-patient`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ patientId, firstName, lastName, dateOfBirth }) })
         infoQuery.refetch()
-      } catch (_) {}
+      } catch (_) { }
     }
     syncIfDefault()
   }, [patientId, infoQuery.data])
-  const vitalsQuery = useQuery({ queryKey: ["patient-vitals", patientId, "weekly"], queryFn: () => getPatientVitals(patientId, "weekly"), refetchOnWindowFocus: false, enabled: !!patientId });
+
+  // Keep hourly query for calculating "Last" values correctly (small quick query)
   const vitalsHourlyQuery = useQuery({ queryKey: ["patient-vitals", patientId, "hourly"], queryFn: () => getPatientVitals(patientId, "hourly"), refetchOnWindowFocus: false, enabled: !!patientId });
+
   const summary = data?.summary || {};
   const hr = summary.heartRate ?? "--";
   const bpS = summary.bpSystolic ?? "--";
   const bpD = summary.bpDiastolic ?? "--";
+  const bpP = summary.bpPulse ?? "--";
   const weight = summary.weightKg ?? "--";
   const stepsToday = summary.stepsToday ?? "--";
   const distanceToday = summary.distanceToday ?? "--";
-  const vitals = vitalsQuery.data?.vitals || {};
+
   const vitalsHourly = vitalsHourlyQuery.data?.vitals || {};
+
   const latestTime = (arr?: Array<{ time: string }>) => {
     if (!arr || arr.length === 0) return undefined;
     let max: Date | undefined;
@@ -78,6 +84,7 @@ const Dashboard = () => {
     }
     return max;
   };
+
   const formatDayFriendly = (dt?: Date, src?: Array<{ time: string }>) => {
     if (!dt) return "--";
     const isDateOnly = !!(src && src.some((x: any) => typeof x?.time === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.time)));
@@ -87,14 +94,17 @@ const Dashboard = () => {
     }
     return formatDistanceToNow(dt, { addSuffix: true });
   };
-  const lastHr = latestTime((vitalsHourly.hr as any) || (vitals.hr as any));
-  const lastBp = latestTime(vitals.bp as any);
-  const lastWeight = latestTime(vitals.weight as any);
-  const lastSteps = latestTime((vitalsHourly.steps as any) || (vitals.steps as any));
+
+  const lastHr = latestTime((vitalsHourly.hr as any));
+  const lastBp = latestTime((vitalsHourly.bp as any)); // Using hourly for latest
+  const lastWeight = latestTime((vitalsHourly.weight as any));
+  const lastSteps = latestTime((vitalsHourly.steps as any));
+
   const lastAny = [lastHr, lastBp, lastWeight, lastSteps].filter(Boolean).sort((a: any, b: any) => (b as Date).getTime() - (a as Date).getTime())[0] as Date | undefined;
-  const lastSync = lastAny;
-  const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : "unknown";
-  
+  const lastSyncFromSummary = summary.lastSyncTs ? new Date(summary.lastSyncTs) : undefined;
+  const lastSync = lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime()) ? lastSyncFromSummary : lastAny;
+  const lastSyncDisplay = lastSync ? formatDistanceToNow(lastSync, { addSuffix: true }) : (summary.lastSyncTs || "unknown");
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -127,7 +137,11 @@ const Dashboard = () => {
               <Plus className="w-6 h-6" />
               Collect Data
             </Button>
-            <Button size="lg" className="w-full h-20 text-lg gap-3" variant="secondary" onClick={() => navigate(patientId ? `/self-check?patientId=${encodeURIComponent(patientId)}` : "/self-check")}>
+            <Button
+              size="lg"
+              className="w-full h-20 text-lg gap-3 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => navigate("/vitals")}
+            >
               <Camera className="w-6 h-6" />
               Capture Blood Pressure
             </Button>
@@ -163,7 +177,7 @@ const Dashboard = () => {
                 {isLoading ? (
                   <Skeleton className="h-6 w-28" />
                 ) : (
-                  <p className="text-2xl font-bold text-foreground">{bpS}/{bpD}</p>
+                  <p className="text-2xl font-bold text-foreground">{bpS}/{bpD}/{bpP}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -187,7 +201,7 @@ const Dashboard = () => {
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
-                  <span>Last: {formatDayFriendly(lastWeight, vitals.weight as any)}</span>
+                  <span>Last: {formatDayFriendly(lastWeight, vitalsHourly.weight as any)}</span>
                 </div>
               </div>
               <div className="p-3 bg-warning/10 rounded-full">
@@ -237,7 +251,6 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Vital Trends - Full Width */}
         <div className="mb-8">
           <VitalsChart patientId={patientId} />
         </div>

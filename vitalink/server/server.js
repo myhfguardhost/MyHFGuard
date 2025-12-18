@@ -652,6 +652,8 @@ app.get('/patient/summary', async (req, res) => {
   const srow = (st.data && st.data[0]) || null
   const dist = await supabase.from('distance_day').select('date,meters_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   const drow = (dist.data && dist.data[0]) || null
+  const bp = await supabase.from('bp_readings').select('systolic,diastolic,pulse').eq('patient_id', pid).order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(1)
+  const bpRow = (bp.data && bp.data[0]) || null
   let lastSyncTs = null
   try {
     const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
@@ -678,8 +680,9 @@ app.get('/patient/summary', async (req, res) => {
   }
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
-    bpSystolic: null,
-    bpDiastolic: null,
+    bpSystolic: bpRow ? bpRow.systolic : null,
+    bpDiastolic: bpRow ? bpRow.diastolic : null,
+    bpPulse: bpRow ? bpRow.pulse : null,
     weightKg: null,
     nextAppointmentDate: null,
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
@@ -963,6 +966,10 @@ app.get('/patient/vitals', async (req, res) => {
       .from('steps_hour')
       .select('hour_ts,steps_total')
       .eq('patient_id', pid)
+    let bpQ = supabase
+      .from('bp_readings')
+      .select('reading_date,reading_time,systolic,diastolic,pulse')
+      .eq('patient_id', pid)
 
     if (date) {
       // DB stores local time as UTC, so we query the date directly
@@ -972,10 +979,13 @@ app.get('/patient/vitals', async (req, res) => {
       hrQ = hrQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
       spo2Q = spo2Q.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
       stepsQ = stepsQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
+      const dateStr = date // YYYY-MM-DD
+      bpQ = bpQ.eq('reading_date', dateStr).order('reading_time', { ascending: true })
     } else {
       hrQ = hrQ.order('hour_ts', { ascending: false }).limit(24)
       spo2Q = spo2Q.order('hour_ts', { ascending: false }).limit(24)
       stepsQ = stepsQ.order('hour_ts', { ascending: false }).limit(24)
+      bpQ = bpQ.order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(24)
     }
 
     const hr = await hrQ
@@ -984,6 +994,9 @@ app.get('/patient/vitals', async (req, res) => {
     if (spo2.error) return res.status(400).json({ error: spo2.error.message })
     const steps = await stepsQ
     if (steps.error) return res.status(400).json({ error: steps.error.message })
+    const bp = await bpQ
+    if (bp.error) return res.status(400).json({ error: bp.error.message })
+
     let hrArr = date ? (hr.data || []) : (hr.data || []).reverse()
     let spo2Arr = date ? (spo2.data || []) : (spo2.data || []).reverse()
     let stepsArr = date ? (steps.data || []) : (steps.data || []).reverse()
@@ -1010,7 +1023,6 @@ app.get('/patient/vitals', async (req, res) => {
         .order('hour_ts', { ascending: false })
         .limit(72)
       const toLocalDay = (ts) => {
-        // ts is already local time
         const d = new Date(ts)
         const y = d.getUTCFullYear()
         const m = String(d.getUTCMonth() + 1).padStart(2, '0')
@@ -1021,9 +1033,6 @@ app.get('/patient/vitals', async (req, res) => {
       spo2Arr = (spo22.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
       stepsArr = (steps2.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
     }
-    // Helper to shift UTC timestamp to Malaysia Time (as ISO string)
-    // Since DB already stores local time as UTC (from ingestion), we strip 'Z'
-    // so the frontend treats it as floating local time
     const toMalaysiaTime = (ts) => {
       return ts ? ts.replace('Z', '') : ts
     }
@@ -1032,7 +1041,14 @@ app.get('/patient/vitals', async (req, res) => {
       hr: hrArr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), min: Math.round((r.hr_min ?? r.hr_avg) || 0), avg: Math.round(r.hr_avg || 0), max: Math.round((r.hr_max ?? r.hr_avg) || 0), count: r.hr_count })),
       spo2: spo2Arr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), min: Math.round((r.spo2_min ?? r.spo2_avg) || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round((r.spo2_max ?? r.spo2_avg) || 0) })),
       steps: stepsArr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), count: Math.round(r.steps_total || 0) })),
-      bp: [],
+      bp: (bp.data || [])
+        .map((r) => ({
+          time: `${r.reading_date}T${r.reading_time}`,
+          systolic: r.systolic,
+          diastolic: r.diastolic,
+          pulse: r.pulse
+        }))
+        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()),
       weight: [],
     }
   }

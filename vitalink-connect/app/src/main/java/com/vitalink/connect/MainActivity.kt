@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
         return sp.getString("patientId", null) ?: ""
     }
     private val originId = "android_health_connect"
-    private val permissions: Set<HealthPermission> = setOf(
+    private val permissions: Set<String> = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(HeartRateRecord::class),
@@ -66,7 +66,7 @@ class MainActivity : AppCompatActivity() {
     )
     private val requestPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
-    ) { granted: Set<HealthPermission> ->
+    ) { granted: Set<String> ->
         lifecycleScope.launch {
             val txt = findViewById<TextView>(R.id.txtOutput)
             txt.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
