@@ -654,6 +654,8 @@ app.get('/patient/summary', async (req, res) => {
   const drow = (dist.data && dist.data[0]) || null
   const bp = await supabase.from('bp_readings').select('systolic,diastolic,pulse').eq('patient_id', pid).order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(1)
   const bpRow = (bp.data && bp.data[0]) || null
+  const wt = await supabase.from('weight_day').select('date,kg_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
+  const wRow = (wt.data && wt.data[0]) || null
   let lastSyncTs = null
   try {
     const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
@@ -683,7 +685,7 @@ app.get('/patient/summary', async (req, res) => {
     bpSystolic: bpRow ? bpRow.systolic : null,
     bpDiastolic: bpRow ? bpRow.diastolic : null,
     bpPulse: bpRow ? bpRow.pulse : null,
-    weightKg: null,
+    weightKg: wRow ? wRow.kg_avg : null,
     nextAppointmentDate: null,
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
@@ -1622,3 +1624,10 @@ app.get('/debug-db', async (req, res) => {
 
 const port = process.env.PORT || 3001
 const server = app.listen(port, () => process.stdout.write(`server:${port}\n`))
+
+// Keep alive
+setInterval(() => {}, 60000)
+
+process.on('uncaughtException', (err) => {
+  console.error('[server] Uncaught:', err)
+})
