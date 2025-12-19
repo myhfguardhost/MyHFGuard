@@ -61,7 +61,11 @@ object ReminderScheduler {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val now = java.time.Instant.now().toEpochMilli()
         val eventMs = eventInstant.toEpochMilli()
-        val pairs = listOf(24 * 60 * 60 * 1000L to "Appointment tomorrow", 60 * 60 * 1000L to "Appointment in 1 hour")
+        val pairs = listOf(
+            24 * 60 * 60 * 1000L to "Appointment tomorrow",
+            60 * 60 * 1000L to "Appointment in 1 hour",
+            5 * 60 * 1000L to "Appointment in 5 minutes"
+        )
         for ((offset, prefix) in pairs) {
             val fireAt = eventMs - offset
             if (fireAt > now) {

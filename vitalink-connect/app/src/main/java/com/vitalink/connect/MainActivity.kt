@@ -75,15 +75,13 @@ class MainActivity : AppCompatActivity() {
                 val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
                 sp.edit().putBoolean("first_time_setup", false).apply()
             }
-            if (hrSamplesStats != null) {
-                val min = hrSamplesStats.first.first
-                val max = hrSamplesStats.first.second
-                val avg = hrSamplesStats.second
-                status = status + "; hr_stats=min " + min + ", max " + max + ", avg " + avg
-            }
             applyPermissionsUI(ok)
         }
     }
+
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _: Boolean -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Force light theme only - must be called before super.onCreate()
@@ -182,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         val interceptor = HttpLoggingInterceptor()
         interceptor.level = HttpLoggingInterceptor.Level.BASIC
         http = OkHttpClient.Builder().addInterceptor(interceptor).build()
-        baseUrl = getString(R.string.server_base_url)
+        baseUrl = getString(R.string.api_base_url)
         lifecycleScope.launch { ensurePatientExists() }
 
         fun updateUiForPermissions(grantedSet: Set<String>) {
@@ -193,6 +191,18 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val grantedInitial = client.permissionController.getGrantedPermissions()
             updateUiForPermissions(grantedInitial)
+        }
+
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                ReminderScheduler.refresh(this@MainActivity, http, baseUrl, currentPatientId())
+            } catch (_: Exception) {}
         }
 
         cardGrant.setOnClickListener {
@@ -221,6 +231,42 @@ class MainActivity : AppCompatActivity() {
                 updateHrDiagnostics()
                 syncTodayToServer()
                 refreshReminderNotifications()
+
+                // 1. Check Notification Permission (Android 13+) - Shows "Allow" popup
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+                    }
+                }
+                
+                // 2. Check Schedule Exact Alarm permission (Android 12+) - Opens Settings
+                if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    val am = getSystemService(android.app.AlarmManager::class.java)
+                    if (!am.canScheduleExactAlarms()) {
+                        withContext(Dispatchers.Main) {
+                            val dialog = android.app.AlertDialog.Builder(this@MainActivity)
+                                .setTitle("Permission Required")
+                                .setMessage("Please allow 'Alarms & Reminders' permission.\n\nOn the next screen, search for 'MyHFGuard' and turn the switch ON.")
+                                .setPositiveButton("Go to Settings") { _, _ ->
+                                    val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                    startActivity(intent)
+                                }
+                                .setNegativeButton("Cancel", null)
+                                .create()
+                            
+                            dialog.setOnShowListener {
+                                val btnPos = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                                val btnNeg = dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)
+                                btnPos.setTextColor(getColor(R.color.btnPrimary))
+                                btnNeg.setTextColor(getColor(R.color.foreground))
+                                // Note: Full rounded corner styling requires a custom theme/XML layout, 
+                                // but this ensures text readability and brand colors.
+                            }
+                            dialog.show()
+                        }
+                        return@launch
+                    }
+                }
             }
         }
 
@@ -235,6 +281,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+
 
     private fun ensureChannel() {
         val nm = getSystemService(NotificationManager::class.java)
@@ -384,26 +432,47 @@ class MainActivity : AppCompatActivity() {
         val sevenDaysAgo = nowInstant.minusSeconds(7 * 24 * 60 * 60)
         val startDate = LocalDateTime.ofInstant(sevenDaysAgo, zone).toLocalDate()
         
-        val steps7d = client.readRecords(
-            ReadRecordsRequest(
-                StepsRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant)
+        val steps7d = mutableListOf<StepsRecord>()
+        var stepsPageToken: String? = null
+        do {
+            val resp = client.readRecords(
+                ReadRecordsRequest(
+                    StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
+                    pageToken = stepsPageToken
+                )
             )
-        ).records
+            steps7d.addAll(resp.records)
+            stepsPageToken = resp.pageToken
+        } while (stepsPageToken != null)
         
-        val hr7d = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant)
+        val hr7d = mutableListOf<HeartRateRecord>()
+        var hrPageToken: String? = null
+        do {
+            val resp = client.readRecords(
+                ReadRecordsRequest(
+                    HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
+                    pageToken = hrPageToken
+                )
             )
-        ).records
+            hr7d.addAll(resp.records)
+            hrPageToken = resp.pageToken
+        } while (hrPageToken != null)
         
-        val spo27d = client.readRecords(
-            ReadRecordsRequest(
-                OxygenSaturationRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant)
+        val spo27d = mutableListOf<OxygenSaturationRecord>()
+        var spo2PageToken: String? = null
+        do {
+            val resp = client.readRecords(
+                ReadRecordsRequest(
+                    OxygenSaturationRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
+                    pageToken = spo2PageToken
+                )
             )
-        ).records
+            spo27d.addAll(resp.records)
+            spo2PageToken = resp.pageToken
+        } while (spo2PageToken != null)
 
         data class HrAgg(var min: Long = Long.MAX_VALUE, var max: Long = Long.MIN_VALUE, var sum: Long = 0L, var count: Int = 0)
         data class HrHour(var min: Long = Long.MAX_VALUE, var max: Long = Long.MIN_VALUE, var sum: Long = 0L, var count: Int = 0)
@@ -590,12 +659,19 @@ class MainActivity : AppCompatActivity() {
         }
         val nowInstant = Instant.now()
         val start = nowInstant.minus(1, ChronoUnit.HOURS)
-        val hr = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(start, nowInstant)
+        val hr = mutableListOf<HeartRateRecord>()
+        var hrToken: String? = null
+        do {
+            val res = client.readRecords(
+                ReadRecordsRequest(
+                    HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, nowInstant),
+                    pageToken = hrToken
+                )
             )
-        ).records
+            hr.addAll(res.records)
+            hrToken = res.pageToken
+        } while (hrToken != null)
         var min = Long.MAX_VALUE
         var max = Long.MIN_VALUE
         var sum = 0L
@@ -628,12 +704,19 @@ class MainActivity : AppCompatActivity() {
         val zone = ZoneId.systemDefault()
         val today = LocalDateTime.ofInstant(nowInstant, zone).toLocalDate()
         val start = today.atStartOfDay(zone).toInstant()
-        val hr = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(start, nowInstant)
+        val hr = mutableListOf<HeartRateRecord>()
+        var hrToken: String? = null
+        do {
+            val res = client.readRecords(
+                ReadRecordsRequest(
+                    HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start, nowInstant),
+                    pageToken = hrToken
+                )
             )
-        ).records
+            hr.addAll(res.records)
+            hrToken = res.pageToken
+        } while (hrToken != null)
         var min = Long.MAX_VALUE
         var max = Long.MIN_VALUE
         var sum = 0L
@@ -668,18 +751,32 @@ class MainActivity : AppCompatActivity() {
         val startToday = today.atStartOfDay(zone).toInstant()
         val start7d = nowInstant.minusSeconds(7 * 24 * 60 * 60)
         val fmt = DateTimeFormatter.ofPattern("dd/MM HH:mm")
-        val hrToday = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startToday, nowInstant)
+        val hrToday = mutableListOf<HeartRateRecord>()
+        var hrTodayToken: String? = null
+        do {
+            val res = client.readRecords(
+                ReadRecordsRequest(
+                    HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startToday, nowInstant),
+                    pageToken = hrTodayToken
+                )
             )
-        ).records
-        val hr7d = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(start7d, nowInstant)
+            hrToday.addAll(res.records)
+            hrTodayToken = res.pageToken
+        } while (hrTodayToken != null)
+        val hr7d = mutableListOf<HeartRateRecord>()
+        var pageToken: String? = null
+        do {
+            val resp = client.readRecords(
+                ReadRecordsRequest(
+                    HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(start7d, nowInstant),
+                    pageToken = pageToken
+                )
             )
-        ).records
+            hr7d.addAll(resp.records)
+            pageToken = resp.pageToken
+        } while (pageToken != null)
         var todayCount = 0
         var weekCount = 0
         var lastTs: LocalDateTime? = null
@@ -692,7 +789,9 @@ class MainActivity : AppCompatActivity() {
         }
         hr7d.forEach { rec -> weekCount += rec.samples.size }
         val lastStr = if (lastTs != null) lastTs!!.format(fmt) else "-"
-        tv.text = getString(R.string.hr_diag, todayCount, weekCount, lastStr)
+        
+        val baseMsg = getString(R.string.hr_diag, todayCount, weekCount, lastStr)
+        tv.text = baseMsg
     }
 
     private suspend fun syncTodayToServer() {
@@ -725,30 +824,61 @@ class MainActivity : AppCompatActivity() {
             val zone = ZoneId.systemDefault()
             val today = LocalDateTime.ofInstant(nowInstant, zone).toLocalDate()
             val startOfToday = today.atStartOfDay(zone).toInstant()
-            val stepsToday = client.readRecords(
-                ReadRecordsRequest(
-                    StepsRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+            val stepsToday = mutableListOf<StepsRecord>()
+            var stepsToken: String? = null
+            do {
+                val res = client.readRecords(
+                    ReadRecordsRequest(
+                        StepsRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                        pageToken = stepsToken
+                    )
                 )
-            ).records
-            val distanceToday = client.readRecords(
-                ReadRecordsRequest(
-                    DistanceRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+                stepsToday.addAll(res.records)
+                stepsToken = res.pageToken
+            } while (stepsToken != null)
+
+            val distanceToday = mutableListOf<DistanceRecord>()
+            var distToken: String? = null
+            do {
+                val res = client.readRecords(
+                    ReadRecordsRequest(
+                        DistanceRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                        pageToken = distToken
+                    )
                 )
-            ).records
-            val hrToday = client.readRecords(
-                ReadRecordsRequest(
-                    HeartRateRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+                distanceToday.addAll(res.records)
+                distToken = res.pageToken
+            } while (distToken != null)
+
+            val hrToday = mutableListOf<HeartRateRecord>()
+            var hrToken: String? = null
+            do {
+                val res = client.readRecords(
+                    ReadRecordsRequest(
+                        HeartRateRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                        pageToken = hrToken
+                    )
                 )
-            ).records
-            val spo2Today = client.readRecords(
-                ReadRecordsRequest(
-                    OxygenSaturationRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+                hrToday.addAll(res.records)
+                hrToken = res.pageToken
+            } while (hrToken != null)
+
+            val spo2Today = mutableListOf<OxygenSaturationRecord>()
+            var spo2Token: String? = null
+            do {
+                val res = client.readRecords(
+                    ReadRecordsRequest(
+                        OxygenSaturationRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                        pageToken = spo2Token
+                    )
                 )
-            ).records
+                spo2Today.addAll(res.records)
+                spo2Token = res.pageToken
+            } while (spo2Token != null)
             val deviceId = Build.MODEL ?: "device"
             val offsetMin = zone.rules.getOffset(nowInstant).totalSeconds / 60
             val patientId = currentPatientId()
@@ -787,30 +917,61 @@ class MainActivity : AppCompatActivity() {
         val zone = ZoneId.systemDefault()
         val today = LocalDateTime.ofInstant(nowInstant, zone).toLocalDate()
         val startOfToday = today.atStartOfDay(zone).toInstant()
-        val stepsToday = client.readRecords(
-            ReadRecordsRequest(
-                StepsRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+        val stepsToday = mutableListOf<StepsRecord>()
+        var stepsToken: String? = null
+        do {
+            val res = client.readRecords(
+                ReadRecordsRequest(
+                    StepsRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                    pageToken = stepsToken
+                )
             )
-        ).records
-        val distanceToday = client.readRecords(
-            ReadRecordsRequest(
-                DistanceRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+            stepsToday.addAll(res.records)
+            stepsToken = res.pageToken
+        } while (stepsToken != null)
+
+        val distanceToday = mutableListOf<DistanceRecord>()
+        var distToken: String? = null
+        do {
+            val res = client.readRecords(
+                ReadRecordsRequest(
+                    DistanceRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                    pageToken = distToken
+                )
             )
-        ).records
-        val hrToday = client.readRecords(
-            ReadRecordsRequest(
-                HeartRateRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+            distanceToday.addAll(res.records)
+            distToken = res.pageToken
+        } while (distToken != null)
+
+        val hrToday = mutableListOf<HeartRateRecord>()
+        var hrToken: String? = null
+        do {
+            val res = client.readRecords(
+                ReadRecordsRequest(
+                    HeartRateRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                    pageToken = hrToken
+                )
             )
-        ).records
-        val spo2Today = client.readRecords(
-            ReadRecordsRequest(
-                OxygenSaturationRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant)
+            hrToday.addAll(res.records)
+            hrToken = res.pageToken
+        } while (hrToken != null)
+
+        val spo2Today = mutableListOf<OxygenSaturationRecord>()
+        var spo2Token: String? = null
+        do {
+            val res = client.readRecords(
+                ReadRecordsRequest(
+                    OxygenSaturationRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startOfToday, nowInstant),
+                    pageToken = spo2Token
+                )
             )
-        ).records
+            spo2Today.addAll(res.records)
+            spo2Token = res.pageToken
+        } while (spo2Token != null)
         val deviceId = Build.MODEL ?: "device"
         val offsetMin = zone.rules.getOffset(nowInstant).totalSeconds / 60
         val patientId = currentPatientId()
@@ -885,12 +1046,19 @@ class MainActivity : AppCompatActivity() {
         if (hrItems.isEmpty()) {
             val nowInstant2 = Instant.now()
             val start24h = nowInstant2.minus(24, ChronoUnit.HOURS)
-            val hr24h = client.readRecords(
-                ReadRecordsRequest(
-                    HeartRateRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(start24h, nowInstant2)
+            val hr24h = mutableListOf<HeartRateRecord>()
+            var hr24hToken: String? = null
+            do {
+                val res = client.readRecords(
+                    ReadRecordsRequest(
+                        HeartRateRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(start24h, nowInstant2),
+                        pageToken = hr24hToken
+                    )
                 )
-            ).records
+                hr24h.addAll(res.records)
+                hr24hToken = res.pageToken
+            } while (hr24hToken != null)
             hr24h.forEach { rec ->
                 rec.samples.forEach { s ->
                     val t = s.time
@@ -986,22 +1154,7 @@ class MainActivity : AppCompatActivity() {
             val distanceCount = distanceItems.size
             val hrCount = hrItems.size
             val spo2Count = spo2Items.size
-            val hrSamplesStats = if (hrToday.isNotEmpty()) {
-                var min = Int.MAX_VALUE
-                var max = Int.MIN_VALUE
-                var sum = 0
-                var c = 0
-                hrToday.forEach { rec ->
-                    rec.samples.forEach { s ->
-                        min = kotlin.math.min(min, s.beatsPerMinute)
-                        max = kotlin.math.max(max, s.beatsPerMinute)
-                        sum += s.beatsPerMinute
-                        c += 1
-                    }
-                }
-                val avg = if (c > 0) sum / c else 0
-                Pair(Pair(min, max), avg)
-            } else null
+            // hrSamplesStats removed
             var stepsSynced = false
             var distanceSynced = false
             var hrSynced = false
@@ -1052,13 +1205,17 @@ class MainActivity : AppCompatActivity() {
                     val body = batch.toRequestBody(jsonType)
                     val req = Request.Builder().url(baseUrl + "/ingest/hr-samples").post(body).build()
                     val resp = http.newCall(req).execute()
+                    var batchSuccess = true
                     resp.use {
                         if (it.code != 200) {
                             val err = try { it.body?.string() ?: "" } catch (_: Exception) { "" }
                             status = status + "; hr_batch=" + (end - sent) + ", code=" + it.code + if (err.isNotEmpty()) ", msg=" + err else ""
-                            ok = false
-                            break
+                            batchSuccess = false
                         }
+                    }
+                    if (!batchSuccess) {
+                        ok = false
+                        break
                     }
                     sent = end
                 }
@@ -1184,4 +1341,3 @@ class MainActivity : AppCompatActivity() {
         txt.text = status
     }
 }
-

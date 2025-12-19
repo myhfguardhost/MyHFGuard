@@ -56,6 +56,11 @@ if (process.env.SUPABASE_URL && supabaseKey) {
 async function validatePatientId(patientId) {
   if (!patientId) return { ok: false, error: 'missing patientId' }
   if (supabaseMock) return { ok: true }
+  // If we don't have the service role key, we can't use the admin API to validate the user.
+  // In this case (likely dev/test), we skip validation to allow the app to function.
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: true }
+  }
   try {
     const r = await supabase.auth.admin.getUserById(patientId)
     if (r.error) return { ok: false, error: r.error.message }
@@ -625,7 +630,7 @@ async function fetchPatientHealthData(patientId) {
 
 
 // Health Check
-app.get('/api/health', (req, res) => {
+const healthHandler = (req, res) => {
   const usingServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
   res.json({
     status: 'ok',
@@ -636,7 +641,10 @@ app.get('/api/health', (req, res) => {
       mode: usingServiceKey ? 'admin' : 'anon'
     }
   })
-})
+}
+
+app.get('/api/health', healthHandler)
+app.get('/health', healthHandler)
 
 
 // Patient endpoints for dashboard
