@@ -25,6 +25,7 @@
     <string name="hr_diag">HR diagnostics: today %1$d, week %2$d, last %3$s</string>
     <string name="supabase_url">https://sqmiosfervzwrxjastdg.supabase.co</string>
     <string name="supabase_anon_key">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxbWlvc2ZlcnZ6d3J4amFzdGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2Nzk1NDMsImV4cCI6MjA4MDI1NTU0M30.2Y8hae6GXjBBd1w5Qg51PwKPdSFOaxU7lF7gOsvmijE</string>
+    <string name="api_base_url">http://192.168.0.27:3001/api</string>
     <string name="login">Login</string>
     <string name="register">Register</string>
     <string name="email">Email</string>
