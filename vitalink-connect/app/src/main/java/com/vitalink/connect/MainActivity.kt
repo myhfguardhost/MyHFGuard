@@ -231,6 +231,42 @@ class MainActivity : AppCompatActivity() {
                 updateHrDiagnostics()
                 syncTodayToServer()
                 refreshReminderNotifications()
+
+                // 1. Check Notification Permission (Android 13+) - Shows "Allow" popup
+                if (android.os.Build.VERSION.SDK_INT >= 33) {
+                    if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+                    }
+                }
+                
+                // 2. Check Schedule Exact Alarm permission (Android 12+) - Opens Settings
+                if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    val am = getSystemService(android.app.AlarmManager::class.java)
+                    if (!am.canScheduleExactAlarms()) {
+                        withContext(Dispatchers.Main) {
+                            val dialog = android.app.AlertDialog.Builder(this@MainActivity)
+                                .setTitle("Permission Required")
+                                .setMessage("Please allow 'Alarms & Reminders' permission.\n\nOn the next screen, search for 'MyHFGuard' and turn the switch ON.")
+                                .setPositiveButton("Go to Settings") { _, _ ->
+                                    val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                                    startActivity(intent)
+                                }
+                                .setNegativeButton("Cancel", null)
+                                .create()
+                            
+                            dialog.setOnShowListener {
+                                val btnPos = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                                val btnNeg = dialog.getButton(android.app.AlertDialog.BUTTON_NEGATIVE)
+                                btnPos.setTextColor(getColor(R.color.btnPrimary))
+                                btnNeg.setTextColor(getColor(R.color.foreground))
+                                // Note: Full rounded corner styling requires a custom theme/XML layout, 
+                                // but this ensures text readability and brand colors.
+                            }
+                            dialog.show()
+                        }
+                        return@launch
+                    }
+                }
             }
         }
 
@@ -245,6 +281,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+
 
     private fun ensureChannel() {
         val nm = getSystemService(NotificationManager::class.java)

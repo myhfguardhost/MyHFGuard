@@ -14,8 +14,8 @@ android {
         applicationId = "com.vitalink.connect"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
         val props = Properties()
         val lp = rootProject.file("local.properties")
         if (lp.exists()) lp.inputStream().use { props.load(it) }
