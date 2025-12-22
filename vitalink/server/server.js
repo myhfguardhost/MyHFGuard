@@ -385,12 +385,9 @@ app.post('/patient/sync-metrics', async (req, res) => {
 
     for (const i of items) {
       const ts = i.time || i.endTime || i.startTime
-      // Use Nominal Local Time for hourly aggregation (e.g. 14:00 UTC -> 22:00 UTC)
-      // This ensures charts (which expect Nominal Time) show the correct MYT hour.
+      // Bucket by Malaysia Time (UTC+8) for hour aggregates
       const h = toHourWithOffset(ts, 480)
-      
       const d = toDateWithOffset(ts, 480)
-
       aggFn(hourMap, h, i)
       aggFn(dayMap, d, i)
     }
@@ -480,6 +477,17 @@ app.post('/patient/sync-metrics', async (req, res) => {
       (val) => ({ spo2_min: Math.round(val.min), spo2_max: Math.round(val.max), spo2_avg: Math.round(val.sum / val.count), spo2_count: val.count })
     )
 
+    try {
+      const times = []
+      ;(steps_samples || []).forEach(s => { if (s.endTime) times.push(new Date(s.endTime).getTime()) })
+      ;(distance_samples || []).forEach(s => { if (s.endTime) times.push(new Date(s.endTime).getTime()) })
+      ;(hr_samples || []).forEach(s => { if (s.time) times.push(new Date(s.time).getTime()) })
+      ;(spo2_samples || []).forEach(s => { if (s.time) times.push(new Date(s.time).getTime()) })
+      if (times.length) {
+        const maxTs = new Date(Math.max(...times)).toISOString()
+        await sb.from('device_sync_status').upsert({ patient_id, last_sync_ts: maxTs, updated_at: new Date().toISOString() }, { onConflict: 'patient_id' })
+      }
+    } catch (_) {}
     return res.status(200).json({ ok: true })
 
   } catch (e) {
@@ -802,11 +810,46 @@ app.get('/health', healthHandler)
 // app.post('/patient/sync-metrics', syncMetricsRoute);
 
 
+// Check daily log status (weight, bp, symptoms)
+app.get('/patient/daily-status', async (req, res) => {
+  const { patientId, date } = req.query
+  if (!patientId || !date) return res.status(400).json({ error: 'Missing params' })
+  try {
+    if (supabaseMock) {
+      return res.json({ has_weight: false, has_bp: false, has_symptoms: false })
+    }
+    const w = await supabase.from('weight_day').select('date').eq('patient_id', patientId).eq('date', date).maybeSingle()
+    const bp = await supabase.from('bp_readings').select('reading_date').eq('patient_id', patientId).eq('reading_date', date).maybeSingle()
+    const s = await supabase.from('symptom_log').select('date').eq('patient_id', patientId).eq('date', date).maybeSingle()
+    return res.json({
+      has_weight: !!(w && w.data),
+      has_bp: !!(bp && bp.data),
+      has_symptoms: !!(s && s.data)
+    })
+  } catch (e) {
+    return res.status(500).json({ error: e.message })
+  }
+})
+
 // Patient endpoints for dashboard
 app.get('/patient/summary', async (req, res) => {
   const pid = (req.query && req.query.patientId)
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
   console.log('[patient/summary] pid', pid)
+  if (supabaseMock) {
+    const summary = {
+      heartRate: null,
+      bpSystolic: null,
+      bpDiastolic: null,
+      bpPulse: null,
+      weightKg: null,
+      nextAppointmentDate: null,
+      stepsToday: null,
+      distanceToday: null,
+      lastSyncTs: null,
+    }
+    return res.status(200).json({ summary })
+  }
   const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (hr.error) return res.status(400).json({ error: hr.error.message })
   const row = (hr.data && hr.data[0]) || null
@@ -870,6 +913,9 @@ app.get('/patient/vitals', async (req, res) => {
   console.log('[patient/vitals] pid', pid, 'period', period, 'date', dateStr, 'tzOffsetMin', tzOffsetMin, '(Raw Local Time)')
   
   let out = { hr: [], spo2: [], steps: [], bp: [], weight: [] }
+  if (supabaseMock) {
+    return res.status(200).json(out)
+  }
   
   if (period === 'weekly') {
     // Determine week range (Monday to Sunday)
