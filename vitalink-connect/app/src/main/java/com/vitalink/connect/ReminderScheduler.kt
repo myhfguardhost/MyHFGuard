@@ -5,15 +5,39 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 
 object ReminderScheduler {
+    fun startSchedule(context: Context) {
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, SyncReceiver::class.java)
+        val pi = PendingIntent.getBroadcast(context, 777, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        try { am.cancel(pi) } catch (_: Exception) {}
+        val interval = AlarmManager.INTERVAL_HOUR // 1 hour for production
+        am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + interval, interval, pi)
+    }
+
     fun refresh(context: Context, http: OkHttpClient, baseUrl: String, patientId: String) {
         val url = baseUrl + "/patient/reminders?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8")
+        
+        val spToken = context.getSharedPreferences("vitalink", Context.MODE_PRIVATE)
+        val token = spToken.getString("supabaseAccessToken", "") ?: ""
+
+        val sp = context.getSharedPreferences("vitalink_reminders", Context.MODE_PRIVATE)
+        val seenIds = sp.getStringSet("seen_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
+        var idsChanged = false
+
         try {
-            val req = Request.Builder().url(url).get().build()
+            val reqBuilder = Request.Builder().url(url).get()
+            if (token.isNotEmpty()) {
+                reqBuilder.header("Authorization", "Bearer $token")
+            }
+            val req = reqBuilder.build()
             val resp = http.newCall(req).execute()
             resp.use {
                 if (it.code != 200) return
@@ -25,16 +49,52 @@ object ReminderScheduler {
                     val id = r.optString("id")
                     val title = r.optString("title")
                     val dateStr = r.optString("date")
-                    val t = try { java.time.Instant.parse(dateStr) } catch (_: Exception) { null }
+                    val t = try {
+                        if (android.os.Build.VERSION.SDK_INT >= 26) {
+                            try {
+                                java.time.OffsetDateTime.parse(dateStr).toInstant()
+                            } catch (_: Exception) {
+                                java.time.Instant.parse(dateStr)
+                            }
+                        } else {
+                            null
+                        }
+                    } catch (_: Exception) { null }
                     if (t != null) {
+                        // Check if the appointment is in the future
+                        val isFuture = t.isAfter(java.time.Instant.now())
+                        
+                        // If it's a new ID we haven't seen before, AND it is in the future, notify user
+                        if (!seenIds.contains(id) && isFuture) {
+                            val zdt = t.atZone(ZoneId.systemDefault())
+                            val fmt = DateTimeFormatter.ofPattern("dd/MM h:mma", Locale.getDefault())
+                            val dStr = fmt.format(zdt)
+                            val intent = Intent(context, ReminderReceiver::class.java)
+                            intent.putExtra("title", "New Appointment")
+                            intent.putExtra("body", "$title on $dStr")
+                            context.sendBroadcast(intent)
+                            seenIds.add(id)
+                            idsChanged = true
+                        }
+                        
+                        // Always try to schedule (scheduleFor handles future checks for reminders)
+                        // If the date changed to future, scheduleFor will set the alarms correctly.
                         scheduleFor(context, id, title, t)
                     }
                 }
             }
         } catch (_: Exception) {}
+        
+        if (idsChanged) {
+            sp.edit().putStringSet("seen_ids", seenIds).apply()
+        }
 
         try {
-            val req = Request.Builder().url(baseUrl + "/patient/medications?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8")).get().build()
+            val reqBuilder = Request.Builder().url(baseUrl + "/patient/medications?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8")).get()
+            if (token.isNotEmpty()) {
+                reqBuilder.header("Authorization", "Bearer $token")
+            }
+            val req = reqBuilder.build()
             val resp = http.newCall(req).execute()
             resp.use {
                 if (it.code == 200) {
@@ -61,15 +121,22 @@ object ReminderScheduler {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val now = java.time.Instant.now().toEpochMilli()
         val eventMs = eventInstant.toEpochMilli()
+        
+        val zdt = eventInstant.atZone(ZoneId.systemDefault())
+        val fmt = DateTimeFormatter.ofPattern("dd/MM h:mma", Locale.getDefault())
+        val dStr = fmt.format(zdt)
+        val body = "$title on $dStr"
+
         val pairs = listOf(
             24 * 60 * 60 * 1000L to "Appointment tomorrow",
             60 * 60 * 1000L to "Appointment in 1 hour",
-            5 * 60 * 1000L to "Appointment in 5 minutes"
+            5 * 60 * 1000L to "Appointment in 5 minutes",
+            0L to "Appointment now"
         )
         for ((offset, prefix) in pairs) {
             val fireAt = eventMs - offset
             if (fireAt > now) {
-                val pi = pending(context, id + "|" + offset, prefix, title)
+                val pi = pending(context, id + "|" + offset, prefix, body)
                 try { am.cancel(pi) } catch (_: Exception) {}
                 setExact(am, fireAt, pi)
             }

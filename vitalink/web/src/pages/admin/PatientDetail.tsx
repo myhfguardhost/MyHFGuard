@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, ArrowLeft, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { format, subMonths, subYears, startOfDay, endOfDay, eachDayOfInterval } from "date-fns";
 import { DateScrollPicker } from "@/components/ui/date-scroll-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,11 +17,6 @@ import { DateRange } from "react-day-picker";
 import {
     LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts';
-
-// --- SETUP SUPABASE DIRECTLY ---
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function PatientDetail() {
     const { id } = useParams<{ id: string }>();

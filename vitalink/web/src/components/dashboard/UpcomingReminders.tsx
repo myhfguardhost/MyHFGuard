@@ -12,7 +12,9 @@ const UpcomingReminders: React.FC<Props> = ({ patientId }) => {
   const navigate = useNavigate()
   const { data, isLoading } = useQuery({ queryKey: ["patient-reminders", patientId], queryFn: () => getPatientReminders(patientId), refetchOnWindowFocus: false, enabled: !!patientId })
   const reminders = data?.reminders || []
-  const sorted = [...reminders].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const now = new Date()
+  const futureReminders = reminders.filter(r => new Date(r.date) >= now)
+  const sorted = [...futureReminders].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
   const visible = sorted.slice(0, 3)
   const remaining = Math.max(0, sorted.length - visible.length)
   const goSchedule = () => {

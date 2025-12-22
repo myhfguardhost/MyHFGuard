@@ -60,6 +60,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("androidx.cardview:cardview:1.0.0")
+    implementation("androidx.biometric:biometric:1.1.0")
     
     // Supabase Auth
     implementation(platform("io.github.jan-tennert.supabase:bom:3.1.3"))
@@ -71,4 +72,3 @@ dependencies {
     implementation("io.ktor:ktor-client-core:3.0.1")
     implementation("io.ktor:ktor-client-android:3.0.1")
 }
-

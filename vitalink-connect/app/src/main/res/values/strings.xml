@@ -5,11 +5,14 @@
     <string name="collect_health_data">Collect Health Data</string>
     <string name="scan_to_capture">Scan to Capture</string>
     <!-- Use non-vitalink URL for scan/capture frontend -->
-    <string name="scan_capture_url">https://myhfguard.onrender.com</string>
+    <string name="scan_capture_url">https://myhfguardhost.github.io/MyHFGuard/#/vitals</string>
+    <string name="web_app_url">https://myhfguardhost.github.io/MyHFGuard/#</string>
     <string name="web_register_url">https://myhfguardhost.github.io/MyHFGuard/register</string>
     <string name="export_data">Export Data</string>
     <string name="logout">Logout</string>
     <string name="availability_missing">Health Connect not available</string>
+    <!-- Use local server for development to access new endpoints -->
+    <!-- <string name="server_base_url">http://192.168.0.199:3001</string> -->
     <string name="server_base_url">https://myhfguard.onrender.com</string>
     <string name="subtitle_manage_health">Collect and manage your health data</string>
     <string name="banner_permissions_missing">Grant permissions to collect health data</string>
@@ -25,6 +28,8 @@
     <string name="hr_diag">HR diagnostics: today %1$d, week %2$d, last %3$s</string>
     <string name="supabase_url">https://sqmiosfervzwrxjastdg.supabase.co</string>
     <string name="supabase_anon_key">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxbWlvc2ZlcnZ6d3J4amFzdGRnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2Nzk1NDMsImV4cCI6MjA4MDI1NTU0M30.2Y8hae6GXjBBd1w5Qg51PwKPdSFOaxU7lF7gOsvmijE</string>
+    <!-- Use local server for development -->
+    <!-- <string name="api_base_url">http://192.168.0.199:3001</string> -->
     <string name="api_base_url">https://myhfguard.onrender.com</string>
     <string name="login">Login</string>
     <string name="register">Register</string>

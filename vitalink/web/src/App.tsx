@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { HashRouter, Routes, Route } from "react-router-dom"
 import { ThemeProvider } from "next-themes"
 import Navigation from "./components/Navigation"
+import ThemeToggle from "./components/ThemeToggle"
 import Dashboard from "./pages/Dashboard"
 import VitalsTracker from "./pages/VitalsTracker"
 import Education from "./pages/Education"
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <ThemeToggle />
         </HashRouter>
       </TooltipProvider>
     </ThemeProvider>

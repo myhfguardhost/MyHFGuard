@@ -15,8 +15,10 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 
-class LoginActivity : AppCompatActivity() {
+class LoginActivity : BaseActivity() {
     private lateinit var supabase: SupabaseClient
     private lateinit var etEmail: EditText
     private lateinit var etPassword: EditText
@@ -24,9 +26,9 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var tvRegister: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        setTheme(android.R.style.Theme_Material_Light_NoActionBar)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
+        setupThemeToggle(R.id.fabThemeToggle)
 
         // Initialize views first
         try {
@@ -54,6 +56,42 @@ class LoginActivity : AppCompatActivity() {
 
         // Supabase is initialized lazily during login to avoid startup crashes
 
+        // Check for biometric login availability
+        checkBiometricAuth()
+    }
+
+    private fun checkBiometricAuth() {
+        val sp = getSharedPreferences("vitalink", MODE_PRIVATE)
+        val patientId = sp.getString("patientId", null)
+        if (patientId.isNullOrEmpty()) return
+
+        val executor = ContextCompat.getMainExecutor(this)
+        val biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    Toast.makeText(this@LoginActivity, "Authentication succeeded!", Toast.LENGTH_SHORT).show()
+                    navigateToMain()
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    super.onAuthenticationError(errorCode, errString)
+                    // If negative button (Use password) is clicked or user cancels, stay on login screen
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                    Toast.makeText(this@LoginActivity, "Authentication failed", Toast.LENGTH_SHORT).show()
+                }
+            })
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Biometric login for MyHFGuard")
+            .setSubtitle("Log in using your biometric credential")
+            .setNegativeButtonText("Use account password")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
     }
 
     private fun login() {
@@ -152,4 +190,3 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 }
-

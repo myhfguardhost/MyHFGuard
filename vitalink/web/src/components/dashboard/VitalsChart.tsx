@@ -37,10 +37,8 @@ const VitalsChart = ({ patientId }: Props) => {
   const vitals = data?.vitals || {}
   
   // Helper to get Malaysia Hour (UTC+8) from a UTC ISO string
-  // Returns 0-23
+  // Returns 0-23. We treat the stored UTC time as "Nominal Local Time" (e.g. 00:00 UTC = 00:00 MYT)
   const getMalaysiaHour = (isoStr: string) => {
-    // Parse robustly: support strings with "+00:00", "Z", or without tz
-    // If string already contains timezone info, parse as-is
     const hasTz = /Z|[+-]\d{2}:\d{2}$/.test(isoStr)
     const t = new Date(hasTz ? isoStr : (isoStr + "Z"))
     if (isNaN(t.getTime())) return -1
@@ -48,11 +46,11 @@ const VitalsChart = ({ patientId }: Props) => {
   }
 
   const toDayKey = (t: string) => {
-    // Use local time for consistent bucketing with chart axes
+    // Use UTC components to avoid local timezone shifting (e.g. 16:00 UTC should not become next day)
     const hasTz = /Z|[+-]\d{2}:\d{2}$/.test(t)
     const d = new Date(hasTz ? t : (t + "Z"))
     if (isNaN(d.getTime())) return String(t)
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
   }
 
   const formatXAxis = (v: string) => {
@@ -101,10 +99,12 @@ const VitalsChart = ({ patientId }: Props) => {
              if (typeof r.avg === "number") entry.avg.push(r.avg)
              if (typeof r.max === "number") entry.max.push(r.max)
         })
+        const year = currentPeriod.getFullYear()
+        const month = currentPeriod.getMonth()
+        const date = currentPeriod.getDate()
         for (let i = 0; i < 24; i++) {
-             const d = new Date(start)
-             d.setHours(i, 0, 0, 0)
-             const time = d.toISOString()
+             const utcTimestamp = Date.UTC(year, month, date, i - 8, 0, 0)
+             const time = new Date(utcTimestamp).toISOString()
              const buckets = byHour.get(i)
              if (!buckets || buckets.avg.length === 0) {
                  out.push({ time, min: undefined, avg: undefined, max: undefined })
@@ -142,10 +142,12 @@ const VitalsChart = ({ patientId }: Props) => {
              if (typeof r.avg === "number") entry.avg.push(r.avg)
              if (typeof r.max === "number") entry.max.push(r.max)
         })
+        const year = currentPeriod.getFullYear()
+        const month = currentPeriod.getMonth()
+        const date = currentPeriod.getDate()
         for (let i = 0; i < 24; i++) {
-             const d = new Date(start)
-             d.setHours(i, 0, 0, 0)
-             const time = d.toISOString()
+             const utcTimestamp = Date.UTC(year, month, date, i - 8, 0, 0)
+             const time = new Date(utcTimestamp).toISOString()
              const buckets = byHour.get(i)
              if (!buckets || buckets.avg.length === 0) {
                  out.push({ time, min: undefined, avg: undefined, max: undefined })
