@@ -385,10 +385,9 @@ app.post('/patient/sync-metrics', async (req, res) => {
 
     for (const i of items) {
       const ts = i.time || i.endTime || i.startTime
-      // Use UTC hour for timestamp to avoid future-shifting
-      const dObj = new Date(ts)
-      dObj.setUTCMinutes(0, 0, 0, 0)
-      const h = dObj.toISOString()
+      // Use Nominal Local Time for hourly aggregation (e.g. 14:00 UTC -> 22:00 UTC)
+      // This ensures charts (which expect Nominal Time) show the correct MYT hour.
+      const h = toHourWithOffset(ts, 480)
       
       const d = toDateWithOffset(ts, 480)
 
