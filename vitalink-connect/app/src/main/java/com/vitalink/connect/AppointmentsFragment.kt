@@ -35,6 +35,18 @@ class AppointmentsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        view.findViewById<ImageButton>(R.id.btnOpenSchedule)?.setOnClickListener {
+            val patientId = currentPatientId()
+            val main = getMainActivity()
+            if (main != null) {
+                val webBase = getString(R.string.web_app_url).removeSuffix("/")
+                val url = "$webBase/schedule?patientId=$patientId"
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                } catch (_: Exception) {}
+            }
+        }
         fetchAppointments()
     }
 
@@ -98,7 +110,14 @@ class AppointmentsFragment : Fragment() {
         val container = view?.findViewById<LinearLayout>(R.id.llAppointments) ?: return
         container.removeAllViews()
 
-        if (list.isEmpty()) {
+        val now = java.time.Instant.now()
+        val upcoming = list.filter {
+            try { java.time.OffsetDateTime.parse(it.date).toInstant().isAfter(now) } catch (_: Exception) {
+                try { java.time.Instant.parse(it.date).isAfter(now) } catch (_: Exception) { true }
+            }
+        }
+
+        if (upcoming.isEmpty()) {
             val tv = TextView(requireContext())
             tv.text = "No upcoming appointments"
             tv.setTextColor(resources.getColor(R.color.foreground, null))
@@ -107,7 +126,7 @@ class AppointmentsFragment : Fragment() {
         }
 
         val inflater = LayoutInflater.from(requireContext())
-        for (appt in list) {
+        for (appt in upcoming) {
             val view = inflater.inflate(R.layout.item_appointment, container, false)
             view.findViewById<TextView>(R.id.txtTitle).text = "${appt.title} at ${appt.location}"
 
@@ -137,52 +156,11 @@ class AppointmentsFragment : Fragment() {
                 }
             }
 
-            val btnDelete = view.findViewById<ImageButton>(R.id.btnDelete)
-            btnDelete.setOnClickListener {
-                android.app.AlertDialog.Builder(requireContext())
-                    .setTitle("Delete Appointment")
-                    .setMessage("Are you sure you want to delete this appointment?")
-                    .setPositiveButton("Delete") { _, _ ->
-                        deleteAppointment(appt.id)
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
-            }
+
 
             container.addView(view)
         }
     }
 
-    private fun deleteAppointment(id: String) {
-        val main = getMainActivity() ?: return
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val sp = requireContext().getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
-                val token = sp.getString("supabaseAccessToken", "") ?: ""
 
-                val url = "${main.baseUrl}/appointments/$id"
-                val reqBuilder = Request.Builder().url(url).delete()
-                if (token.isNotEmpty()) {
-                    reqBuilder.header("Authorization", "Bearer $token")
-                }
-                val req = reqBuilder.build()
-
-                val resp = main.http.newCall(req).execute()
-                if (resp.isSuccessful) {
-                    withContext(Dispatchers.Main) {
-                        fetchAppointments()
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "Failed to delete", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                     android.widget.Toast.makeText(context, "Error fetching appointments: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
 }
