@@ -73,6 +73,43 @@ class HomeFragment : Fragment() {
         }
     }
 
+    private suspend fun updateSyncStatus() {
+        val main = getMainActivity() ?: return
+        val pid = currentPatientId()
+        if (pid.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            try {
+                val url = "${main.baseUrl}/patient/summary?patientId=" + java.net.URLEncoder.encode(pid, "UTF-8")
+                val req = Request.Builder().url(url).get().build()
+                val resp = main.http.newCall(req).execute()
+                resp.use {
+                    val body = it.body?.string() ?: "{}"
+                    val obj = JSONObject(body)
+                    val summary = obj.optJSONObject("summary") ?: JSONObject()
+                    val last = summary.optString("lastSyncTs", "")
+                    withContext(Dispatchers.Main) {
+                        val ring = view?.findViewById<View>(R.id.syncRing)
+                        val txt = view?.findViewById<TextView>(R.id.txtSyncStatus)
+                        if (last.isNotEmpty()) {
+                            val ts = try { java.time.Instant.parse(last) } catch (_: Exception) { null }
+                            if (ts != null) {
+                                val mins = java.time.Duration.between(ts, java.time.Instant.now()).abs().toMinutes()
+                                txt?.text = "Last sync: ${if (mins < 60) "${mins}m ago" else "${mins/60}h ago"}"
+                                val color = if (mins <= 90) resources.getColor(R.color.btnSecondary, null) else resources.getColor(R.color.bannerRequiredAccent, null)
+                                ring?.background?.setTint(color)
+                            } else {
+                                txt?.text = "Last sync: unknown"
+                                ring?.background?.setTint(resources.getColor(R.color.bannerRequiredAccent, null))
+                            }
+                        } else {
+                            txt?.text = "Last sync: none"
+                            ring?.background?.setTint(resources.getColor(R.color.btnDanger, null))
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+    }
     private val requestNotificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { _: Boolean -> }
@@ -162,6 +199,7 @@ class HomeFragment : Fragment() {
                 ensurePatientExists()
                 readMetricsAndShow()
                 refreshReminderNotifications()
+                lifecycleScope.launch { updateSyncStatus() }
                 
                 if (Build.VERSION.SDK_INT >= 33) {
                     if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -188,8 +226,19 @@ class HomeFragment : Fragment() {
         }
 
         viewModel = ViewModelProvider(this)[HomeViewModel::class.java]
+        
+        // Check for End of Day Chart intent
+        if (requireActivity().intent?.getBooleanExtra("openEndOfDayChart", false) == true) {
+            // Show Chart Logic (For now, just ensure table/chart is visible)
+            // Ideally switch to a Chart Tab or expand a section
+            android.widget.Toast.makeText(requireContext(), "Opening End of Day Chart...", android.widget.Toast.LENGTH_LONG).show()
+        }
+
         if (viewModel.dailySteps != null) {
             renderTable()
+        }
+        lifecycleScope.launch {
+            updateSyncStatus()
         }
     }
 

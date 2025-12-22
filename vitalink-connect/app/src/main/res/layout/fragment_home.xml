@@ -242,6 +242,57 @@
 
             </LinearLayout>
 
+            <!-- Sync Status Card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardSyncStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/cardBackground">
+
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:id="@+id/syncRing"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/sync_ring_bg"
+                        android:backgroundTint="@color/btnSecondary"/>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/txtSyncTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Background Sync"
+                            android:textStyle="bold"
+                            android:textSize="14sp"
+                            android:textColor="@color/foreground"/>
+
+                        <TextView
+                            android:id="@+id/txtSyncStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Last sync: —"
+                            android:textSize="12sp"
+                            android:textColor="@color/foreground"/>
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <!-- Data Output Area -->
             <TextView
                 android:id="@+id/txtOutput"
