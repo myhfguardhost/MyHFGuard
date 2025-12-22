@@ -9,7 +9,13 @@ const url = import.meta.env.VITE_SUPABASE_URL || FALLBACK_URL
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY || FALLBACK_KEY
 let supabase
 if (url && key) {
-  supabase = createClient(url, key)
+  supabase = createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  })
 } else {
   const auth = {
     async getSession() { return { data: { session: null }, error: null } },

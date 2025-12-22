@@ -10,7 +10,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import RecentReadings from "@/components/dashboard/RecentReadings";
 import QuickActions from "@/components/dashboard/QuickActions";
 import UpcomingReminders from "@/components/dashboard/UpcomingReminders";
-import ThemeToggle from "@/components/ThemeToggle";
 import VitalsChart from "@/components/dashboard/VitalsChart";
 import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow, isYesterday, isToday } from "date-fns";
@@ -255,7 +254,6 @@ const Dashboard = () => {
           <VitalsChart patientId={patientId} />
         </div>
       </div>
-      <ThemeToggle />
     </div>
   );
 };

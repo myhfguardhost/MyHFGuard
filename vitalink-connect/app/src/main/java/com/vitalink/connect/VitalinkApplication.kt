@@ -6,8 +6,11 @@ import androidx.appcompat.app.AppCompatDelegate
 class VitalinkApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        // Force light mode only - never follow system dark mode
-        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        val sp = getSharedPreferences("vitalink_prefs", android.content.Context.MODE_PRIVATE)
+        val isDark = sp.getBoolean("is_dark_mode", false)
+        AppCompatDelegate.setDefaultNightMode(
+            if (isDark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        )
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val channel = android.app.NotificationChannel(
@@ -22,4 +25,3 @@ class VitalinkApplication : Application() {
         }
     }
 }
-

@@ -9,13 +9,14 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest'
 const app = express()
-app.use(express.json({ limit: '5mb' }))
 
-// Request logging middleware
+// Request logging middleware (moved to top)
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
   next()
 })
+
+app.use(express.json({ limit: '50mb' }))
 
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*')
@@ -74,12 +75,14 @@ async function validatePatientId(patientId) {
   }
 }
 function toHourWithOffset(ts, offsetMin) {
-  const d = new Date(Date.parse(ts) + (offsetMin || 0) * 60000)
+  const off = (offsetMin === undefined || offsetMin === null) ? 480 : offsetMin
+  const d = new Date(Date.parse(ts) + off * 60000)
   d.setUTCMinutes(0, 0, 0)
   return d.toISOString()
 }
 function toDateWithOffset(ts, offsetMin) {
-  const d = new Date(Date.parse(ts) + (offsetMin || 0) * 60000)
+  const off = (offsetMin === undefined || offsetMin === null) ? 480 : offsetMin
+  const d = new Date(Date.parse(ts) + off * 60000)
   const y = d.getUTCFullYear()
   const m = String(d.getUTCMonth() + 1).padStart(2, '0')
   const day = String(d.getUTCDate()).padStart(2, '0')
@@ -338,6 +341,154 @@ app.post('/api/admin/login', adminLoginRoute);
     return res.status(500).json({ error: 'Internal server error' })
   }
 }) */
+
+
+// --- SYNC METRICS ROUTE ---
+app.post('/patient/sync-metrics', async (req, res) => {
+  const { patient_id, steps_samples, hr_samples, distance_samples, spo2_samples, date } = req.body
+
+  if (!patient_id) {
+    return res.status(400).json({ error: 'Missing patient_id' })
+  }
+
+  // Use authenticated client if token provided, to bypass RLS
+  let sb = supabase
+  const authHeader = req.headers.authorization
+  if (authHeader) {
+    sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    })
+  }
+
+  console.log(`[sync-metrics] Syncing for ${patient_id} on ${date || 'unknown date'} (Auth: ${!!authHeader})`)
+
+  // Helper to process metrics consistently with /ingest/ routes
+  // Includes: Raw Upsert, Hour Aggregation, Day Aggregation
+  const processMetric = async (label, items, rawTable, hourTable, dayTable, mapRaw, aggFn, finalizeFn) => {
+    if (!items || items.length === 0) return
+
+    // 1. Upsert Raw
+    const rawRows = items.map(i => {
+      const ts = i.time || i.startTime || i.timeTs
+      // Generate deterministic UID to avoid duplicates if re-synced
+      // We use patient_id + label + timestamp
+      const uid = `${patient_id}-${label}-${ts}`
+      return { ...mapRaw(i), patient_id, record_uid: uid }
+    })
+    
+    const { error: errRaw } = await sb.from(rawTable).upsert(rawRows, { onConflict: 'record_uid', ignoreDuplicates: true })
+    if (errRaw) console.error(`[sync-metrics] ${label} raw error:`, errRaw.message)
+
+    // 2. Aggregate Hour & Day
+    const hourMap = new Map()
+    const dayMap = new Map()
+
+    for (const i of items) {
+      const ts = i.time || i.endTime || i.startTime
+      // Use UTC hour for timestamp to avoid future-shifting
+      const dObj = new Date(ts)
+      dObj.setUTCMinutes(0, 0, 0, 0)
+      const h = dObj.toISOString()
+      
+      const d = toDateWithOffset(ts, 480)
+
+      aggFn(hourMap, h, i)
+      aggFn(dayMap, d, i)
+    }
+
+    // 3. Upsert Aggregates
+    const hourRows = []
+    for (const [h, val] of hourMap) {
+      const final = finalizeFn ? finalizeFn(val) : val
+      hourRows.push({ patient_id, hour_ts: h, ...final })
+    }
+    if (hourRows.length) {
+      const { error } = await sb.from(hourTable).upsert(hourRows, { onConflict: 'patient_id, hour_ts' })
+      if (error) console.error(`[sync-metrics] ${label} hour error:`, error.message)
+    }
+
+    const dayRows = []
+    for (const [d, val] of dayMap) {
+      const final = finalizeFn ? finalizeFn(val) : val
+      dayRows.push({ patient_id, date: d, ...final })
+    }
+    if (dayRows.length) {
+      const { error } = await sb.from(dayTable).upsert(dayRows, { onConflict: 'patient_id, date' })
+      if (error) console.error(`[sync-metrics] ${label} day error:`, error.message)
+    }
+  }
+
+  try {
+    // STEPS
+    await processMetric(
+      'steps', 
+      steps_samples, 
+      'steps_event', 
+      'steps_hour', 
+      'steps_day', 
+      (i) => ({ start_ts: i.startTime, end_ts: i.endTime, count: i.count }),
+      (map, key, i) => map.set(key, (map.get(key) || 0) + i.count),
+      (val) => ({ steps_total: val })
+    )
+
+    // DISTANCE
+    await processMetric(
+      'distance', 
+      distance_samples, 
+      'distance_event', 
+      'distance_hour', 
+      'distance_day', 
+      (i) => ({ start_ts: i.startTime, end_ts: i.endTime, meters: Math.round(i.distanceMeters) }),
+      (map, key, i) => map.set(key, (map.get(key) || 0) + i.distanceMeters),
+      (val) => ({ meters_total: Math.round(val) })
+    )
+
+    // HR
+    await processMetric(
+      'hr', 
+      hr_samples, 
+      'hr_sample', 
+      'hr_hour', 
+      'hr_day', 
+      (i) => ({ time_ts: i.time, bpm: i.bpm }),
+      (map, key, i) => {
+        const curr = map.get(key) || { min: 999, max: 0, sum: 0, count: 0 }
+        curr.min = Math.min(curr.min, i.bpm)
+        curr.max = Math.max(curr.max, i.bpm)
+        curr.sum += i.bpm
+        curr.count++
+        map.set(key, curr)
+      },
+      (val) => ({ hr_min: Math.round(val.min), hr_max: Math.round(val.max), hr_avg: Math.round(val.sum / val.count), hr_count: val.count })
+    )
+
+    // SPO2
+    await processMetric(
+      'spo2', 
+      spo2_samples, 
+      'spo2_sample', 
+      'spo2_hour', 
+      'spo2_day', 
+      (i) => ({ time_ts: i.time, spo2_pct: i.percentage }),
+      (map, key, i) => {
+        const curr = map.get(key) || { min: 999, max: 0, sum: 0, count: 0 }
+        curr.min = Math.min(curr.min, i.percentage)
+        curr.max = Math.max(curr.max, i.percentage)
+        curr.sum += i.percentage
+        curr.count++
+        map.set(key, curr)
+      },
+      (val) => ({ spo2_min: Math.round(val.min), spo2_max: Math.round(val.max), spo2_avg: Math.round(val.sum / val.count), spo2_count: val.count })
+    )
+
+    return res.status(200).json({ ok: true })
+
+  } catch (e) {
+    console.error('[sync-metrics] exception:', e)
+    return res.status(500).json({ error: e.message })
+  }
+})
+
 
 
 // --- Blood Pressure Module Routes ---
@@ -645,6 +796,11 @@ const healthHandler = (req, res) => {
 
 app.get('/api/health', healthHandler)
 app.get('/health', healthHandler)
+
+
+// Sync metrics endpoint
+// const syncMetricsRoute = require('./routes/patient/syncMetrics')(supabase);
+// app.post('/patient/sync-metrics', syncMetricsRoute);
 
 
 // Patient endpoints for dashboard
@@ -1111,6 +1267,54 @@ app.get('/patient/reminders', async (req, res) => {
   return res.status(200).json({ reminders })
 })
 
+// Appointments endpoint (aliases reminders for now)
+app.get('/appointments', async (req, res) => {
+  const pid = req.query && req.query.patientId
+  if (!pid) return res.status(400).json({ error: 'missing patientId' })
+  const r = await supabase.from('reminders').select('*').eq('patient_id', pid).order('due_ts', { ascending: true })
+  if (r.error) return res.status(400).json({ error: r.error.message })
+  const appointments = (r.data || []).map((x) => ({
+    id: x.id,
+    title: x.title,
+    date: x.due_ts,
+    location: x.notes || 'Online'
+  }))
+  return res.status(200).json(appointments)
+})
+
+app.delete('/appointments/:id', async (req, res) => {
+  const id = req.params.id
+  const r = await supabase.from('reminders').delete().eq('id', id)
+  if (r.error) return res.status(400).json({ error: r.error.message })
+  return res.status(200).json({ ok: true })
+})
+
+// Medication preferences endpoint
+app.get('/patient/medications', async (req, res) => {
+  const pid = req.query && req.query.patientId
+  if (!pid) return res.status(400).json({ error: 'missing patientId' })
+  
+  const r = await supabase.from('medication')
+      .select('class')
+      .eq('patient_id', pid)
+      .eq('active', true)
+      
+  if (r.error) return res.status(400).json({ error: r.error.message })
+  
+  const classes = new Set((r.data || []).map(m => m.class ? m.class.toLowerCase() : ''))
+  
+  const preferences = {
+      notify_hour: 9,
+      beta_blockers: classes.has('beta blocker') || classes.has('beta-blocker'),
+      raas_inhibitors: classes.has('raas inhibitor') || classes.has('ace inhibitor') || classes.has('arb'),
+      mras: classes.has('mra') || classes.has('mineralocorticoid receptor antagonist'),
+      sglt2_inhibitors: classes.has('sglt2 inhibitor') || classes.has('sglt2'),
+      statin: classes.has('statin')
+  }
+  
+  return res.status(200).json({ preferences })
+})
+
 app.post('/patient/reminders', async (req, res) => {
   const { patientId, title, date, notes } = req.body
   if (!patientId || !title || !date) return res.status(400).json({ error: 'missing fields' })
@@ -1336,7 +1540,7 @@ app.post('/ingest/steps-events', async (req, res) => {
   const byHour = new Map()
   const byDay = new Map()
   for (const i of items) {
-    const offset = i.tzOffsetMin || 0
+    const offset = i.tzOffsetMin || 480
     const h = toHourWithOffset(i.endTs, offset)
     const d = toDateWithOffset(i.endTs, offset)
     const hk = `${i.patientId}|${h}`
@@ -1402,7 +1606,7 @@ app.post('/ingest/distance-events', async (req, res) => {
   const byHour = new Map()
   const byDay = new Map()
   for (const i of items) {
-    const offset = i.tzOffsetMin || 0
+    const offset = i.tzOffsetMin || 480
     const h = toHourWithOffset(i.endTs, offset)
     const d = toDateWithOffset(i.endTs, offset)
     const hk = `${i.patientId}|${h}`
@@ -1465,7 +1669,7 @@ app.post('/ingest/hr-samples', async (req, res) => {
   const hourAgg = new Map()
   const dayAgg = new Map()
   for (const i of items) {
-    const offset = i.tzOffsetMin || 0
+    const offset = i.tzOffsetMin || 480
     const h = toHourWithOffset(i.timeTs, offset)
     const d = toDateWithOffset(i.timeTs, offset)
     const hk = `${i.patientId}|${h}`
@@ -1539,7 +1743,7 @@ app.post('/ingest/spo2-samples', async (req, res) => {
   const hourAgg = new Map()
   const dayAgg = new Map()
   for (const i of items) {
-    const offset = i.tzOffsetMin || 0
+    const offset = i.tzOffsetMin || 480
     const h = toHourWithOffset(i.timeTs, offset)
     const d = toDateWithOffset(i.timeTs, offset)
     const hk = `${i.patientId}|${h}`
@@ -1616,7 +1820,7 @@ app.post('/ingest/weight-samples', async (req, res) => {
 
   const dayAgg = new Map()
   for (const i of items) {
-    const offset = i.tzOffsetMin || 0
+    const offset = i.tzOffsetMin || 480
     const d = toDateWithOffset(i.timeTs, offset)
     const dk = `${i.patientId}|${d}`
     const da = dayAgg.get(dk) || { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY, sum: 0, count: 0 }
@@ -1655,7 +1859,7 @@ app.post('/ingest/symptom-log', async (req, res) => {
   const ep = await ensurePatient(i.patientId, info)
   if (!ep.ok) return res.status(400).json({ error: `patient upsert failed: ${ep.error}` })
 
-  const offset = i.tzOffsetMin || 0
+  const offset = i.tzOffsetMin || 480
   const dateStr = toDateWithOffset(i.timeTs || new Date().toISOString(), offset)
   const raw = {
     patient_id: i.patientId,
@@ -1691,7 +1895,9 @@ const port = process.env.PORT || 3001
 const server = app.listen(port, () => process.stdout.write(`server:${port}\n`))
 
 // Keep alive
-setInterval(() => {}, 60000)
+setInterval(() => {
+  console.log('[server] heartbeat - ' + new Date().toISOString())
+}, 10000)
 
 process.on('uncaughtException', (err) => {
   console.error('[server] Uncaught:', err)

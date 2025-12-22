@@ -26,15 +26,23 @@ export default function ScheduleReminder() {
   }, [patientId])
 
   const upcomingQuery = useQuery({ queryKey: ["patient-reminders", patientId], queryFn: () => getPatientReminders(patientId), enabled: !!patientId, refetchOnWindowFocus: false })
-  const upcoming = upcomingQuery.data?.reminders || []
-
-  
+  const allReminders = upcomingQuery.data?.reminders || []
+  const now = new Date()
+  const upcomingItems = allReminders.filter(r => new Date(r.date) >= now).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const pastItems = allReminders.filter(r => new Date(r.date) < now).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   const [showAdd, setShowAdd] = React.useState(false)
   const [title, setTitle] = React.useState("")
   const [date, setDate] = React.useState("")
   const [time, setTime] = React.useState("")
   const [notes, setNotes] = React.useState("")
+  
+  // Repeat State
+  const [isRepeat, setIsRepeat] = React.useState(false)
+  const [repeatEndMode, setRepeatEndMode] = React.useState<"date"|"count">("date")
+  const [repeatEndDate, setRepeatEndDate] = React.useState("")
+  const [repeatCount, setRepeatCount] = React.useState("1")
+
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [editId, setEditId] = React.useState<string | null>(null)
@@ -136,6 +144,50 @@ export default function ScheduleReminder() {
     }
   }
 
+  function renderReminderCard(r: any) {
+    const dt = new Date(r.date)
+    const dateStr = dt.toLocaleDateString()
+    const timeStr = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    const Icon = Stethoscope
+    const isPast = dt < new Date()
+    return (
+      <Card key={r.id} className={`hover:shadow-md transition-shadow ${isPast ? "opacity-60 bg-muted/50" : ""}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center text-warning`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  {r.title}
+                  {isPast && <span className="text-xs bg-muted-foreground/30 px-2 py-0.5 rounded text-muted-foreground font-normal">Past</span>}
+                </CardTitle>
+                {r.notes ? <p className="text-sm text-muted-foreground">{r.notes}</p> : null}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setShowAdd(true); setEditId(r.id); setTitle(r.title); const d = new Date(r.date); const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); setDate(`${y}-${m}-${day}`); setTime(`${hh}:${mm}`); setNotes(r.notes || "") }}>Edit</Button>
+              <Button variant="destructive" size="sm" onClick={() => handleDeleteReminder(r.id)}>Delete</Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <CalendarIcon className="w-4 h-4" />
+              <span>{dateStr}</span>
+            </div>
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span>{timeStr}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-5xl">
@@ -194,49 +246,20 @@ export default function ScheduleReminder() {
         <div className="mb-8">
           <h2 className="text-xl font-bold text-foreground mb-4">Upcoming Appointments</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {upcoming.length === 0 ? (
+            {upcomingItems.length === 0 ? (
               <div className="text-muted-foreground">No upcoming reminders</div>
-            ) : upcoming.map((r) => {
-              const dt = new Date(r.date)
-              const dateStr = dt.toLocaleDateString()
-              const timeStr = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-              const Icon = Stethoscope
-              return (
-                <Card key={r.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center text-warning`}>
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-base">{r.title}</CardTitle>
-                          {r.notes ? <p className="text-sm text-muted-foreground">{r.notes}</p> : null}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => { setShowAdd(true); setEditId(r.id); setTitle(r.title); const d = new Date(r.date); const y = d.getFullYear(); const m = String(d.getMonth()+1).padStart(2,'0'); const day = String(d.getDate()).padStart(2,'0'); const hh = String(d.getHours()).padStart(2,'0'); const mm = String(d.getMinutes()).padStart(2,'0'); setDate(`${y}-${m}-${day}`); setTime(`${hh}:${mm}`); setNotes(r.notes || "") }}>Edit</Button>
-                        <Button variant="destructive" size="sm" onClick={() => handleDeleteReminder(r.id)}>Delete</Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <CalendarIcon className="w-4 h-4" />
-                        <span>{dateStr}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Clock className="w-4 h-4" />
-                        <span>{timeStr}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
+            ) : upcomingItems.map((r) => renderReminderCard(r))}
           </div>
         </div>
+
+        {pastItems.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-foreground mb-4">Past Appointments</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pastItems.map((r) => renderReminderCard(r))}
+            </div>
+          </div>
+        )}
 
         
       </div>
