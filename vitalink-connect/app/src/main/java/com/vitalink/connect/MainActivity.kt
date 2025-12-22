@@ -44,9 +44,23 @@ class MainActivity : BaseActivity() {
         
         // Check Login
         val sp = getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
-        val patientId = sp.getString("patientId", null)
+        var patientId = sp.getString("patientId", null)
+        
+        // Try to recover session if patientId is missing
         if (patientId.isNullOrEmpty()) {
-            startActivity(Intent(this, LoginActivity::class.java))
+            kotlinx.coroutines.runBlocking {
+                try {
+                    val session = supabase.auth.currentSessionOrNull()
+                    if (session != null && session.user != null) {
+                        patientId = session.user!!.id
+                        sp.edit().putString("patientId", patientId).apply()
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+
+        if (patientId.isNullOrEmpty()) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
             finish()
             return
         }

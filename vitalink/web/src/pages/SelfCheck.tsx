@@ -12,7 +12,17 @@ import { postWeightSample, postSymptomLog } from "@/lib/api"
 
 const SelfCheck = () => {
   const [patientId, setPatientId] = useState<string | undefined>(
-    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("patientId") || undefined : undefined
+    typeof window !== "undefined"
+      ? (new URLSearchParams(window.location.search).get("patientId")
+        || new URLSearchParams((window.location.hash.split("?")[1]) || "").get("patientId")
+        || undefined)
+      : undefined
+  )
+  const [activeTab, setActiveTab] = useState<"weight" | "symptoms">(
+    typeof window !== "undefined"
+      ? ((new URLSearchParams(window.location.search).get("tab") === "symptoms"
+          || new URLSearchParams((window.location.hash.split("?")[1]) || "").get("tab") === "symptoms") ? "symptoms" : "weight")
+      : "weight"
   )
   const [weightKg, setWeightKg] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
@@ -40,6 +50,14 @@ const SelfCheck = () => {
     init()
     return () => { mounted = false }
   }, [patientId])
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const search = new URLSearchParams(window.location.search)
+    const hash = new URLSearchParams((window.location.hash.split("?")[1]) || "")
+    const t = search.get("tab") || hash.get("tab")
+    if (t === "symptoms") setActiveTab("symptoms")
+    else setActiveTab("weight")
+  }, [])
   useEffect(() => {
     if (!patientId) return
     const today = new Date().toISOString().slice(0, 10)
@@ -99,7 +117,7 @@ const SelfCheck = () => {
           <CardDescription className="text-center">Log your daily measurements and symptoms</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="weight" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={(v)=>setActiveTab(v as any)} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="weight">Daily Weight</TabsTrigger>
               <TabsTrigger value="symptoms">Symptoms Rating</TabsTrigger>

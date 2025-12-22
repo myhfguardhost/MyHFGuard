@@ -56,8 +56,42 @@ class LoginActivity : BaseActivity() {
 
         // Supabase is initialized lazily during login to avoid startup crashes
 
-        // Check for biometric login availability
-        checkBiometricAuth()
+        // Check for biometric login availability if enabled
+        val sp = getSharedPreferences("vitalink", MODE_PRIVATE)
+        if (sp.getBoolean("biometric_enabled", false)) {
+            checkBiometricAuth()
+        }
+    }
+
+    private fun askForBiometrics() {
+        val executor = ContextCompat.getMainExecutor(this)
+        val biometricPrompt = BiometricPrompt(this, executor,
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    super.onAuthenticationSucceeded(result)
+                    val sp = getSharedPreferences("vitalink", MODE_PRIVATE)
+                    sp.edit().putBoolean("biometric_enabled", true).apply()
+                    Toast.makeText(this@LoginActivity, "Biometrics enabled", Toast.LENGTH_SHORT).show()
+                    navigateToMain()
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    // User cancelled or error - just proceed to main
+                    navigateToMain()
+                }
+
+                override fun onAuthenticationFailed() {
+                    super.onAuthenticationFailed()
+                }
+            })
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Enable Biometric Login?")
+            .setSubtitle("Use your fingerprint or face to log in faster next time.")
+            .setNegativeButtonText("No thanks")
+            .build()
+
+        biometricPrompt.authenticate(promptInfo)
     }
 
     private fun checkBiometricAuth() {
@@ -140,7 +174,23 @@ class LoginActivity : BaseActivity() {
                 }
 
                 Toast.makeText(this@LoginActivity, "Login successful", Toast.LENGTH_SHORT).show()
-                navigateToMain()
+                
+                // Ask for biometrics if not enabled
+                val sp = getSharedPreferences("vitalink", MODE_PRIVATE)
+                if (!sp.getBoolean("biometric_enabled", false)) {
+                    android.app.AlertDialog.Builder(this@LoginActivity)
+                        .setTitle("Biometric Login")
+                        .setMessage("Do you want to enable biometric login for next time?")
+                        .setPositiveButton("Yes") { _, _ ->
+                            askForBiometrics()
+                        }
+                        .setNegativeButton("No") { _, _ ->
+                            navigateToMain()
+                        }
+                        .show()
+                } else {
+                    navigateToMain()
+                }
             } catch (e: Exception) {
                 android.util.Log.e("LoginActivity", "Login error", e)
                 e.printStackTrace()

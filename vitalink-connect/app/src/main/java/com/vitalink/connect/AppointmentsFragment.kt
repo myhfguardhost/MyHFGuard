@@ -131,10 +131,22 @@ class AppointmentsFragment : Fragment() {
             view.findViewById<TextView>(R.id.txtTitle).text = "${appt.title} at ${appt.location}"
 
             try {
-                val parsed = LocalDateTime.parse(appt.date, DateTimeFormatter.ISO_DATE_TIME)
                 val fmt = DateTimeFormatter.ofPattern("dd/MM hh:mm a")
-                view.findViewById<TextView>(R.id.txtDate).text = parsed.format(fmt)
-            } catch (e: Exception) {
+                val z = java.time.ZoneId.systemDefault()
+                val txt = try {
+                    val odt = java.time.OffsetDateTime.parse(appt.date, DateTimeFormatter.ISO_DATE_TIME)
+                    odt.atZoneSameInstant(z).format(fmt)
+                } catch (_: Exception) {
+                    try {
+                        val inst = java.time.Instant.parse(appt.date)
+                        java.time.ZonedDateTime.ofInstant(inst, z).format(fmt)
+                    } catch (_: Exception) {
+                        val ldt = LocalDateTime.parse(appt.date, DateTimeFormatter.ISO_DATE_TIME)
+                        ldt.atZone(z).format(fmt)
+                    }
+                }
+                view.findViewById<TextView>(R.id.txtDate).text = txt
+            } catch (_: Exception) {
                 view.findViewById<TextView>(R.id.txtDate).text = appt.date
             }
 

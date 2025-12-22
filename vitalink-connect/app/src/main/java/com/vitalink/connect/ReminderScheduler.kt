@@ -120,6 +120,26 @@ object ReminderScheduler {
         }
     }
 
+    fun sendTestNotifications(context: Context, patientId: String) {
+        val base = context.getString(R.string.web_app_url).removeSuffix("/")
+        val selfCheckUrl = "$base/self-check?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8")
+        val bpUrl = "$base/vitals?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8")
+        runCatching {
+            val i1 = Intent(context, ReminderReceiver::class.java)
+            i1.putExtra("title", "Daily Self Check")
+            i1.putExtra("body", "Log your weight and symptoms today.")
+            i1.putExtra("url", selfCheckUrl)
+            context.sendBroadcast(i1)
+        }
+        runCatching {
+            val i2 = Intent(context, ReminderReceiver::class.java)
+            i2.putExtra("title", "Blood Pressure")
+            i2.putExtra("body", "Please record today's BP reading.")
+            i2.putExtra("url", bpUrl)
+            context.sendBroadcast(i2)
+        }
+    }
+
     private fun checkDailyNotifications(context: Context, http: OkHttpClient, baseUrl: String, patientId: String, token: String) {
         val sp = context.getSharedPreferences("vitalink_daily_checks", Context.MODE_PRIVATE)
         val now = java.time.ZonedDateTime.now(ZoneId.of("Asia/Kuala_Lumpur"))
@@ -132,11 +152,20 @@ object ReminderScheduler {
         }
 
         if (hour == 15 && !sp.getBoolean("notified_3pm_$todayStr", false)) {
-            val logged = checkDailyDataLogged(http, baseUrl, patientId, token, todayStr)
-            if (!logged) {
-                notifyOpenWeb(context, "Missed Log", "It's 3PM. Please record your weight, BP, and symptoms.", patientId, todayStr, 1002)
+            val status = getDailyStatus(http, baseUrl, patientId, token, todayStr)
+            val baseWeb = context.getString(R.string.web_app_url).removeSuffix("/")
+            if (!status.hasWeight) {
+                val url = "$baseWeb/self-check?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8")
+                notifyLink(context, "Log Weight", "Please log your weight today.", url, 10021)
             }
-            notifyOpenWeb(context, "Sync Vitals", "Sync your HR and SpO₂ if available.", patientId, todayStr, 1005)
+            if (!status.hasBp) {
+                val url = "$baseWeb/vitals?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8")
+                notifyLink(context, "Record Blood Pressure", "Please record today's BP reading.", url, 10022)
+            }
+            if (!status.hasSymptoms) {
+                val url = "$baseWeb/self-check?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8") + "&tab=symptoms"
+                notifyLink(context, "Log Symptoms", "Please log today's symptoms.", url, 10023)
+            }
             sp.edit().putBoolean("notified_3pm_$todayStr", true).apply()
         }
 
@@ -147,10 +176,6 @@ object ReminderScheduler {
     }
 
     private fun checkDailyDataLogged(http: OkHttpClient, baseUrl: String, patientId: String, token: String, dateStr: String): Boolean {
-        // Assume endpoint /patient/daily-log/status or similar. 
-        // For now, checking /patient/summary assuming it reflects today.
-        // Or we can assume client side check? No, must be server or local DB.
-        // We will try to fetch today's logs from server.
         try {
             val url = "$baseUrl/patient/daily-status?patientId=$patientId&date=$dateStr"
             val req = Request.Builder().url(url).header("Authorization", "Bearer $token").get().build()
@@ -166,6 +191,25 @@ object ReminderScheduler {
         return false
     }
 
+    private data class DailyStatus(val hasWeight: Boolean, val hasBp: Boolean, val hasSymptoms: Boolean)
+    private fun getDailyStatus(http: OkHttpClient, baseUrl: String, patientId: String, token: String, dateStr: String): DailyStatus {
+        try {
+            val url = "$baseUrl/patient/daily-status?patientId=$patientId&date=$dateStr"
+            val req = Request.Builder().url(url).header("Authorization", "Bearer $token").get().build()
+            http.newCall(req).execute().use { resp ->
+                if (resp.code == 200) {
+                    val json = JSONObject(resp.body?.string() ?: "{}")
+                    return DailyStatus(
+                        json.optBoolean("has_weight"),
+                        json.optBoolean("has_bp"),
+                        json.optBoolean("has_symptoms"),
+                    )
+                }
+            }
+        } catch (_: Exception) { }
+        return DailyStatus(false, false, false)
+    }
+
     private fun notifyOpenWeb(context: Context, title: String, body: String, patientId: String, dateStr: String, requestCode: Int) {
         val base = context.getString(R.string.web_app_url)
         val url = "$base/dashboard?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8") + "&date=" + java.net.URLEncoder.encode(dateStr, "UTF-8") + "#vitals"
@@ -178,7 +222,27 @@ object ReminderScheduler {
             nm.createNotificationChannel(ch)
         }
         val n = androidx.core.app.NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        nm.notify(requestCode, n)
+    }
+
+    private fun notifyLink(context: Context, title: String, body: String, url: String, requestCode: Int) {
+        val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        val pi = PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val channelId = "vitalink_reminders_v2"
+        if (nm.getNotificationChannel(channelId) == null) {
+            val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
+            nm.createNotificationChannel(ch)
+        }
+        val n = androidx.core.app.NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)

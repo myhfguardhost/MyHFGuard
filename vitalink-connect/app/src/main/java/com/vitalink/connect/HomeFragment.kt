@@ -231,7 +231,6 @@ class HomeFragment : Fragment() {
         if (requireActivity().intent?.getBooleanExtra("openEndOfDayChart", false) == true) {
             // Show Chart Logic (For now, just ensure table/chart is visible)
             // Ideally switch to a Chart Tab or expand a section
-            android.widget.Toast.makeText(requireContext(), "Opening End of Day Chart...", android.widget.Toast.LENGTH_LONG).show()
         }
 
         if (viewModel.dailySteps != null) {
@@ -384,7 +383,6 @@ class HomeFragment : Fragment() {
                 val url = "${main.baseUrl}/patient/sync-metrics"
                 withContext(Dispatchers.Main) {
                     android.util.Log.d("HomeFragment", "Syncing to: $url")
-                    android.widget.Toast.makeText(requireContext(), "Syncing to $url", android.widget.Toast.LENGTH_LONG).show()
                 }
 
                 val body = json.toString().toRequestBody("application/json".toMediaType())
@@ -399,14 +397,14 @@ class HomeFragment : Fragment() {
                 
                 withContext(Dispatchers.Main) {
                     if (resp.isSuccessful) {
-                        android.widget.Toast.makeText(requireContext(), "Sync Success: $code", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(requireContext(), "Data synced", android.widget.Toast.LENGTH_SHORT).show()
                         viewModel.statusSteps = code
                         viewModel.statusDist = code
                         viewModel.statusHr = code
                         viewModel.statusSpo2 = code
                         renderTable()
                     } else {
-                        android.widget.Toast.makeText(requireContext(), "Sync Failed: $code", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(requireContext(), "Sync failed", android.widget.Toast.LENGTH_SHORT).show()
                         viewModel.statusSteps = code
                         viewModel.statusDist = code
                         viewModel.statusHr = code

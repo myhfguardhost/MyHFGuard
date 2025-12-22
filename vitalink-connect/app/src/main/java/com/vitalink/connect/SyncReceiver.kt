@@ -19,6 +19,14 @@ class SyncReceiver : BroadcastReceiver() {
             try {
                 val http = OkHttpClient()
                 ReminderScheduler.refresh(context, http, baseUrl, patientId)
+                val testPref = context.getSharedPreferences("vitalink_tests", Context.MODE_PRIVATE)
+                val nm = context.getSystemService(android.app.NotificationManager::class.java)
+                val enabled = nm?.areNotificationsEnabled() == true
+                val already = testPref.getBoolean("sent_once", false)
+                if (!already && enabled) {
+                    ReminderScheduler.sendTestNotifications(context, patientId)
+                    testPref.edit().putBoolean("sent_once", true).apply()
+                }
                 // Trigger Background Sync of Vitals
                 HealthSyncManager.syncData(context)
             } finally {

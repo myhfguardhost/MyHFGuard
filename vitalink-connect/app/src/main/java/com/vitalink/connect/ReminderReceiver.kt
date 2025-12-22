@@ -11,6 +11,7 @@ class ReminderReceiver : BroadcastReceiver() {
         android.util.Log.d("ReminderReceiver", "onReceive triggered")
         val title = intent.getStringExtra("title") ?: "Reminder"
         val body = intent.getStringExtra("body") ?: ""
+        val url = intent.getStringExtra("url")
         
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         // CHANGE: Match the new channel ID from MainActivity
@@ -23,13 +24,20 @@ class ReminderReceiver : BroadcastReceiver() {
             nm.createNotificationChannel(ch)
         }
 
+        var contentPi: android.app.PendingIntent? = null
+        if (!url.isNullOrEmpty()) {
+            val open = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            contentPi = android.app.PendingIntent.getActivity(context, (title + url).hashCode(), open, android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+        }
+
         val n = NotificationCompat.Builder(context, channelId)
             .setContentTitle(title)
             .setContentText(body)
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVibrate(longArrayOf(0, 500, 200, 500))
             .setAutoCancel(true)
+            .setContentIntent(contentPi)
             .build()
             
         try {
