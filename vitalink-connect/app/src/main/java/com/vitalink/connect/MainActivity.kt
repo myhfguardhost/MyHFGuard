@@ -54,7 +54,12 @@ class MainActivity : BaseActivity() {
         // Initialize HTTP Client
         val interceptor = HttpLoggingInterceptor()
         interceptor.level = HttpLoggingInterceptor.Level.BASIC
-        http = OkHttpClient.Builder().addInterceptor(interceptor).build()
+        http = OkHttpClient.Builder()
+            .addInterceptor(interceptor)
+            .connectTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
         baseUrl = getString(R.string.api_base_url)
 
         setContentView(R.layout.activity_main)
