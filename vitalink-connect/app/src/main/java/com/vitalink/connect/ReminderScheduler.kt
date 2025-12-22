@@ -28,6 +28,9 @@ object ReminderScheduler {
         val spToken = context.getSharedPreferences("vitalink", Context.MODE_PRIVATE)
         val token = spToken.getString("supabaseAccessToken", "") ?: ""
 
+        // Check time for Daily Notifications (9am, 3pm, 9pm MYT)
+        checkDailyNotifications(context, http, baseUrl, patientId, token)
+
         val sp = context.getSharedPreferences("vitalink_reminders", Context.MODE_PRIVATE)
         val seenIds = sp.getStringSet("seen_ids", emptySet())?.toMutableSet() ?: mutableSetOf()
         var idsChanged = false
@@ -115,6 +118,74 @@ object ReminderScheduler {
             scheduleDaily(context, 12001, "Measure weight", 8)
             scheduleDaily(context, 12002, "Measure blood pressure", 21)
         }
+    }
+
+    private fun checkDailyNotifications(context: Context, http: OkHttpClient, baseUrl: String, patientId: String, token: String) {
+        val sp = context.getSharedPreferences("vitalink_daily_checks", Context.MODE_PRIVATE)
+        val now = java.time.ZonedDateTime.now(ZoneId.of("Asia/Kuala_Lumpur"))
+        val todayStr = now.toLocalDate().toString()
+        val hour = now.hour
+
+        if (hour == 9 && !sp.getBoolean("notified_9am_$todayStr", false)) {
+            notifyOpenWeb(context, "Daily Health Log", "Please log your weight, BP, and symptoms today.", patientId, todayStr, 1001)
+            sp.edit().putBoolean("notified_9am_$todayStr", true).apply()
+        }
+
+        if (hour == 15 && !sp.getBoolean("notified_3pm_$todayStr", false)) {
+            val logged = checkDailyDataLogged(http, baseUrl, patientId, token, todayStr)
+            if (!logged) {
+                notifyOpenWeb(context, "Missed Log", "It's 3PM. Please record your weight, BP, and symptoms.", patientId, todayStr, 1002)
+            }
+            notifyOpenWeb(context, "Sync Vitals", "Sync your HR and SpO₂ if available.", patientId, todayStr, 1005)
+            sp.edit().putBoolean("notified_3pm_$todayStr", true).apply()
+        }
+
+        if (hour == 21 && !sp.getBoolean("notified_9pm_$todayStr", false)) {
+            notifyOpenWeb(context, "End of Day Chart", "View your hourly health chart for today.", patientId, todayStr, 1003)
+            sp.edit().putBoolean("notified_9pm_$todayStr", true).apply()
+        }
+    }
+
+    private fun checkDailyDataLogged(http: OkHttpClient, baseUrl: String, patientId: String, token: String, dateStr: String): Boolean {
+        // Assume endpoint /patient/daily-log/status or similar. 
+        // For now, checking /patient/summary assuming it reflects today.
+        // Or we can assume client side check? No, must be server or local DB.
+        // We will try to fetch today's logs from server.
+        try {
+            val url = "$baseUrl/patient/daily-status?patientId=$patientId&date=$dateStr"
+            val req = Request.Builder().url(url).header("Authorization", "Bearer $token").get().build()
+            http.newCall(req).execute().use { resp ->
+                if (resp.code == 200) {
+                    val json = JSONObject(resp.body?.string() ?: "{}")
+                    return json.optBoolean("has_weight") && json.optBoolean("has_bp") && json.optBoolean("has_symptoms")
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
+
+    private fun notifyOpenWeb(context: Context, title: String, body: String, patientId: String, dateStr: String, requestCode: Int) {
+        val base = context.getString(R.string.web_app_url)
+        val url = "$base/dashboard?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8") + "&date=" + java.net.URLEncoder.encode(dateStr, "UTF-8") + "#vitals"
+        val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+        val pi = PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        val channelId = "vitalink_reminders_v2"
+        if (nm.getNotificationChannel(channelId) == null) {
+            val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
+            nm.createNotificationChannel(ch)
+        }
+        val n = androidx.core.app.NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pi)
+            .build()
+        nm.notify(requestCode, n)
     }
 
     private fun scheduleFor(context: Context, id: String, title: String, eventInstant: java.time.Instant) {

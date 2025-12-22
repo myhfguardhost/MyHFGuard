@@ -19,6 +19,8 @@ class SyncReceiver : BroadcastReceiver() {
             try {
                 val http = OkHttpClient()
                 ReminderScheduler.refresh(context, http, baseUrl, patientId)
+                // Trigger Background Sync of Vitals
+                HealthSyncManager.syncData(context)
             } finally {
                 pendingResult.finish()
             }

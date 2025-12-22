@@ -127,7 +127,11 @@ class LoginActivity : BaseActivity() {
                 val userId = session?.user?.id?.toString()
                 if (!userId.isNullOrEmpty()) {
                     val sp = getSharedPreferences("vitalink", MODE_PRIVATE)
-                    sp.edit().putString("patientId", userId).putString("userEmail", email).apply()
+                    sp.edit()
+                        .putString("patientId", userId)
+                        .putString("userEmail", email)
+                        .putString("supabaseAccessToken", session?.accessToken ?: "")
+                        .apply()
                     
                     // Ensure patient exists on server
                     ensurePatientOnServer(userId)
