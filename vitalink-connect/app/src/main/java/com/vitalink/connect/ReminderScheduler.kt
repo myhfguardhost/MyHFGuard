@@ -8,6 +8,7 @@ import android.os.SystemClock
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.Calendar
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -20,6 +21,44 @@ object ReminderScheduler {
         try { am.cancel(pi) } catch (_: Exception) {}
         val interval = AlarmManager.INTERVAL_HOUR // 1 hour for production
         am.setInexactRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + interval, interval, pi)
+        
+        // Also schedule specific daily reminders
+        scheduleDailyReminders(context)
+    }
+
+    fun scheduleDailyReminders(context: Context) {
+        val sp = context.getSharedPreferences("vitalink_daily_checks", Context.MODE_PRIVATE)
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, SyncReceiver::class.java)
+
+        val reminders = listOf(
+            Triple(1001, "reminder_time_morning", "reminder_minute_morning"),
+            Triple(1002, "reminder_time_afternoon", "reminder_minute_afternoon")
+        )
+
+        val defaults = mapOf(
+            "reminder_time_morning" to 9,
+            "reminder_time_afternoon" to 15
+        )
+
+        for ((reqCode, keyHour, keyMin) in reminders) {
+            val hour = sp.getInt(keyHour, defaults[keyHour] ?: 9)
+            val minute = sp.getInt(keyMin, 0)
+
+            val calendar = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (before(Calendar.getInstance())) {
+                    add(Calendar.DATE, 1)
+                }
+            }
+
+            val pi = PendingIntent.getBroadcast(context, reqCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            try { am.cancel(pi) } catch (_: Exception) {}
+            am.setRepeating(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, AlarmManager.INTERVAL_DAY, pi)
+        }
     }
 
     fun refresh(context: Context, http: OkHttpClient, baseUrl: String, patientId: String) {
@@ -113,11 +152,6 @@ object ReminderScheduler {
                 }
             }
         } catch (_: Exception) {}
-
-        runCatching {
-            scheduleDaily(context, 12001, "Measure weight", 8)
-            scheduleDaily(context, 12002, "Measure blood pressure", 21)
-        }
     }
 
     fun sendTestNotifications(context: Context, patientId: String) {
@@ -144,14 +178,25 @@ object ReminderScheduler {
         val sp = context.getSharedPreferences("vitalink_daily_checks", Context.MODE_PRIVATE)
         val now = java.time.ZonedDateTime.now(ZoneId.of("Asia/Kuala_Lumpur"))
         val todayStr = now.toLocalDate().toString()
-        val hour = now.hour
+        val currentHour = now.hour
+        val currentMinute = now.minute
 
-        if (hour == 9 && !sp.getBoolean("notified_9am_$todayStr", false)) {
-            notifyOpenWeb(context, "Daily Health Log", "Please log your weight, BP, and symptoms today.", patientId, todayStr, 1001)
-            sp.edit().putBoolean("notified_9am_$todayStr", true).apply()
+        fun isTimePassed(targetHour: Int, targetMinute: Int): Boolean {
+            if (currentHour > targetHour) return true
+            if (currentHour == targetHour && currentMinute >= targetMinute) return true
+            return false
         }
 
-        if (hour == 15 && !sp.getBoolean("notified_3pm_$todayStr", false)) {
+        val morningHour = sp.getInt("reminder_time_morning", 9)
+        val morningMinute = sp.getInt("reminder_minute_morning", 0)
+        if (isTimePassed(morningHour, morningMinute) && !sp.getBoolean("notified_morning_$todayStr", false)) {
+            notifyOpenWeb(context, "Daily Health Log", "Please log your weight, BP, and symptoms today.", patientId, todayStr, 1001)
+            sp.edit().putBoolean("notified_morning_$todayStr", true).apply()
+        }
+
+        val afternoonHour = sp.getInt("reminder_time_afternoon", 15)
+        val afternoonMinute = sp.getInt("reminder_minute_afternoon", 0)
+        if (isTimePassed(afternoonHour, afternoonMinute) && !sp.getBoolean("notified_afternoon_$todayStr", false)) {
             val status = getDailyStatus(http, baseUrl, patientId, token, todayStr)
             val baseWeb = context.getString(R.string.web_app_url).removeSuffix("/")
             if (!status.hasWeight) {
@@ -166,12 +211,7 @@ object ReminderScheduler {
                 val url = "$baseWeb/self-check?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8") + "&tab=symptoms"
                 notifyLink(context, "Log Symptoms", "Please log today's symptoms.", url, 10023)
             }
-            sp.edit().putBoolean("notified_3pm_$todayStr", true).apply()
-        }
-
-        if (hour == 21 && !sp.getBoolean("notified_9pm_$todayStr", false)) {
-            notifyOpenWeb(context, "End of Day Chart", "View your hourly health chart for today.", patientId, todayStr, 1003)
-            sp.edit().putBoolean("notified_9pm_$todayStr", true).apply()
+            sp.edit().putBoolean("notified_afternoon_$todayStr", true).apply()
         }
     }
 
@@ -212,7 +252,7 @@ object ReminderScheduler {
 
     private fun notifyOpenWeb(context: Context, title: String, body: String, patientId: String, dateStr: String, requestCode: Int) {
         val base = context.getString(R.string.web_app_url)
-        val url = "$base/dashboard?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8") + "&date=" + java.net.URLEncoder.encode(dateStr, "UTF-8") + "#vitals"
+        val url = "$base/dashboard?patientId=" + java.net.URLEncoder.encode(patientId, "UTF-8") + "&date=" + java.net.URLEncoder.encode(dateStr, "UTF-8")
         val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
         val pi = PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager

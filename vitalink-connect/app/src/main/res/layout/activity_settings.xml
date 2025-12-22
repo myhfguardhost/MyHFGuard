@@ -180,6 +180,101 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:text="Measurement Reminders"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="@color/foreground"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Morning Reminder -->
+            <LinearLayout
+                android:id="@+id/btnMorningReminder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?attr/selectableItemBackground"
+                android:paddingVertical="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Morning Reminder"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/foreground"/>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Daily Health Log"
+                        android:textSize="14sp"
+                        android:textColor="@color/hintText"/>
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/txtMorningTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="09:00 AM"
+                    android:textSize="16sp"
+                    android:textColor="@color/btnPrimary"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/border"/>
+
+            <!-- Afternoon Reminder -->
+            <LinearLayout
+                android:id="@+id/btnAfternoonReminder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?attr/selectableItemBackground"
+                android:paddingVertical="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical">
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Afternoon Reminder"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/foreground"/>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Check for missing records"
+                        android:textSize="14sp"
+                        android:textColor="@color/hintText"/>
+                </LinearLayout>
+                <TextView
+                    android:id="@+id/txtAfternoonTime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="03:00 PM"
+                    android:textSize="16sp"
+                    android:textColor="@color/btnPrimary"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:text="Account"
                 android:textStyle="bold"
                 android:textSize="16sp"
