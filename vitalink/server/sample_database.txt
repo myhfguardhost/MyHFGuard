@@ -416,4 +416,20 @@ ALTER TABLE IF EXISTS public.devices
 ALTER TABLE IF EXISTS public.device_sync_status
   ADD CONSTRAINT fk_device_sync_status_patient FOREIGN KEY (patient_id) REFERENCES public.patients(patient_id) ON DELETE CASCADE;
 
+-- health_events
+CREATE TABLE IF NOT EXISTS public.health_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  patient_id uuid NOT NULL,
+  event_type text NOT NULL, -- Medicine, Symptom, Exercise, Diet, Note
+  event_time timestamptz NOT NULL,
+  description text,
+  severity integer, -- 1-5
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz,
+  PRIMARY KEY (id)
+);
+ALTER TABLE IF EXISTS public.health_events
+  ADD CONSTRAINT fk_health_events_patient FOREIGN KEY (patient_id) REFERENCES public.patients(patient_id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_health_events_patient_time ON public.health_events(patient_id, event_time);
+
 -- End of migration

@@ -61,7 +61,7 @@ export default function Navigation() {
               <span className="text-xl font-bold text-foreground">MyHFGuard</span>
             </NavLink>
           </div>
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden xl:flex items-center gap-1">
             {isLoggedIn && navItems.map((item) => {
               const Icon = item.icon
               return (
@@ -82,7 +82,7 @@ export default function Navigation() {
               </Button>
             )}
           </div>
-          <div className="md:hidden">
+          <div className="xl:hidden">
             {isLoggedIn && (
               <Sheet>
                 <SheetTrigger asChild>

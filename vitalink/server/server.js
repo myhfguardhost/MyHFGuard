@@ -1114,14 +1114,40 @@ app.get('/patient/vitals', async (req, res) => {
       .order('reading_time', { ascending: true })
     if (bp.error) return res.status(400).json({ error: bp.error.message })
 
-    // Fetch weight using existing schema (kg_avg)
-    const weight = await supabase
-      .from('weight_day')
-      .select('date,kg_avg')
+    // Fetch weight from weight_sample to ensure fresh data
+    const startBuf = new Date(startS); startBuf.setDate(startBuf.getDate() - 1);
+    const endBuf = new Date(endS); endBuf.setDate(endBuf.getDate() + 1);
+    
+    const weightRaw = await supabase
+      .from('weight_sample')
+      .select('time_ts,kg')
       .eq('patient_id', pid)
-      .gte('date', startS)
-      .lte('date', endS)
-      .order('date', { ascending: true })
+      .gte('time_ts', startBuf.toISOString())
+      .lte('time_ts', endBuf.toISOString())
+      .order('time_ts', { ascending: true })
+
+    const weightData = []
+    if (!weightRaw.error) {
+       const wMap = new Map()
+       for (const row of (weightRaw.data || [])) {
+          const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
+          const y = d.getUTCFullYear()
+          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+          const day = String(d.getUTCDate()).padStart(2, '0')
+          const k = `${y}-${m}-${day}`
+          if (k >= startS && k <= endS) {
+             if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
+             const e = wMap.get(k)
+             e.sum += Number(row.kg)
+             e.count++
+          }
+       }
+       for (const [k, v] of wMap) {
+          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
+       }
+       weightData.sort((a, b) => a.date.localeCompare(b.date))
+    }
+    const weight = { data: weightData, error: weightRaw.error }
 
     const hrDays = (hr.data || [])
     // Calculate resting HR from hourly data for the week range
@@ -1243,14 +1269,40 @@ app.get('/patient/vitals', async (req, res) => {
       .order('reading_time', { ascending: true })
     if (bp.error) return res.status(400).json({ error: bp.error.message })
 
-    // Fetch weight using existing schema (kg_avg)
-    const weight = await supabase
-      .from('weight_day')
-      .select('date,kg_avg')
+    // Fetch weight from weight_sample to ensure fresh data
+    const startBuf = new Date(startStr); startBuf.setDate(startBuf.getDate() - 1);
+    const endBuf = new Date(endStr); endBuf.setDate(endBuf.getDate() + 1);
+    
+    const weightRaw = await supabase
+      .from('weight_sample')
+      .select('time_ts,kg')
       .eq('patient_id', pid)
-      .gte('date', startStr)
-      .lte('date', endStr)
-      .order('date', { ascending: true })
+      .gte('time_ts', startBuf.toISOString())
+      .lte('time_ts', endBuf.toISOString())
+      .order('time_ts', { ascending: true })
+
+    const weightData = []
+    if (!weightRaw.error) {
+       const wMap = new Map()
+       for (const row of (weightRaw.data || [])) {
+          const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
+          const y = d.getUTCFullYear()
+          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+          const day = String(d.getUTCDate()).padStart(2, '0')
+          const k = `${y}-${m}-${day}`
+          if (k >= startStr && k <= endStr) {
+             if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
+             const e = wMap.get(k)
+             e.sum += Number(row.kg)
+             e.count++
+          }
+       }
+       for (const [k, v] of wMap) {
+          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
+       }
+       weightData.sort((a, b) => a.date.localeCompare(b.date))
+    }
+    const weight = { data: weightData, error: weightRaw.error }
 
     const hrDays = (hr.data || [])
     let restingMap = new Map()

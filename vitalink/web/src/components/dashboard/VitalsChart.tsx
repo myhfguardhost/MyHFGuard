@@ -4,16 +4,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Cell } from "recharts"
 import { Activity, Droplet, Weight, TrendingUp, Heart, ChevronLeft, ChevronRight, Footprints } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
-import { getPatientVitals } from "@/lib/api"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { getPatientVitals, serverUrl } from "@/lib/api"
 import { formatTimeHM } from "@/lib/utils"
 import { format as formatDate, differenceInCalendarWeeks, differenceInCalendarMonths, isYesterday, startOfWeek, startOfDay, endOfDay, addDays, addWeeks, addMonths } from "date-fns"
+import { toast } from "sonner"
 
 type Props = { patientId?: string }
 
 const VitalsChart = ({ patientId }: Props) => {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState("heartRate")
   const [isMobile, setIsMobile] = useState<boolean>(typeof window !== "undefined" ? window.innerWidth < 640 : false)
+
   useEffect(() => {
     const onResize = () => setIsMobile(typeof window !== "undefined" ? window.innerWidth < 640 : false)
     window.addEventListener("resize", onResize)
@@ -25,7 +28,7 @@ const VitalsChart = ({ patientId }: Props) => {
   const period = timePeriod === "weekly" ? "weekly" : (timePeriod === "monthly" ? "monthly" : "hourly")
 
   useEffect(() => {
-    if (timePeriod === "daily" && activeTab === "weight") {
+    if (timePeriod === "daily" && (activeTab === "weight" || activeTab === "bloodPressure")) {
       setActiveTab("heartRate")
     }
   }, [timePeriod, activeTab])
@@ -303,7 +306,65 @@ const VitalsChart = ({ patientId }: Props) => {
   const stepsMin = stepsNums.length ? Math.min(...stepsNums) : undefined
   const stepsMax = stepsNums.length ? Math.max(...stepsNums) : undefined
   const stepsAvg = stepsNums.length ? Math.round(stepsNums.reduce((a: number, b: number) => a + b, 0) / stepsNums.length) : undefined
-  const bp = bpSrc.map((r: any) => ({ date: r.time, sys: r.systolic, dia: r.diastolic, pulse: r.pulse }))
+  const bpWeeklyPadded = timePeriod === "weekly"
+    ? (() => {
+        const baseArr = bpSrc
+        const monday = startOfWeek(currentPeriod, { weekStartsOn: 1 })
+        const byKey = new Map<string, any[]>()
+        baseArr.forEach((d: any) => {
+          const k = toDayKey(d.time)
+          if (!byKey.has(k)) byKey.set(k, [])
+          byKey.get(k)!.push(d)
+        })
+        const out: Array<{ date: string; sys?: number; dia?: number; pulse?: number }> = []
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday)
+          d.setDate(monday.getDate() + i)
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+          const readings = byKey.get(k) || []
+          if (readings.length) {
+            const sys = Math.round(readings.reduce((s, r) => s + r.systolic, 0) / readings.length)
+            const dia = Math.round(readings.reduce((s, r) => s + r.diastolic, 0) / readings.length)
+            const pulse = Math.round(readings.reduce((s, r) => s + r.pulse, 0) / readings.length)
+            out.push({ date: k, sys, dia, pulse })
+          } else {
+            out.push({ date: k, sys: undefined, dia: undefined, pulse: undefined })
+          }
+        }
+        return out
+      })()
+    : []
+
+  const bpMonthlyPadded = timePeriod === "monthly"
+    ? (() => {
+        const baseArr = bpSrc
+        const y = currentPeriod.getFullYear(); const m = currentPeriod.getMonth()
+        const lastDay = new Date(y, m + 1, 0).getDate()
+        const byKey = new Map<string, any[]>()
+        baseArr.forEach((d: any) => {
+          const k = toDayKey(d.time)
+          if (!byKey.has(k)) byKey.set(k, [])
+          byKey.get(k)!.push(d)
+        })
+        const out: Array<{ date: string; sys?: number; dia?: number; pulse?: number }> = []
+        for (let day = 1; day <= lastDay; day++) {
+          const d = new Date(y, m, day)
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+          const readings = byKey.get(k) || []
+          if (readings.length) {
+            const sys = Math.round(readings.reduce((s, r) => s + r.systolic, 0) / readings.length)
+            const dia = Math.round(readings.reduce((s, r) => s + r.diastolic, 0) / readings.length)
+            const pulse = Math.round(readings.reduce((s, r) => s + r.pulse, 0) / readings.length)
+            out.push({ date: k, sys, dia, pulse })
+          } else {
+            out.push({ date: k, sys: undefined, dia: undefined, pulse: undefined })
+          }
+        }
+        return out
+      })()
+    : []
+
+  const bp = (timePeriod === "weekly" ? bpWeeklyPadded : (timePeriod === "monthly" ? bpMonthlyPadded : bpSrc.map((r: any) => ({ date: r.time, sys: r.systolic, dia: r.diastolic, pulse: r.pulse }))))
   const hasBpData = bp.length > 0
 
   const weightWeeklyPadded = timePeriod === "weekly"
@@ -463,9 +524,9 @@ const VitalsChart = ({ patientId }: Props) => {
       <div className="space-y-8">
         {isLoading ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">Loading…</div>
-        ) : merged.length ? (
+        ) : (merged.length || hasWeightData || stepsSelected.length || hasBpData) ? (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className={`grid w-full mb-6 ${timePeriod === "daily" ? "grid-cols-4" : "grid-cols-5"}`}>
+            <TabsList className={`grid w-full mb-6 ${timePeriod === "daily" ? "grid-cols-3" : "grid-cols-5"}`}>
               <TabsTrigger value="heartRate">
                 <Heart className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Heart Rate</span>
@@ -484,10 +545,12 @@ const VitalsChart = ({ patientId }: Props) => {
                 <Footprints className="w-4 h-4 md:mr-2" />
                 <span className="hidden md:inline">Steps</span>
               </TabsTrigger>
-              <TabsTrigger value="bloodPressure">
-                <Activity className="w-4 h-4 md:mr-2" />
-                <span className="hidden md:inline">Blood Pressure</span>
-              </TabsTrigger>
+              {timePeriod !== "daily" && (
+                <TabsTrigger value="bloodPressure">
+                  <Activity className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Blood Pressure</span>
+                </TabsTrigger>
+              )}
             </TabsList>
             <TabsContent value="heartRate">
               {hasHrData ? (
