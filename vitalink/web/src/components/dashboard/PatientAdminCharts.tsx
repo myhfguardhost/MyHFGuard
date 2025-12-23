@@ -104,9 +104,9 @@ export default function PatientAdminCharts({ vitals }: Props) {
                                     labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
                                 />
                                 <Legend />
-                                <Line type="monotone" dataKey="max" stroke="#ef4444" strokeWidth={2} dot={false} name="Max" connectNulls />
-                                <Line type="monotone" dataKey="avg" stroke="#f97316" strokeWidth={2} dot={false} name="Avg" connectNulls />
-                                <Line type="monotone" dataKey="min" stroke="#22c55e" strokeWidth={2} dot={false} name="Min" connectNulls />
+                                <Line type="linear" dataKey="max" stroke="#ef4444" strokeWidth={2} dot={false} name="Max" connectNulls />
+                                <Line type="linear" dataKey="avg" stroke="#f97316" strokeWidth={2} dot={false} name="Avg" connectNulls />
+                                <Line type="linear" dataKey="min" stroke="#22c55e" strokeWidth={2} dot={false} name="Min" connectNulls />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
@@ -137,9 +137,9 @@ export default function PatientAdminCharts({ vitals }: Props) {
                                     <Legend verticalAlign="top" />
                                     <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
                                     <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
-                                    <Line type="monotone" dataKey="systolic" stroke="#8884d8" strokeWidth={3} name="Systolic" />
-                                    <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} name="Diastolic" />
-                                    <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} name="Pulse" />
+                                    <Line type="linear" dataKey="systolic" stroke="#8884d8" strokeWidth={3} name="Systolic" />
+                                    <Line type="linear" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} name="Diastolic" />
+                                    <Line type="linear" dataKey="pulse" stroke="#ffc658" strokeWidth={3} name="Pulse" />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -163,7 +163,7 @@ export default function PatientAdminCharts({ vitals }: Props) {
                                     contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                                     labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
                                 />
-                                <Line type="monotone" dataKey="avg" stroke="#06b6d4" strokeWidth={3} activeDot={{ r: 8 }} name="Avg %" connectNulls />
+                                <Line type="linear" dataKey="avg" stroke="#06b6d4" strokeWidth={3} activeDot={{ r: 8 }} name="Avg %" connectNulls />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>

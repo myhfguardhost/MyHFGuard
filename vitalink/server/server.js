@@ -478,13 +478,39 @@ app.post('/patient/sync-metrics', async (req, res) => {
     )
 
     try {
-      const times = []
-      ;(steps_samples || []).forEach(s => { if (s.endTime) times.push(new Date(s.endTime).getTime()) })
-      ;(distance_samples || []).forEach(s => { if (s.endTime) times.push(new Date(s.endTime).getTime()) })
-      ;(hr_samples || []).forEach(s => { if (s.time) times.push(new Date(s.time).getTime()) })
-      ;(spo2_samples || []).forEach(s => { if (s.time) times.push(new Date(s.time).getTime()) })
-      if (times.length) {
-        const maxTs = new Date(Math.max(...times)).toISOString()
+      const offsetMin = 480
+      const candidates = []
+      ;(steps_samples || []).forEach(s => {
+        if (s.endTime) {
+          const utcMs = new Date(s.endTime).getTime()
+          const localMs = utcMs + offsetMin * 60000
+          candidates.push({ utcMs, localMs, ts: s.endTime })
+        }
+      })
+      ;(distance_samples || []).forEach(s => {
+        if (s.endTime) {
+          const utcMs = new Date(s.endTime).getTime()
+          const localMs = utcMs + offsetMin * 60000
+          candidates.push({ utcMs, localMs, ts: s.endTime })
+        }
+      })
+      ;(hr_samples || []).forEach(s => {
+        if (s.time) {
+          const utcMs = new Date(s.time).getTime()
+          const localMs = utcMs + offsetMin * 60000
+          candidates.push({ utcMs, localMs, ts: s.time })
+        }
+      })
+      ;(spo2_samples || []).forEach(s => {
+        if (s.time) {
+          const utcMs = new Date(s.time).getTime()
+          const localMs = utcMs + offsetMin * 60000
+          candidates.push({ utcMs, localMs, ts: s.time })
+        }
+      })
+      if (candidates.length) {
+        const best = candidates.reduce((m, c) => (c.localMs > m.localMs ? c : m))
+        const maxTs = new Date(best.ts).toISOString()
         await sb.from('device_sync_status').upsert({ patient_id, last_sync_ts: maxTs, updated_at: new Date().toISOString() }, { onConflict: 'patient_id' })
       }
     } catch (_) {}
@@ -1937,7 +1963,7 @@ app.get('/debug-db', async (req, res) => {
 })
 
 const port = process.env.PORT || 3001
-const server = app.listen(port, () => process.stdout.write(`server:${port}\n`))
+const server = app.listen(port, '0.0.0.0', () => process.stdout.write(`server:${port}\n`))
 
 // Keep alive
 setInterval(() => {

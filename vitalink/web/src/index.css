@@ -6,6 +6,12 @@
 All colors MUST be HSL.
 */
 
+@media (max-width: 640px) {
+  .recharts-line-dots {
+    display: none !important;
+  }
+}
+
 @layer base {
   :root {
     --background: 210 40% 98%;

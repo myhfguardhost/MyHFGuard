@@ -148,103 +148,103 @@ const Dashboard = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <Card className="p-6 hover:shadow-lg transition-shadow">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 mb-8">
+          <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Heart Rate</p>
                 {isLoading ? (
-                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-foreground">{hr} {hr !== "--" && "bpm"}</p>
+                  <p className="text-xl md:text-2xl font-bold text-foreground">{hr} {hr !== "--" && "bpm"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   <span>Last: {lastHr ? formatDistanceToNow(lastHr, { addSuffix: true }) : "--"}</span>
                 </div>
               </div>
-              <div className="p-3 bg-primary/10 rounded-full">
-                <Heart className="w-6 h-6 text-primary" />
+              <div className="p-2 md:p-3 bg-primary/10 rounded-full">
+                <Heart className="w-5 h-5 md:w-6 md:h-6 text-primary" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-shadow">
+          <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Blood Pressure</p>
                 {isLoading ? (
-                  <Skeleton className="h-6 w-28" />
+                  <Skeleton className="h-5 w-24 md:h-6 md:w-28" />
                 ) : (
-                  <p className="text-2xl font-bold text-foreground">{bpS}/{bpD}/{bpP}</p>
+                  <p className="text-xl md:text-2xl font-bold text-foreground">{bpS}/{bpD}/{bpP}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   <span>Last: {lastBp ? formatDistanceToNow(lastBp, { addSuffix: true }) : "--"}</span>
                 </div>
               </div>
-              <div className="p-3 bg-secondary/10 rounded-full">
-                <Activity className="w-6 h-6 text-secondary" />
+              <div className="p-2 md:p-3 bg-secondary/10 rounded-full">
+                <Activity className="w-5 h-5 md:w-6 md:h-6 text-secondary" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-shadow">
+          <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Weight</p>
                 {isLoading ? (
-                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-foreground">{weight} {weight !== "--" && "kg"}</p>
+                  <p className="text-xl md:text-2xl font-bold text-foreground">{weight} {weight !== "--" && "kg"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   <span>Last: {formatDayFriendly(lastWeight, vitalsHourly.weight as any)}</span>
                 </div>
               </div>
-              <div className="p-3 bg-warning/10 rounded-full">
-                <TrendingUp className="w-6 h-6 text-warning" />
+              <div className="p-2 md:p-3 bg-warning/10 rounded-full">
+                <TrendingUp className="w-5 h-5 md:w-6 md:h-6 text-warning" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-shadow">
+          <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Steps Today</p>
                 {isLoading ? (
-                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-foreground">{stepsToday} {stepsToday !== "--" && "steps"}</p>
+                  <p className="text-xl md:text-2xl font-bold text-foreground">{stepsToday} {stepsToday !== "--" && "steps"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   <span>Last: {lastSteps ? formatDistanceToNow(lastSteps, { addSuffix: true }) : "--"}</span>
                 </div>
               </div>
-              <div className="p-3 bg-accent/10 rounded-full">
-                <Footprints className="w-6 h-6 text-accent" />
+              <div className="p-2 md:p-3 bg-accent/10 rounded-full">
+                <Footprints className="w-5 h-5 md:w-6 md:h-6 text-accent" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6 hover:shadow-lg transition-shadow">
+          <Card className="p-4 md:p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Distance Walked Today</p>
                 {isLoading ? (
-                  <Skeleton className="h-6 w-24" />
+                  <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-2xl font-bold text-foreground">{distanceToday} {distanceToday !== "--" && "m"}</p>
+                  <p className="text-xl md:text-2xl font-bold text-foreground">{distanceToday} {distanceToday !== "--" && "m"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   <span>Last: {lastSteps ? formatDistanceToNow(lastSteps, { addSuffix: true }) : "--"}</span>
                 </div>
               </div>
-              <div className="p-3 bg-secondary/10 rounded-full">
-                <Activity className="w-6 h-6 text-secondary" />
+              <div className="p-2 md:p-3 bg-secondary/10 rounded-full">
+                <Activity className="w-5 h-5 md:w-6 md:h-6 text-secondary" />
               </div>
             </div>
           </Card>

@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, ComposedChart, Cell } from "recharts"
-import { Activity, Droplet, Weight, TrendingUp, Heart, ChevronLeft, ChevronRight } from "lucide-react"
+import { Activity, Droplet, Weight, TrendingUp, Heart, ChevronLeft, ChevronRight, Footprints } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { getPatientVitals } from "@/lib/api"
 import { formatTimeHM } from "@/lib/utils"
@@ -466,20 +466,37 @@ const VitalsChart = ({ patientId }: Props) => {
         ) : merged.length ? (
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className={`grid w-full mb-6 ${timePeriod === "daily" ? "grid-cols-4" : "grid-cols-5"}`}>
-              <TabsTrigger value="heartRate">Heart Rate</TabsTrigger>
-              <TabsTrigger value="spo2">SpO2</TabsTrigger>
-              {timePeriod !== "daily" && <TabsTrigger value="weight">Weight</TabsTrigger>}
-              <TabsTrigger value="steps">Steps</TabsTrigger>
-              <TabsTrigger value="bloodPressure">Blood Pressure</TabsTrigger>
+              <TabsTrigger value="heartRate">
+                <Heart className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Heart Rate</span>
+              </TabsTrigger>
+              <TabsTrigger value="spo2">
+                <Droplet className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">SpO2</span>
+              </TabsTrigger>
+              {timePeriod !== "daily" && (
+                <TabsTrigger value="weight">
+                  <Weight className="w-4 h-4 md:mr-2" />
+                  <span className="hidden md:inline">Weight</span>
+                </TabsTrigger>
+              )}
+              <TabsTrigger value="steps">
+                <Footprints className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Steps</span>
+              </TabsTrigger>
+              <TabsTrigger value="bloodPressure">
+                <Activity className="w-4 h-4 md:mr-2" />
+                <span className="hidden md:inline">Blood Pressure</span>
+              </TabsTrigger>
             </TabsList>
             <TabsContent value="heartRate">
               {hasHrData ? (
               <>
               <ResponsiveContainer width="100%" height={chartHeight}>
-                <ComposedChart data={merged}>
+                <ComposedChart data={merged} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} width={30} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
                     labelStyle={{ color: "hsl(var(--foreground))" }}
@@ -498,9 +515,9 @@ const VitalsChart = ({ patientId }: Props) => {
                       return null
                     }}
                   />
-                  <Line type="monotone" dataKey="heartRateMax" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="heartRate" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="heartRateMin" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
+                  <Line type="linear" dataKey="heartRateMax" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
+                  <Line type="linear" dataKey="heartRate" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-2))", r: 6 }} connectNulls={false} />
+                  <Line type="linear" dataKey="heartRateMin" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-4 mt-6">
@@ -537,10 +554,10 @@ const VitalsChart = ({ patientId }: Props) => {
               {hasSpo2Data ? (
               <>
               <ResponsiveContainer width="100%" height={chartHeight}>
-                <ComposedChart data={merged}>
+                <ComposedChart data={merged} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={[90, 100]} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={[90, 100]} width={30} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
                     labelStyle={{ color: "hsl(var(--foreground))" }}
@@ -559,9 +576,9 @@ const VitalsChart = ({ patientId }: Props) => {
                       return null
                     }}
                   />
-                  <Line type="monotone" dataKey="spo2Max" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="spo2" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="spo2Min" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
+                  <Line type="linear" dataKey="spo2Max" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-1))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
+                  <Line type="linear" dataKey="spo2" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-2))", r: 6 }} connectNulls={false} />
+                  <Line type="linear" dataKey="spo2Min" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-3))", r: 4, fillOpacity: 0.5 }} connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
               <div className="grid grid-cols-2 gap-4 mt-6">
@@ -577,10 +594,10 @@ const VitalsChart = ({ patientId }: Props) => {
             <TabsContent value="weight">
               {hasWeightData ? (
               <ResponsiveContainer width="100%" height={chartHeight}>
-                <BarChart data={weight}>
+                <BarChart data={weight} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={['auto', 'auto']} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} domain={['auto', 'auto']} width={30} />
                   <Tooltip cursor={{ fill: 'hsl(var(--muted)/0.2)' }} contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number) => [`${value} kg`, ""]} labelFormatter={formatTooltipLabel} />
                   <Bar dataKey="value" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} maxBarSize={50} />
                 </BarChart>
@@ -593,10 +610,10 @@ const VitalsChart = ({ patientId }: Props) => {
               {stepsSelected.length ? (
               <>
               <ResponsiveContainer width="100%" height={chartHeight}>
-                <BarChart data={stepsSelected.map((s: any) => ({ date: s.time, steps: s.count }))}>
+                <BarChart data={stepsSelected.map((s: any) => ({ date: s.time, steps: s.count }))} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} width={40} />
                   <Tooltip
                     contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }}
                     labelStyle={{ color: "hsl(var(--foreground))" }}
@@ -619,14 +636,14 @@ const VitalsChart = ({ patientId }: Props) => {
             <TabsContent value="bloodPressure">
               {hasBpData ? (
               <ResponsiveContainer width="100%" height={chartHeight}>
-                <ComposedChart data={bp}>
+                <ComposedChart data={bp} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} width={30} />
                   <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)" }} labelStyle={{ color: "hsl(var(--foreground))" }} formatter={(value: number, name: string) => [`${value}${name === 'pulse' ? ' bpm' : ''}`, name === 'sys' ? 'Systolic' : (name === 'dia' ? 'Diastolic' : 'Pulse')]} labelFormatter={formatTooltipLabel} />
-                  <Line type="monotone" dataKey="sys" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-1))", r: 6 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="dia" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-3))", r: 6 }} connectNulls={false} />
-                  <Line type="monotone" dataKey="pulse" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={{ fill: "hsl(var(--chart-2))", r: 6 }} connectNulls={false} />
+                  <Line type="linear" dataKey="sys" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-1))", r: 6 }} connectNulls={false} />
+                  <Line type="linear" dataKey="dia" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-3))", r: 6 }} connectNulls={false} />
+                  <Line type="linear" dataKey="pulse" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={isMobile ? false : { fill: "hsl(var(--chart-2))", r: 6 }} connectNulls={false} />
                 </ComposedChart>
               </ResponsiveContainer>
               ) : (

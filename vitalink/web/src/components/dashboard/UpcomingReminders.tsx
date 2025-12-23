@@ -23,12 +23,12 @@ const UpcomingReminders: React.FC<Props> = ({ patientId }) => {
   }
   return (
     <Card className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Upcoming</h2>
+          <h2 className="text-lg font-bold text-foreground">Upcoming</h2>
           <p className="text-sm text-muted-foreground">Reminders & appointments</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start md:self-auto">
           <Bell className="w-5 h-5 text-muted-foreground" />
           <Button variant="outline" size="sm" onClick={goSchedule}>View schedule</Button>
         </div>
