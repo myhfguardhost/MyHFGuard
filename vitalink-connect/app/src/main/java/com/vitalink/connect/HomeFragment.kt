@@ -396,10 +396,9 @@ class HomeFragment : Fragment() {
                 val code = resp.code
                 
                 withContext(Dispatchers.Main) {
-                    if (resp.isSuccessful) {
-                        android.widget.Toast.makeText(requireContext(), "Data synced", android.widget.Toast.LENGTH_SHORT).show()
-                        viewModel.statusSteps = code
-                        viewModel.statusDist = code
+                            if (resp.isSuccessful) {
+    odTL                        viewModel.statusSteps = code"Daa ynced"SHRT
+                                viewModel.statusDist = code
                         viewModel.statusHr = code
                         viewModel.statusSpo2 = code
                         renderTable()
@@ -694,7 +693,7 @@ class HomeFragment : Fragment() {
             withContext(Dispatchers.Main) {
                 val msg = "Found: ${steps7d.size} steps, ${dist7d.size} dist, ${hr7d.size} hr, ${spo27d.size} spo2"
                 android.util.Log.d("HomeFragment", msg)
-                // android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_LONG).show()
             }
 
             // Send ALL fetched raw records (last 7 days)
@@ -704,7 +703,7 @@ class HomeFragment : Fragment() {
             } else {
                  withContext(Dispatchers.Main) {
                      android.widget.Toast.makeText(requireContext(), "No new data to sync", android.widget.Toast.LENGTH_SHORT).show()
-                 }
+                 }found in Healh Cnnect (7day)LNG
             }
             
         } catch (e: Exception) {
