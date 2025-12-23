@@ -34,7 +34,7 @@ export default function PatientAdminCharts({ vitals }: Props) {
         try {
             const d = new Date(t);
             if (isNaN(d.getTime())) return t;
-            return format(d, 'MMM d HH:mm');
+            return format(d, 'MMM d h:mm a');
         } catch {
             return t;
         }

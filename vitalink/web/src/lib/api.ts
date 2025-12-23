@@ -222,6 +222,12 @@ export async function postSymptomLog(payload: { patientId: string; timeTs?: stri
   return res.json()
 }
 
+export async function getDailyStatus(patientId: string, date: string) {
+  const res = await fetch(`${serverUrl()}/patient/daily-status?patientId=${encodeURIComponent(patientId)}&date=${encodeURIComponent(date)}`)
+  if (!res.ok) return { has_weight: false, has_bp: false, has_symptoms: false }
+  return res.json() as Promise<{ has_weight: boolean; has_bp: boolean; has_symptoms: boolean }>
+}
+
 export async function sendSymptomMessage(message: string, patientId: string) {
   // Use serverUrl() instead of bpServerUrl() logic
   const res = await fetch(`${serverUrl()}/api/chat/symptoms`, {

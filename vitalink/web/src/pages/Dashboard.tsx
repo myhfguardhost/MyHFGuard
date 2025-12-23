@@ -12,10 +12,17 @@ import QuickActions from "@/components/dashboard/QuickActions";
 import UpcomingReminders from "@/components/dashboard/UpcomingReminders";
 import VitalsChart from "@/components/dashboard/VitalsChart";
 import { supabase } from "@/lib/supabase";
-import { formatDistanceToNow, isYesterday, isToday } from "date-fns";
+import { formatDistanceToNow, isYesterday, isToday, format } from "date-fns";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const [patientId, setPatientId] = useState<string | undefined>(
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("patientId") || undefined : undefined
   );
@@ -156,7 +163,7 @@ const Dashboard = () => {
                 {isLoading ? (
                   <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-xl md:text-2xl font-bold text-foreground">{hr} {hr !== "--" && "bpm"}</p>
+                  <p className="text-xl md:text-2xl lg:text-lg xl:text-xl font-bold text-foreground">{hr} {hr !== "--" && "bpm"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -176,7 +183,7 @@ const Dashboard = () => {
                 {isLoading ? (
                   <Skeleton className="h-5 w-24 md:h-6 md:w-28" />
                 ) : (
-                  <p className="text-xl md:text-2xl font-bold text-foreground">{bpS}/{bpD}/{bpP}</p>
+                  <p className="text-xl md:text-2xl lg:text-lg xl:text-xl font-bold text-foreground">{bpS}/{bpD}/{bpP}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -196,7 +203,7 @@ const Dashboard = () => {
                 {isLoading ? (
                   <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-xl md:text-2xl font-bold text-foreground">{weight} {weight !== "--" && "kg"}</p>
+                  <p className="text-xl md:text-2xl lg:text-lg xl:text-xl font-bold text-foreground">{weight} {weight !== "--" && "kg"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -216,7 +223,7 @@ const Dashboard = () => {
                 {isLoading ? (
                   <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-xl md:text-2xl font-bold text-foreground">{stepsToday} {stepsToday !== "--" && "steps"}</p>
+                  <p className="text-xl md:text-2xl lg:text-lg xl:text-xl font-bold text-foreground">{stepsToday} {stepsToday !== "--" && "steps"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
@@ -236,7 +243,7 @@ const Dashboard = () => {
                 {isLoading ? (
                   <Skeleton className="h-5 w-20 md:h-6 md:w-24" />
                 ) : (
-                  <p className="text-xl md:text-2xl font-bold text-foreground">{distanceToday} {distanceToday !== "--" && "m"}</p>
+                  <p className="text-xl md:text-2xl lg:text-lg xl:text-xl font-bold text-foreground">{distanceToday} {distanceToday !== "--" && "m"}</p>
                 )}
                 <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />

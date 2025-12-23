@@ -4,11 +4,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Weight, AlertCircle, Activity, Camera } from "lucide-react"
+import { Weight, AlertCircle, Activity, Camera, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { postWeightSample, postSymptomLog } from "@/lib/api"
+import { postWeightSample, postSymptomLog, getDailyStatus } from "@/lib/api"
+import { format, addDays, subDays, isSameDay, parseISO } from "date-fns"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
 
 const SelfCheck = () => {
   const [patientId, setPatientId] = useState<string | undefined>(
@@ -27,6 +31,8 @@ const SelfCheck = () => {
   const [weightKg, setWeightKg] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [dailyStatus, setDailyStatus] = useState<{ has_weight: boolean; has_bp: boolean; has_symptoms: boolean }>({ has_weight: false, has_bp: false, has_symptoms: false })
   const [symptoms, setSymptoms] = useState<Record<string, number>>({
     cough: 0,
     breathlessness: 0,
@@ -35,10 +41,10 @@ const SelfCheck = () => {
     abdomen: 0,
     sleeping: 0,
   })
-  const [weightSubmittedToday, setWeightSubmittedToday] = useState(false)
-  const [symptomsSubmittedToday, setSymptomsSubmittedToday] = useState(false)
+  
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
   const [showSuccessCard, setShowSuccessCard] = useState(false)
+
   useEffect(() => {
     let mounted = true
     async function init() {
@@ -50,6 +56,7 @@ const SelfCheck = () => {
     init()
     return () => { mounted = false }
   }, [patientId])
+
   useEffect(() => {
     if (typeof window === "undefined") return
     const search = new URLSearchParams(window.location.search)
@@ -58,29 +65,33 @@ const SelfCheck = () => {
     if (t === "symptoms") setActiveTab("symptoms")
     else setActiveTab("weight")
   }, [])
+
   useEffect(() => {
     if (!patientId) return
-    const today = new Date().toISOString().slice(0, 10)
-    const w = localStorage.getItem(`weight:lastDate:${patientId}`)
-    const s = localStorage.getItem(`symptoms:lastDate:${patientId}`)
-    setWeightSubmittedToday(w === today)
-    setSymptomsSubmittedToday(s === today)
-  }, [patientId])
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    getDailyStatus(patientId, dateStr).then(setDailyStatus)
+  }, [patientId, selectedDate])
+
+  const isToday = isSameDay(selectedDate, new Date())
+
   async function handleLogWeight() {
     if (!patientId || !weightKg) return
-    if (!window.confirm("Are you sure you want to submit this weight reading?")) return
+    if (!window.confirm(`Are you sure you want to submit this weight reading for ${format(selectedDate, 'MMM d')}?`)) return
     setSubmitting(true)
     try {
       const kg = parseFloat(weightKg)
-      const res = await postWeightSample({ patientId, kg })
+      // Use 12:00 PM for backdated entries to avoid timezone shifts, or current time for today
+      const timeTs = isToday ? new Date().toISOString() : new Date(format(selectedDate, 'yyyy-MM-dd') + 'T12:00:00').toISOString()
+      
+      const res = await postWeightSample({ patientId, kg, timeTs })
       if ((res as any)?.error) throw new Error((res as any).error)
       setToast({ type: 'success', message: 'Weight saved' })
       setTimeout(() => setToast(null), 3000)
       setWeightKg("")
-      // For development, we allow multiple submissions
-      const today = new Date().toISOString().slice(0, 10)
-      localStorage.setItem(`weight:lastDate:${patientId}`, today)
-      setWeightSubmittedToday(true)
+      
+      // Refresh status
+      const dateStr = format(selectedDate, 'yyyy-MM-dd')
+      getDailyStatus(patientId, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
       setToast({ type: 'error', message: e.message || 'Failed to save weight' })
@@ -89,19 +100,21 @@ const SelfCheck = () => {
       setSubmitting(false)
     }
   }
+
   async function handleLogSymptoms() {
     if (!patientId) return
-    if (!window.confirm("Are you sure you want to submit these symptom ratings?")) return
+    if (!window.confirm(`Are you sure you want to submit these symptom ratings for ${format(selectedDate, 'MMM d')}?`)) return
     setSubmitting(true)
     try {
-      const res = await postSymptomLog({ patientId, ...symptoms, notes: JSON.stringify(symptoms) })
+      const timeTs = isToday ? new Date().toISOString() : new Date(format(selectedDate, 'yyyy-MM-dd') + 'T12:00:00').toISOString()
+      const res = await postSymptomLog({ patientId, ...symptoms, notes: JSON.stringify(symptoms), timeTs })
       if ((res as any)?.error) throw new Error((res as any).error)
       setToast({ type: 'success', message: 'Symptoms saved' })
       setTimeout(() => setToast(null), 3000)
-      // For development, we allow multiple submissions
-      const today = new Date().toISOString().slice(0, 10)
-      localStorage.setItem(`symptoms:lastDate:${patientId}`, today)
-      setSymptomsSubmittedToday(true)
+      
+      // Refresh status
+      const dateStr = format(selectedDate, 'yyyy-MM-dd')
+      getDailyStatus(patientId, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
       setToast({ type: 'error', message: e.message || 'Failed to save symptoms' })
@@ -110,6 +123,13 @@ const SelfCheck = () => {
       setSubmitting(false)
     }
   }
+
+  const handleDateChange = (days: number) => {
+    const newDate = addDays(selectedDate, days)
+    if (newDate > new Date()) return
+    setSelectedDate(newDate)
+  }
+
   const handleAllowPermissions = () => {}
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
@@ -141,8 +161,11 @@ const SelfCheck = () => {
                     </div>
                     <p className="text-xs text-muted-foreground">Use weighing scale or smart detection</p>
                   </div>
-                  {weightSubmittedToday ? (
-                    <div className="text-sm text-muted-foreground">You have logged weight today.</div>
+                  {dailyStatus.has_weight ? (
+                    <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium">
+                        <Activity className="w-4 h-4" />
+                        You have already logged weight for {isToday ? "today" : format(selectedDate, 'd MMM')}.
+                    </div>
                   ) : (
                     <Button 
                       className="w-full" 
@@ -152,8 +175,8 @@ const SelfCheck = () => {
                       {!patientId ? "Loading patient info..." : (!weightKg ? "Enter Weight to Submit" : (submitting ? "Saving..." : "Log Weight"))}
                     </Button>
                   )}
-                  {!patientId && !weightSubmittedToday && <p className="text-xs text-center text-muted-foreground mt-2">Fetching patient details...</p>}
-                  {!weightKg && patientId && !weightSubmittedToday && <p className="text-xs text-center text-muted-foreground mt-2">Please enter your weight above to enable submission.</p>}
+                  {!patientId && !dailyStatus.has_weight && <p className="text-xs text-center text-muted-foreground mt-2">Fetching patient details...</p>}
+                  {!weightKg && patientId && !dailyStatus.has_weight && <p className="text-xs text-center text-muted-foreground mt-2">Please enter your weight above to enable submission.</p>}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -193,8 +216,11 @@ const SelfCheck = () => {
                     </div>
                   ))}
 
-                  {symptomsSubmittedToday ? (
-                    <div className="text-sm text-muted-foreground">You have logged symptoms today.</div>
+                  {dailyStatus.has_symptoms ? (
+                    <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium">
+                        <Activity className="w-4 h-4" />
+                        You have already logged symptoms for {isToday ? "today" : format(selectedDate, 'd MMM')}.
+                    </div>
                   ) : (
                     <Button className="w-full" onClick={handleLogSymptoms} disabled={submitting || !patientId}>Log Symptoms</Button>
                   )}
