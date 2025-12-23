@@ -4,12 +4,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Weight, AlertCircle, Activity, Camera, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react"
+import { Weight, AlertCircle, Activity, Camera, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Minus, Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
-import { postWeightSample, postSymptomLog, getDailyStatus } from "@/lib/api"
-import { format, addDays, subDays, isSameDay, parseISO } from "date-fns"
+import { postWeightSample, postSymptomLog, getDailyStatus, getWeeklyStatus } from "@/lib/api"
+import { format, addDays, subDays, isSameDay, parseISO, isToday } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
@@ -33,6 +33,7 @@ const SelfCheck = () => {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [dailyStatus, setDailyStatus] = useState<{ has_weight: boolean; has_bp: boolean; has_symptoms: boolean }>({ has_weight: false, has_bp: false, has_symptoms: false })
+  const [weeklyStatus, setWeeklyStatus] = useState<Record<string, { has_weight: boolean; has_symptoms: boolean }>>({})
   const [symptoms, setSymptoms] = useState<Record<string, number>>({
     cough: 0,
     breathlessness: 0,
@@ -44,6 +45,13 @@ const SelfCheck = () => {
   
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
   const [showSuccessCard, setShowSuccessCard] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; title: string; desc: string; action: () => void; isAlert?: boolean }>({
+    open: false,
+    title: "",
+    desc: "",
+    action: () => {},
+    isAlert: false,
+  })
 
   useEffect(() => {
     let mounted = true
@@ -70,20 +78,18 @@ const SelfCheck = () => {
     if (!patientId) return
     const dateStr = format(selectedDate, 'yyyy-MM-dd')
     getDailyStatus(patientId, dateStr).then(setDailyStatus)
-  }, [patientId, selectedDate])
+    getWeeklyStatus(patientId, format(new Date(), 'yyyy-MM-dd')).then(setWeeklyStatus)
+  }, [patientId, selectedDate, submitting])
 
-  const isToday = isSameDay(selectedDate, new Date())
-
-  async function handleLogWeight() {
-    if (!patientId || !weightKg) return
-    if (!window.confirm(`Are you sure you want to submit this weight reading for ${format(selectedDate, 'MMM d')}?`)) return
+  async function submitWeightLog() {
+    setConfirmDialog(prev => ({ ...prev, open: false }))
     setSubmitting(true)
     try {
       const kg = parseFloat(weightKg)
       // Use 12:00 PM for backdated entries to avoid timezone shifts, or current time for today
-      const timeTs = isToday ? new Date().toISOString() : new Date(format(selectedDate, 'yyyy-MM-dd') + 'T12:00:00').toISOString()
+      const timeTs = isToday(selectedDate) ? new Date().toISOString() : new Date(format(selectedDate, 'yyyy-MM-dd') + 'T12:00:00').toISOString()
       
-      const res = await postWeightSample({ patientId, kg, timeTs })
+      const res = await postWeightSample({ patientId: patientId!, kg, timeTs })
       if ((res as any)?.error) throw new Error((res as any).error)
       setToast({ type: 'success', message: 'Weight saved' })
       setTimeout(() => setToast(null), 3000)
@@ -91,7 +97,7 @@ const SelfCheck = () => {
       
       // Refresh status
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
-      getDailyStatus(patientId, dateStr).then(setDailyStatus)
+      getDailyStatus(patientId!, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
       setToast({ type: 'error', message: e.message || 'Failed to save weight' })
@@ -101,20 +107,47 @@ const SelfCheck = () => {
     }
   }
 
-  async function handleLogSymptoms() {
-    if (!patientId) return
-    if (!window.confirm(`Are you sure you want to submit these symptom ratings for ${format(selectedDate, 'MMM d')}?`)) return
+  const handleLogWeight = () => {
+    if (!patientId || !weightKg) return
+    const kg = parseFloat(weightKg)
+    if (isNaN(kg) || kg < 20) {
+      setConfirmDialog({
+        open: true,
+        title: "Invalid Weight",
+        desc: "Please enter a valid weight of at least 20kg.",
+        action: () => setConfirmDialog(prev => ({ ...prev, open: false })),
+        isAlert: true,
+      })
+      return
+    }
+    setConfirmDialog({
+      open: true,
+      title: "MyHFGuard",
+      desc: `Are you sure you want to submit this weight reading for ${format(selectedDate, 'MMM d')}?`,
+      action: submitWeightLog,
+      isAlert: false,
+    })
+  }
+
+  const adjustWeight = (delta: number) => {
+    const current = parseFloat(weightKg) || 60
+    const next = Math.round((current + delta) * 10) / 10
+    if (next > 0) setWeightKg(next.toFixed(1))
+  }
+
+  async function submitSymptomLog() {
+    setConfirmDialog(prev => ({ ...prev, open: false }))
     setSubmitting(true)
     try {
-      const timeTs = isToday ? new Date().toISOString() : new Date(format(selectedDate, 'yyyy-MM-dd') + 'T12:00:00').toISOString()
-      const res = await postSymptomLog({ patientId, ...symptoms, notes: JSON.stringify(symptoms), timeTs })
+      const timeTs = isToday(selectedDate) ? new Date().toISOString() : new Date(format(selectedDate, 'yyyy-MM-dd') + 'T12:00:00').toISOString()
+      const res = await postSymptomLog({ patientId: patientId!, ...symptoms, notes: JSON.stringify(symptoms), timeTs })
       if ((res as any)?.error) throw new Error((res as any).error)
       setToast({ type: 'success', message: 'Symptoms saved' })
       setTimeout(() => setToast(null), 3000)
       
       // Refresh status
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
-      getDailyStatus(patientId, dateStr).then(setDailyStatus)
+      getDailyStatus(patientId!, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
       setToast({ type: 'error', message: e.message || 'Failed to save symptoms' })
@@ -122,6 +155,16 @@ const SelfCheck = () => {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleLogSymptoms = () => {
+    if (!patientId) return
+    setConfirmDialog({
+      open: true,
+      title: "MyHFGuard",
+      desc: `Are you sure you want to submit these symptom ratings for ${format(selectedDate, 'MMM d')}?`,
+      action: submitSymptomLog,
+    })
   }
 
   const handleDateChange = (days: number) => {
@@ -139,6 +182,60 @@ const SelfCheck = () => {
           <CardDescription className="text-center">Log your daily measurements and symptoms</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Week View Strip */}
+          <div className="mb-6 overflow-x-auto pb-2">
+            <div className="flex justify-between gap-2 min-w-max px-1">
+              {Array.from({ length: 7 }, (_, i) => {
+                 const d = new Date()
+                 d.setDate(d.getDate() - (6 - i))
+                 return d
+              }).map((d) => {
+                const dateStr = format(d, 'yyyy-MM-dd')
+                const st = weeklyStatus[dateStr] || { has_weight: false, has_symptoms: false }
+                const isSelected = isSameDay(d, selectedDate)
+                const isDayToday = isToday(d)
+                return (
+                  <div 
+                    key={dateStr}
+                    onClick={() => setSelectedDate(d)}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2 rounded-lg cursor-pointer min-w-[50px] transition-all border",
+                      isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-transparent shadow-sm",
+                      isDayToday && !isSelected && "border-primary/50 border-dashed"
+                    )}
+                  >
+                    <span className="text-[10px] uppercase font-bold opacity-70">{format(d, 'EEE')}</span>
+                    <span className="text-lg font-bold leading-none my-1">{format(d, 'd')}</span>
+                    <div className="flex gap-1">
+                      <div className={cn("w-1.5 h-1.5 rounded-full", st.has_weight ? "bg-green-500" : "bg-red-300")} title="Weight" />
+                      <div className={cn("w-1.5 h-1.5 rounded-full", st.has_symptoms ? "bg-green-500" : "bg-red-300")} title="Symptoms" />
+                    </div>
+                  </div>
+                )
+              })}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-auto w-12 rounded-lg border-dashed">
+                    <CalendarIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && setSelectedDate(date)}
+                    disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+             <p className="text-xs text-muted-foreground text-center mt-2 flex justify-center gap-4">
+              <span className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-red-300 mr-1"/> Missing</span>
+              <span className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1"/> Completed</span>
+            </p>
+          </div>
+
           <Tabs value={activeTab} onValueChange={(v)=>setActiveTab(v as any)} className="space-y-6">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="weight">Daily Weight</TabsTrigger>
@@ -156,8 +253,14 @@ const SelfCheck = () => {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="weight">Weight</Label>
-                    <div className="flex gap-3">
-                      <Input id="weight" type="number" placeholder="68.5" className="flex-1" step="0.1" value={weightKg} onChange={e=>setWeightKg(e.target.value)} />
+                    <div className="flex gap-3 items-center">
+                      <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustWeight(-0.1)}>
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Input id="weight" type="number" placeholder="68.5" className="flex-1 text-center text-lg h-10" step="0.1" value={weightKg} onChange={e=>setWeightKg(e.target.value)} />
+                      <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustWeight(0.1)}>
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">Use weighing scale or smart detection</p>
                   </div>
@@ -219,7 +322,7 @@ const SelfCheck = () => {
                   {dailyStatus.has_symptoms ? (
                     <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium">
                         <Activity className="w-4 h-4" />
-                        You have already logged symptoms for {isToday ? "today" : format(selectedDate, 'd MMM')}.
+                        You have already logged symptoms for {isToday(selectedDate) ? "today" : format(selectedDate, 'd MMM')}.
                     </div>
                   ) : (
                     <Button className="w-full" onClick={handleLogSymptoms} disabled={submitting || !patientId}>Log Symptoms</Button>
@@ -239,6 +342,19 @@ const SelfCheck = () => {
           </Card>
         </div>
       )}
+
+      <Dialog open={confirmDialog.open} onOpenChange={(o) => setConfirmDialog(prev => ({ ...prev, open: o }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{confirmDialog.title}</DialogTitle>
+            <DialogDescription>{confirmDialog.desc}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            {!confirmDialog.isAlert && <Button variant="ghost" onClick={() => setConfirmDialog(prev => ({ ...prev, open: false }))}>Cancel</Button>}
+            <Button onClick={confirmDialog.action}>{confirmDialog.isAlert ? "OK" : "Confirm"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

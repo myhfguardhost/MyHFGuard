@@ -11,10 +11,10 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest'
 const app = express()
 
 // Request logging middleware (moved to top)
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
-  next()
-})
+// app.use((req, res, next) => {
+//   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
+//   next()
+// })
 
 app.use(express.json({ limit: '50mb' }))
 
@@ -289,58 +289,6 @@ app.get('/api/admin/patients', getPatientsRoute);
 // Admin login endpoint
 const adminLoginRoute = require('./routes/admin/login')(supabase);
 app.post('/api/admin/login', adminLoginRoute);
-/* app.post('/api/admin/login', async (req, res) => {
-  try {
-    const { email, password } = req.body
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' })
-    }
-
-    // Query the admins table
-    const { data, error } = await supabase
-      .from('admins')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .eq('is_active', true)
-      .single()
-
-    if (error || !data) {
-      return res.status(401).json({ error: 'Invalid email or password' })
-    }
-
-    // Simple password check (in production, use bcrypt)
-    // For now, we'll check if password matches the stored hash
-    // You should replace this with proper bcrypt comparison
-    if (data.password_hash !== password && data.password_hash !== 'PLACEHOLDER') {
-      return res.status(401).json({ error: 'Invalid email or password' })
-    }
-
-    // If password is PLACEHOLDER, accept any password (for initial setup)
-    // In production, you should hash the password properly
-
-    // Update last login time
-    await supabase
-      .from('admins')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', data.id)
-
-    // Return admin data (without password hash)
-    return res.status(200).json({
-      admin: {
-        id: data.id,
-        email: data.email,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        created_at: data.created_at,
-        last_login_at: new Date().toISOString()
-      }
-    })
-  } catch (error) {
-    console.error('Admin login error:', error)
-    return res.status(500).json({ error: 'Internal server error' })
-  }
-}) */
 
 
 // --- MEDICATION ROUTES ---
@@ -966,11 +914,63 @@ app.get('/patient/daily-status', async (req, res) => {
   }
 })
 
+// Check weekly log status (weight, symptoms) for last 7 days ending on endDate (or today)
+app.get('/patient/weekly-status', async (req, res) => {
+  const { patientId, endDate } = req.query
+  if (!patientId) return res.status(400).json({ error: 'Missing patientId' })
+  try {
+    const end = endDate ? new Date(endDate) : new Date()
+    // Ensure we include the full end date
+    const endStr = end.toISOString().slice(0, 10)
+    
+    const start = new Date(end)
+    start.setDate(start.getDate() - 6) // Last 7 days including today
+    const startStr = start.toISOString().slice(0, 10)
+
+    if (supabaseMock) {
+       // Mock response
+       const m = {}
+       const curr = new Date(start)
+       while (curr <= end) {
+          const iso = curr.toISOString().slice(0, 10)
+          m[iso] = { has_weight: false, has_symptoms: false }
+          curr.setDate(curr.getDate() + 1)
+       }
+       return res.json(m)
+    }
+
+    const w = await supabase.from('weight_day').select('date').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr)
+    const s = await supabase.from('symptom_log').select('date').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr)
+    
+    const map = {}
+    const curr = new Date(start)
+    while (curr <= end) {
+      const iso = curr.toISOString().slice(0, 10)
+      map[iso] = { has_weight: false, has_symptoms: false }
+      curr.setDate(curr.getDate() + 1)
+    }
+
+    if (w.data) {
+      w.data.forEach(x => {
+        if (map[x.date]) map[x.date].has_weight = true
+      })
+    }
+    if (s.data) {
+      s.data.forEach(x => {
+        if (map[x.date]) map[x.date].has_symptoms = true
+      })
+    }
+    
+    return res.json(map)
+  } catch (e) {
+    return res.status(500).json({ error: e.message })
+  }
+})
+
 // Patient endpoints for dashboard
 app.get('/patient/summary', async (req, res) => {
   const pid = (req.query && req.query.patientId)
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
-  console.log('[patient/summary] pid', pid)
   if (supabaseMock) {
     const summary = {
       heartRate: null,
@@ -1041,11 +1041,10 @@ app.get('/patient/vitals', async (req, res) => {
     const pid = (req.query && req.query.patientId)
     const period = (req.query && req.query.period) || 'hourly'
   const dateStr = (req.query && req.query.date) || null
-  // Use 480 offset for Malaysia Time (UTC+8)
-  const tzOffsetMin = 480
+  // Use 480 offset for Malaysia Time (UTC+8) default, or from query
+  const tzOffsetMin = (req.query && req.query.tzOffsetMin) ? Number(req.query.tzOffsetMin) : 480
   
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
-  console.log('[patient/vitals] pid', pid, 'period', period, 'date', dateStr, 'tzOffsetMin', tzOffsetMin, '(Raw Local Time)')
   
   let out = { hr: [], spo2: [], steps: [], bp: [], weight: [] }
   if (supabaseMock) {
@@ -1396,7 +1395,6 @@ app.get('/patient/vitals', async (req, res) => {
       // DB stores local time as UTC, so we query the date directly
       const start = new Date(`${date}T00:00:00.000Z`)
       const end = new Date(`${date}T23:59:59.999Z`)
-      console.log('[patient/vitals] query range (UTC):', start.toISOString(), 'to', end.toISOString())
       hrQ = hrQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
       spo2Q = spo2Q.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
       stepsQ = stepsQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })

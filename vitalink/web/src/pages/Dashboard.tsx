@@ -115,9 +115,15 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Welcome Back, {infoQuery.data?.patient?.first_name || "Patient"}</h1>
-          <p className="text-muted-foreground">Here's your health overview for today</p>
+        <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Welcome Back, {infoQuery.data?.patient?.first_name || "Patient"}</h1>
+            <p className="text-muted-foreground">Here's your health overview for today</p>
+          </div>
+          <div className="text-left md:text-right">
+            <p className="text-lg md:text-xl font-medium text-muted-foreground">{format(currentTime, 'd MMM yyyy')}</p>
+            <p className="text-3xl md:text-4xl font-bold text-primary">{format(currentTime, 'h:mm a')}</p>
+          </div>
         </div>
 
         {showSyncNotice && (

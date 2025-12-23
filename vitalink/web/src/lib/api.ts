@@ -228,6 +228,13 @@ export async function getDailyStatus(patientId: string, date: string) {
   return res.json() as Promise<{ has_weight: boolean; has_bp: boolean; has_symptoms: boolean }>
 }
 
+export async function getWeeklyStatus(patientId: string, endDate?: string) {
+  const url = `${serverUrl()}/patient/weekly-status?patientId=${encodeURIComponent(patientId)}${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`
+  const res = await fetch(url)
+  if (!res.ok) return {}
+  return res.json() as Promise<Record<string, { has_weight: boolean; has_symptoms: boolean }>>
+}
+
 export async function sendSymptomMessage(message: string, patientId: string) {
   // Use serverUrl() instead of bpServerUrl() logic
   const res = await fetch(`${serverUrl()}/api/chat/symptoms`, {
