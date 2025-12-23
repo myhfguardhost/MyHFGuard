@@ -20,15 +20,26 @@ class SyncReceiver : BroadcastReceiver() {
                 val http = OkHttpClient()
                 ReminderScheduler.refresh(context, http, baseUrl, patientId)
                 val testPref = context.getSharedPreferences("vitalink_tests", Context.MODE_PRIVATE)
-                val nm = context.getSystemService(android.app.NotificationManager::class.java)
-                val enabled = nm?.areNotificationsEnabled() == true
+                
+                var enabled = true
+                if (android.os.Build.VERSION.SDK_INT >= 24) {
+                    val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                    enabled = nm.areNotificationsEnabled()
+                }
+
                 val already = testPref.getBoolean("sent_once", false)
                 if (!already && enabled) {
                     ReminderScheduler.sendTestNotifications(context, patientId)
                     testPref.edit().putBoolean("sent_once", true).apply()
                 }
-                // Trigger Background Sync of Vitals
-                HealthSyncManager.syncData(context)
+                // Trigger Background Sync of Vitals (Requires API 26+ for Health Connect and java.time)
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    try {
+                        HealthSyncManager.syncData(context)
+                    } catch (_: Exception) {}
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             } finally {
                 pendingResult.finish()
             }

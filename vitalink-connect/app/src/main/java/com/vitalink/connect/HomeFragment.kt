@@ -38,12 +38,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
 
 class HomeFragment : Fragment() {
 
@@ -62,8 +56,8 @@ class HomeFragment : Fragment() {
     ) { granted ->
         lifecycleScope.launch {
             val view = view ?: return@launch
-            val txt = view.findViewById<TextView>(R.id.txtOutput)
-            txt.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
+            val txt = view.findViewById<TextView?>(R.id.txtOutput)
+            txt?.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
             val ok = granted.containsAll(permissions)
             if (ok) {
                 val sp = requireContext().getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
@@ -88,22 +82,28 @@ class HomeFragment : Fragment() {
                     val summary = obj.optJSONObject("summary") ?: JSONObject()
                     val last = summary.optString("lastSyncTs", "")
                     withContext(Dispatchers.Main) {
-                        val ring = view?.findViewById<View>(R.id.syncRing)
-                        val txt = view?.findViewById<TextView>(R.id.txtSyncStatus)
+                        val view = view ?: return@withContext
+                        val ring = view.findViewById<View>(R.id.syncRing)
+                        val txt = view.findViewById<TextView>(R.id.txtSyncStatus)
                         if (last.isNotEmpty()) {
-                            val ts = try { java.time.Instant.parse(last) } catch (_: Exception) { null }
-                            if (ts != null) {
-                                val mins = java.time.Duration.between(ts, java.time.Instant.now()).abs().toMinutes()
-                                txt?.text = "Last sync: ${if (mins < 60) "${mins}m ago" else "${mins/60}h ago"}"
-                                val color = if (mins <= 90) resources.getColor(R.color.btnSecondary, null) else resources.getColor(R.color.bannerRequiredAccent, null)
-                                ring?.background?.setTint(color)
+                            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                                val ts = try { java.time.Instant.parse(last) } catch (_: Exception) { null }
+                                if (ts != null) {
+                                    val mins = java.time.Duration.between(ts, java.time.Instant.now()).abs().toMinutes()
+                                    txt?.text = "Last sync: ${if (mins < 60) "${mins}m ago" else "${mins/60}h ago"}"
+                                    val color = if (mins <= 90) ContextCompat.getColor(main, R.color.btnSecondary) else ContextCompat.getColor(main, R.color.bannerRequiredAccent)
+                                    ring?.background?.setTint(color)
+                                } else {
+                                    txt?.text = "Last sync: unknown"
+                                    ring?.background?.setTint(ContextCompat.getColor(main, R.color.bannerRequiredAccent))
+                                }
                             } else {
-                                txt?.text = "Last sync: unknown"
-                                ring?.background?.setTint(resources.getColor(R.color.bannerRequiredAccent, null))
+                                txt?.text = "Last sync: ${last.take(10)}"
+                                ring?.background?.setTint(ContextCompat.getColor(main, R.color.btnSecondary))
                             }
                         } else {
                             txt?.text = "Last sync: none"
-                            ring?.background?.setTint(resources.getColor(R.color.btnDanger, null))
+                            ring?.background?.setTint(ContextCompat.getColor(main, R.color.btnDanger))
                         }
                     }
                 }
@@ -121,27 +121,54 @@ class HomeFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        return inflater.inflate(R.layout.fragment_home, container, false)
+        return try {
+            inflater.inflate(R.layout.fragment_home, container, false)
+        } catch (e: Exception) {
+            android.util.Log.e("HomeFragment", "Inflate failed", e)
+            val ctx = context ?: return null
+            val v = android.widget.LinearLayout(ctx)
+            v.orientation = android.widget.LinearLayout.VERTICAL
+            v.setBackgroundColor(ContextCompat.getColor(ctx, R.color.background))
+            val tv = android.widget.TextView(ctx)
+            tv.text = "Home unavailable"
+            tv.textSize = 16f
+            tv.setTextColor(ContextCompat.getColor(ctx, R.color.foreground))
+            tv.gravity = Gravity.CENTER
+            tv.setPadding(32, 32, 32, 32)
+            v.addView(tv)
+            v
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
         val context = requireContext()
-        val status = HealthConnectClient.getSdkStatus(context)
-        val txtOutput = view.findViewById<TextView>(R.id.txtOutput)
+        var status = 2 // SDK_UNAVAILABLE
+        try {
+             status = HealthConnectClient.getSdkStatus(context)
+        } catch (_: Throwable) {
+             // Health Connect likely not available or crash on older devices
+        }
+
+        val txtOutput = view.findViewById<TextView?>(R.id.txtOutput)
         val cardGrant = view.findViewById<CardView>(R.id.cardGrant)
         val cardRead = view.findViewById<CardView>(R.id.cardRead)
         val cardScan = view.findViewById<CardView>(R.id.cardScan)
 
         if (status != HealthConnectClient.SDK_AVAILABLE) {
-            txtOutput.text = "Health Connect not available"
-            cardGrant.isEnabled = false
-            cardRead.isEnabled = false
+            txtOutput?.text = "Health Connect not available"
+            cardGrant?.isEnabled = false
+            cardRead?.isEnabled = false
             return
         }
 
-        client = HealthConnectClient.getOrCreate(context)
+        try {
+            client = HealthConnectClient.getOrCreate(context)
+        } catch (e: Exception) {
+            txtOutput?.text = "Error initializing Health Connect"
+            return
+        }
 
         val sp = context.getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
         val isFirstTime = sp.getBoolean("first_time_setup", true)
@@ -149,8 +176,8 @@ class HomeFragment : Fragment() {
         val btnSetupPermissions = view.findViewById<MaterialButton>(R.id.btnSetupPermissions)
 
         if (isFirstTime) {
-            cardFirstTime.visibility = View.VISIBLE
-            btnSetupPermissions.setOnClickListener {
+            cardFirstTime?.visibility = View.VISIBLE
+            btnSetupPermissions?.setOnClickListener {
                 lifecycleScope.launch {
                     val granted = client.permissionController.getGrantedPermissions()
                     if (!granted.containsAll(permissions)) {
@@ -159,7 +186,7 @@ class HomeFragment : Fragment() {
                 }
             }
         } else {
-            cardFirstTime.visibility = View.GONE
+            cardFirstTime?.visibility = View.GONE
         }
 
         lifecycleScope.launch {
@@ -167,7 +194,9 @@ class HomeFragment : Fragment() {
             applyPermissionsUI(grantedInitial.containsAll(permissions))
         }
 
-        cardGrant.setOnClickListener {
+        renderPersistedSummary()
+        
+        cardGrant?.setOnClickListener {
             lifecycleScope.launch {
                 val granted = client.permissionController.getGrantedPermissions()
                 if (!granted.containsAll(permissions)) {
@@ -189,7 +218,7 @@ class HomeFragment : Fragment() {
             }
         }
 
-        cardRead.setOnClickListener {
+        cardRead?.setOnClickListener {
             lifecycleScope.launch {
                 val granted = client.permissionController.getGrantedPermissions()
                 if (!granted.containsAll(permissions)) {
@@ -209,7 +238,7 @@ class HomeFragment : Fragment() {
             }
         }
 
-        cardScan.setOnClickListener {
+        cardScan?.setOnClickListener {
             val main = getMainActivity()
             if (main != null) {
                 try {
@@ -234,7 +263,11 @@ class HomeFragment : Fragment() {
         }
 
         if (viewModel.dailySteps != null) {
-            renderTable()
+            try {
+                renderCards()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
         lifecycleScope.launch {
             updateSyncStatus()
@@ -247,12 +280,12 @@ class HomeFragment : Fragment() {
         val cardFirstTime = view.findViewById<CardView>(R.id.cardFirstTime)
         
         if (granted) {
-            bannerBox.visibility = View.GONE
-            cardFirstTime.visibility = View.GONE
+            bannerBox?.visibility = View.GONE
+            cardFirstTime?.visibility = View.GONE
         } else {
             val sp = requireContext().getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
             if (!sp.getBoolean("first_time_setup", true)) {
-                 bannerBox.visibility = View.VISIBLE
+                 bannerBox?.visibility = View.VISIBLE
             }
         }
     }
@@ -397,19 +430,20 @@ class HomeFragment : Fragment() {
                 
                 withContext(Dispatchers.Main) {
                     if (resp.isSuccessful) {
-                        android.widget.Toast.makeText(requireContext(), "Data synced", android.widget.Toast.LENGTH_SHORT).show()
+                        val countMsg = "Synced: ${stepRecords.size} steps, ${hrRecords.size} HR, ${spo2Records.size} SpO2"
+                        android.widget.Toast.makeText(requireContext(), countMsg, android.widget.Toast.LENGTH_LONG).show()
                         viewModel.statusSteps = code
                         viewModel.statusDist = code
                         viewModel.statusHr = code
                         viewModel.statusSpo2 = code
-                        renderTable()
+                        renderCards()
                     } else {
                         android.widget.Toast.makeText(requireContext(), "Sync failed", android.widget.Toast.LENGTH_SHORT).show()
                         viewModel.statusSteps = code
                         viewModel.statusDist = code
                         viewModel.statusHr = code
                         viewModel.statusSpo2 = code
-                        renderTable()
+                        renderCards()
                     }
                 }
             } catch (e: Exception) {
@@ -420,296 +454,429 @@ class HomeFragment : Fragment() {
                     viewModel.statusDist = errCode
                     viewModel.statusHr = errCode
                     viewModel.statusSpo2 = errCode
-                    renderTable()
+                    renderCards()
                 }
                 e.printStackTrace()
             }
         }
     }
 
-    private fun renderTable() {
+    private fun renderCards() {
         val view = view ?: return
-        val tbl = view.findViewById<TableLayout>(R.id.tblData)
-        val txt = view.findViewById<TextView>(R.id.txtOutput)
+        val context = try { requireContext() } catch(e: Exception) { return }
         
-        tbl.removeAllViews()
+        val layoutLoading = view.findViewById<View>(R.id.layoutLoading)
+        val layoutDataCards = view.findViewById<View>(R.id.layoutDataCards)
+        val txtNoDataHint = view.findViewById<TextView>(R.id.txtNoDataHint)
         
-        val rawSteps = viewModel.rawSteps ?: return
-        val rawDist = viewModel.rawDist ?: return
-        val rawHr = viewModel.rawHr ?: return
-        val rawSpo2 = viewModel.rawSpo2 ?: return
+        // Hide loading, show cards
+        layoutLoading?.visibility = View.GONE
+        layoutDataCards?.visibility = View.VISIBLE
         
-        // Render Table
-        fun addCell(text: String, bold: Boolean): TextView {
-            val tv = TextView(requireContext())
-            tv.text = text
-            tv.setPadding(12, 10, 12, 10)
-            tv.gravity = Gravity.START
-            if (bold) tv.setTypeface(tv.typeface, Typeface.BOLD)
-            tv.layoutParams = TableRow.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            tv.setTextColor(resources.getColor(R.color.foreground, null))
-            return tv
+        // Get Today's Data
+        var steps = 0L
+        var dist = 0.0
+        var hrAgg: HrAgg? = null
+        var spo2Agg: Spo2Agg? = null
+
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            try {
+                val today = java.time.LocalDate.now().toString()
+                steps = viewModel.dailySteps?.get(today) ?: 0L
+                dist = viewModel.dailyDist?.get(today) ?: 0.0
+                hrAgg = viewModel.dailyHr?.get(today)
+                spo2Agg = viewModel.dailySpo2?.get(today)
+            } catch (_: Throwable) {}
         }
         
-        val header = TableRow(requireContext())
-        header.addView(addCell("Time", true))
-        header.addView(addCell("Steps", true))
-        header.addView(addCell("Dist (m)", true))
-        header.addView(addCell("HR", true))
-        header.addView(addCell("SpO2", true))
-        tbl.addView(header)
+        val avgHr = if (hrAgg != null && hrAgg.count > 0) hrAgg.sum / hrAgg.count else 0L
+        val avgSpo2 = if (spo2Agg != null && spo2Agg.count > 0) (spo2Agg.sum / spo2Agg.count).toInt() else 0
         
-        // Aggregate by Hour
-        data class HourlyAgg(
-            var steps: Long = 0, 
-            var dist: Double = 0.0, 
-            var hrSum: Long = 0, 
-            var hrCount: Int = 0, 
-            var spo2Sum: Double = 0.0, 
-            var spo2Count: Int = 0
-        )
+        // Check if we have any data
+        val hasData = steps > 0 || dist > 0 || avgHr > 0 || avgSpo2 > 0
+        txtNoDataHint?.visibility = if (hasData) View.GONE else View.VISIBLE
         
-        val hourlyData = java.util.TreeMap<LocalDateTime, HourlyAgg>(compareByDescending { it })
-        val zone = ZoneId.systemDefault()
-        
-        rawSteps.forEach { r ->
-            val time = LocalDateTime.ofInstant(r.startTime, zone).truncatedTo(ChronoUnit.HOURS)
-            val agg = hourlyData.getOrPut(time) { HourlyAgg() }
-            agg.steps += r.count
-        }
-        
-        rawDist.forEach { r ->
-            val time = LocalDateTime.ofInstant(r.startTime, zone).truncatedTo(ChronoUnit.HOURS)
-            val agg = hourlyData.getOrPut(time) { HourlyAgg() }
-            agg.dist += r.distance.inMeters
-        }
-        
-        rawHr.forEach { r ->
-            r.samples.forEach { s ->
-                val time = LocalDateTime.ofInstant(s.time, zone).truncatedTo(ChronoUnit.HOURS)
-                val agg = hourlyData.getOrPut(time) { HourlyAgg() }
-                agg.hrSum += s.beatsPerMinute
-                agg.hrCount++
+        // Update Steps
+        view.findViewById<TextView>(R.id.valSteps)?.text = steps.toString()
+        val statusStepsTv = view.findViewById<TextView>(R.id.statusSteps)
+        if (steps > 0) {
+            val code = viewModel.statusSteps
+            if (code != null && code in 200..299) {
+                statusStepsTv?.text = "Synced"
+                statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (code != null) {
+                statusStepsTv?.text = "Sync Failed ($code)"
+                statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusStepsTv?.text = "Not Synced"
+                statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
             }
+        } else {
+            statusStepsTv?.text = "No Data"
+            statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+        }
+
+        // Update Distance
+        view.findViewById<TextView>(R.id.valDist)?.text = "%.0f".format(dist)
+        val statusDistTv = view.findViewById<TextView>(R.id.statusDist)
+        if (dist > 0) {
+            val code = viewModel.statusDist
+            if (code != null && code in 200..299) {
+                statusDistTv?.text = "Synced"
+                statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (code != null) {
+                statusDistTv?.text = "Sync Failed ($code)"
+                statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusDistTv?.text = "Not Synced"
+                statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+            }
+        } else {
+            statusDistTv?.text = "No Data"
+            statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+        }
+
+        // Update HR
+        view.findViewById<TextView>(R.id.valHr)?.text = if (avgHr > 0) avgHr.toString() else "--"
+        val statusHrTv = view.findViewById<TextView>(R.id.statusHr)
+        if (avgHr > 0) {
+            val code = viewModel.statusHr
+            if (code != null && code in 200..299) {
+                statusHrTv?.text = "Synced"
+                statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (code != null) {
+                statusHrTv?.text = "Sync Failed ($code)"
+                statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusHrTv?.text = "Not Synced"
+                statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+            }
+        } else {
+            statusHrTv?.text = "No Data"
+            statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+        }
+
+        // Update SpO2
+        view.findViewById<TextView>(R.id.valSpo2)?.text = if (avgSpo2 > 0) "$avgSpo2%" else "--"
+        val statusSpo2Tv = view.findViewById<TextView>(R.id.statusSpo2)
+        if (avgSpo2 > 0) {
+            val code = viewModel.statusSpo2
+            if (code != null && code in 200..299) {
+                statusSpo2Tv?.text = "Synced"
+                statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (code != null) {
+                statusSpo2Tv?.text = "Sync Failed ($code)"
+                statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusSpo2Tv?.text = "Not Synced"
+                statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+            }
+        } else {
+            statusSpo2Tv?.text = "No Data"
+            statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
         }
         
-        rawSpo2.forEach { r ->
-             val time = LocalDateTime.ofInstant(r.time, zone).truncatedTo(ChronoUnit.HOURS)
-             val agg = hourlyData.getOrPut(time) { HourlyAgg() }
-             agg.spo2Sum += r.percentage.value
-             agg.spo2Count++
-        }
-        
-        val dateFormatter = DateTimeFormatter.ofPattern("dd/MM HH:mm")
-        val todayDate = LocalDate.now()
-        
-        hourlyData.forEach { (time, agg) ->
-            val row = TableRow(requireContext())
-            row.addView(addCell(time.format(dateFormatter), false))
-            
-            // Check if this row is from today (to append status code)
-            val isToday = time.toLocalDate().isEqual(todayDate)
-            
-            // Steps
-            var stepsText = agg.steps.toString()
-            if (isToday && viewModel.statusSteps != null) stepsText += " (${viewModel.statusSteps})"
-            row.addView(addCell(stepsText, false))
-            
-            // Dist
-            var distText = agg.dist.toLong().toString()
-            if (isToday && viewModel.statusDist != null) distText += " (${viewModel.statusDist})"
-            row.addView(addCell(distText, false))
-            
-            // HR
-            val avgHr = if (agg.hrCount > 0) agg.hrSum / agg.hrCount else 0
-            var hrText = if (avgHr > 0) avgHr.toString() else "-"
-            if (isToday && viewModel.statusHr != null) hrText += " (${viewModel.statusHr})"
-            row.addView(addCell(hrText, false))
-            
-            // SpO2
-            val avgSpo2 = if (agg.spo2Count > 0) (agg.spo2Sum / agg.spo2Count).toInt() else 0
-            var spo2Text = if (avgSpo2 > 0) "$avgSpo2%" else "-"
-            if (isToday && viewModel.statusSpo2 != null) spo2Text += " (${viewModel.statusSpo2})"
-            row.addView(addCell(spo2Text, false))
-            
-            tbl.addView(row)
-        }
-        
-        txt.text = "Data Loaded (Hourly)"
+        persistTodaySummary(steps, dist, avgHr, avgSpo2)
     }
 
     private suspend fun readMetricsAndShow() {
         val view = view ?: return
-        val txt = view.findViewById<TextView>(R.id.txtOutput)
-        val tbl = view.findViewById<TableLayout>(R.id.tblData)
+        val layoutLoading = view.findViewById<View>(R.id.layoutLoading)
+        val layoutDataCards = view.findViewById<View>(R.id.layoutDataCards)
+        val txtLoadingStatus = view.findViewById<TextView>(R.id.txtLoadingStatus)
+        val cardRead = view.findViewById<View>(R.id.cardRead)
         
         val granted = client.permissionController.getGrantedPermissions()
         if (!granted.containsAll(permissions)) {
-            txt.text = "Permissions missing"
+            android.widget.Toast.makeText(requireContext(), "Permissions missing", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         
-        txt.text = "Reading..."
-        tbl.removeAllViews()
+        // Show Loading
+        withContext(Dispatchers.Main) {
+            layoutLoading?.visibility = View.VISIBLE
+            layoutDataCards?.visibility = View.GONE
+            txtLoadingStatus?.text = "Reading health data..."
+            cardRead?.isEnabled = false
+            android.widget.Toast.makeText(requireContext(), "Collecting data...", android.widget.Toast.LENGTH_SHORT).show()
+        }
 
         try {
-            val nowInstant = Instant.now()
-            val zone = ZoneId.systemDefault()
-            
-            val endDate = LocalDateTime.ofInstant(nowInstant, zone).toLocalDate()
-            val sevenDaysAgo = nowInstant.minusSeconds(7 * 24 * 60 * 60)
-            
-            // Fetch Data
-            val steps7d = mutableListOf<StepsRecord>()
-            var stepsPageToken: String? = null
-            do {
-                val resp = client.readRecords(
-                    ReadRecordsRequest(
-                        StepsRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
-                        pageToken = stepsPageToken
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                val nowInstant = java.time.Instant.now()
+                val zone = java.time.ZoneId.systemDefault()
+                
+                val endDate = java.time.LocalDateTime.ofInstant(nowInstant, zone).toLocalDate()
+                val sevenDaysAgo = nowInstant.minusSeconds(7 * 24 * 60 * 60)
+                
+                // Fetch Data
+                val steps7d = mutableListOf<StepsRecord>()
+                var stepsPageToken: String? = null
+                do {
+                    val resp = client.readRecords(
+                        ReadRecordsRequest(
+                            StepsRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
+                            pageToken = stepsPageToken
+                        )
                     )
-                )
-                steps7d.addAll(resp.records)
-                stepsPageToken = resp.pageToken
-            } while (stepsPageToken != null)
+                    steps7d.addAll(resp.records)
+                    stepsPageToken = resp.pageToken
+                } while (stepsPageToken != null)
 
-            val dist7d = mutableListOf<DistanceRecord>()
-            var distPageToken: String? = null
-            do {
-                val resp = client.readRecords(
-                    ReadRecordsRequest(
-                        DistanceRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
-                        pageToken = distPageToken
+                val dist7d = mutableListOf<DistanceRecord>()
+                var distPageToken: String? = null
+                do {
+                    val resp = client.readRecords(
+                        ReadRecordsRequest(
+                            DistanceRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
+                            pageToken = distPageToken
+                        )
                     )
-                )
-                dist7d.addAll(resp.records)
-                distPageToken = resp.pageToken
-            } while (distPageToken != null)
-            
-            val hr7d = mutableListOf<HeartRateRecord>()
-            var hrPageToken: String? = null
-            do {
-                val resp = client.readRecords(
-                    ReadRecordsRequest(
-                        HeartRateRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
-                        pageToken = hrPageToken
+                    dist7d.addAll(resp.records)
+                    distPageToken = resp.pageToken
+                } while (distPageToken != null)
+                
+                val hr7d = mutableListOf<HeartRateRecord>()
+                var hrPageToken: String? = null
+                do {
+                    val resp = client.readRecords(
+                        ReadRecordsRequest(
+                            HeartRateRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
+                            pageToken = hrPageToken
+                        )
                     )
-                )
-                hr7d.addAll(resp.records)
-                hrPageToken = resp.pageToken
-            } while (hrPageToken != null)
-            
-            val spo27d = mutableListOf<OxygenSaturationRecord>()
-            var spo2PageToken: String? = null
-            do {
-                val resp = client.readRecords(
-                    ReadRecordsRequest(
-                        OxygenSaturationRecord::class,
-                        timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
-                        pageToken = spo2PageToken
+                    hr7d.addAll(resp.records)
+                    hrPageToken = resp.pageToken
+                } while (hrPageToken != null)
+                
+                val spo27d = mutableListOf<OxygenSaturationRecord>()
+                var spo2PageToken: String? = null
+                do {
+                    val resp = client.readRecords(
+                        ReadRecordsRequest(
+                            OxygenSaturationRecord::class,
+                            timeRangeFilter = TimeRangeFilter.between(sevenDaysAgo, nowInstant),
+                            pageToken = spo2PageToken
+                        )
                     )
-                )
-                spo27d.addAll(resp.records)
-                spo2PageToken = resp.pageToken
-            } while (spo2PageToken != null)
+                    spo27d.addAll(resp.records)
+                    spo2PageToken = resp.pageToken
+                } while (spo2PageToken != null)
 
-            // Process Data
-            
-            val dailySteps = linkedMapOf<java.time.LocalDate, Long>()
-            val dailyDist = linkedMapOf<java.time.LocalDate, Double>()
-            val dailyHr = linkedMapOf<java.time.LocalDate, HrAgg>()
-            val dailySpo2 = linkedMapOf<java.time.LocalDate, Spo2Agg>()
-            
-            for (i in 0..6) {
-                val day = endDate.minusDays(i.toLong())
-                dailySteps[day] = 0L
-                dailyDist[day] = 0.0
-                dailyHr[day] = HrAgg()
-                dailySpo2[day] = Spo2Agg()
-            }
-            
-            steps7d.forEach { r ->
-                val day = LocalDateTime.ofInstant(r.endTime, zone).toLocalDate()
-                if (dailySteps.containsKey(day)) {
-                    dailySteps[day] = (dailySteps[day] ?: 0L) + r.count
+                // Process Data
+                
+                val dailySteps = linkedMapOf<String, Long>()
+                val dailyDist = linkedMapOf<String, Double>()
+                val dailyHr = linkedMapOf<String, HrAgg>()
+                val dailySpo2 = linkedMapOf<String, Spo2Agg>()
+                
+                for (i in 0..6) {
+                    val day = endDate.minusDays(i.toLong()).toString()
+                    dailySteps[day] = 0L
+                    dailyDist[day] = 0.0
+                    dailyHr[day] = HrAgg()
+                    dailySpo2[day] = Spo2Agg()
                 }
-            }
-
-            dist7d.forEach { r ->
-                val day = LocalDateTime.ofInstant(r.endTime, zone).toLocalDate()
-                if (dailyDist.containsKey(day)) {
-                    dailyDist[day] = (dailyDist[day] ?: 0.0) + r.distance.inMeters
+                
+                steps7d.forEach { r ->
+                    val day = java.time.LocalDateTime.ofInstant(r.endTime, zone).toLocalDate().toString()
+                    if (dailySteps.containsKey(day)) {
+                        dailySteps[day] = (dailySteps[day] ?: 0L) + r.count
+                    }
                 }
-            }
-            
-            hr7d.forEach { rec ->
-                rec.samples.forEach { s ->
-                    val day = LocalDateTime.ofInstant(s.time, zone).toLocalDate()
-                    val bpm = s.beatsPerMinute.toLong()
-                    dailyHr[day]?.let { agg ->
-                        if (bpm < agg.min) agg.min = bpm
-                        if (bpm > agg.max) agg.max = bpm
-                        agg.sum += bpm
+
+                dist7d.forEach { r ->
+                    val day = java.time.LocalDateTime.ofInstant(r.endTime, zone).toLocalDate().toString()
+                    if (dailyDist.containsKey(day)) {
+                        dailyDist[day] = (dailyDist[day] ?: 0.0) + r.distance.inMeters
+                    }
+                }
+                
+                hr7d.forEach { rec ->
+                    rec.samples.forEach { s ->
+                        val day = java.time.LocalDateTime.ofInstant(s.time, zone).toLocalDate().toString()
+                        val bpm = s.beatsPerMinute.toLong()
+                        dailyHr[day]?.let { agg ->
+                            if (bpm < agg.min) agg.min = bpm
+                            if (bpm > agg.max) agg.max = bpm
+                            agg.sum += bpm
+                            agg.count += 1
+                        }
+                    }
+                }
+                
+                spo27d.forEach { r ->
+                    val day = java.time.LocalDateTime.ofInstant(r.time, zone).toLocalDate().toString()
+                    val pct = r.percentage.value
+                    dailySpo2[day]?.let { agg ->
+                        if (pct < agg.min) agg.min = pct
+                        if (pct > agg.max) agg.max = pct
+                        agg.sum += pct
                         agg.count += 1
                     }
                 }
-            }
-            
-            spo27d.forEach { r ->
-                val day = LocalDateTime.ofInstant(r.time, zone).toLocalDate()
-                val pct = r.percentage.value
-                dailySpo2[day]?.let { agg ->
-                    if (pct < agg.min) agg.min = pct
-                    if (pct > agg.max) agg.max = pct
-                    agg.sum += pct
-                    agg.count += 1
+                
+                // Store in ViewModel
+                viewModel.dailySteps = dailySteps
+                viewModel.dailyDist = dailyDist
+                viewModel.dailyHr = dailyHr
+                viewModel.dailySpo2 = dailySpo2
+                
+                viewModel.rawSteps = steps7d
+                viewModel.rawDist = dist7d
+                viewModel.rawHr = hr7d
+                viewModel.rawSpo2 = spo27d
+                
+                withContext(Dispatchers.Main) {
+                    renderCards()
+                }
+                
+                // Sync to server
+                val todayKey = endDate.toString()
+                val todaySteps = dailySteps[todayKey] ?: 0L
+                val todayDist = (dailyDist[todayKey] ?: 0.0).toLong()
+                val hrObj = dailyHr[todayKey]
+                val todayHr = if (hrObj != null && hrObj.count > 0) hrObj.sum / hrObj.count else 0L
+                val spo2Obj = dailySpo2[todayKey]
+                val todaySpo2 = if (spo2Obj != null && spo2Obj.count > 0) (spo2Obj.sum / spo2Obj.count).toInt() else 0
+                
+                // Log counts
+                withContext(Dispatchers.Main) {
+                    val msg = "Found: ${steps7d.size} steps, ${dist7d.size} dist, ${hr7d.size} hr, ${spo27d.size} spo2"
+                    android.util.Log.d("HomeFragment", msg)
+                    android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_LONG).show()
+                }
+
+                // Send ALL fetched raw records (last 7 days)
+                // We check if we have ANY data to sync (either today's summary OR any raw records)
+                if (todaySteps > 0 || steps7d.isNotEmpty() || dist7d.isNotEmpty() || hr7d.isNotEmpty() || spo27d.isNotEmpty()) {
+                    syncTodayToServer(todaySteps, todayDist, todayHr, todaySpo2, steps7d, dist7d, hr7d, spo27d)
+                } else {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(requireContext(), "No new data to sync", android.widget.Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
-            
-            // Store in ViewModel
-            viewModel.dailySteps = dailySteps
-            viewModel.dailyDist = dailyDist
-            viewModel.dailyHr = dailyHr
-            viewModel.dailySpo2 = dailySpo2
-            
-            viewModel.rawSteps = steps7d
-            viewModel.rawDist = dist7d
-            viewModel.rawHr = hr7d
-            viewModel.rawSpo2 = spo27d
-            
-            renderTable()
-            
-            // Sync to server
-            val todaySteps = dailySteps[endDate] ?: 0L
-            val todayDist = (dailyDist[endDate] ?: 0.0).toLong()
-            val hrObj = dailyHr[endDate]
-            val todayHr = if (hrObj != null && hrObj.count > 0) hrObj.sum / hrObj.count else 0L
-            val spo2Obj = dailySpo2[endDate]
-            val todaySpo2 = if (spo2Obj != null && spo2Obj.count > 0) (spo2Obj.sum / spo2Obj.count).toInt() else 0
-            
-            // Log counts
-            withContext(Dispatchers.Main) {
-                val msg = "Found: ${steps7d.size} steps, ${dist7d.size} dist, ${hr7d.size} hr, ${spo27d.size} spo2"
-                android.util.Log.d("HomeFragment", msg)
-                // android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_SHORT).show()
-            }
-
-            // Send ALL fetched raw records (last 7 days)
-            // We check if we have ANY data to sync (either today's summary OR any raw records)
-            if (todaySteps > 0 || steps7d.isNotEmpty() || dist7d.isNotEmpty() || hr7d.isNotEmpty() || spo27d.isNotEmpty()) {
-                 syncTodayToServer(todaySteps, todayDist, todayHr, todaySpo2, steps7d, dist7d, hr7d, spo27d)
-            } else {
-                 withContext(Dispatchers.Main) {
-                     android.widget.Toast.makeText(requireContext(), "No new data to sync", android.widget.Toast.LENGTH_SHORT).show()
-                 }
-            }
-            
         } catch (e: Exception) {
-            txt.text = "Error: ${e.message}"
+            withContext(Dispatchers.Main) {
+                 android.widget.Toast.makeText(requireContext(), "Error: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                 layoutLoading?.visibility = View.GONE
+            }
             e.printStackTrace()
+        } finally {
+            withContext(Dispatchers.Main) {
+                cardRead?.isEnabled = true
+            }
+        }
+    }
+    
+    private fun persistTodaySummary(steps: Long, dist: Double, avgHr: Long, avgSpo2: Int) {
+        val sp = requireContext().getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
+        val obj = JSONObject()
+        obj.put("steps", steps)
+        obj.put("dist", dist)
+        obj.put("avgHr", avgHr)
+        obj.put("avgSpo2", avgSpo2)
+        obj.put("statusSteps", viewModel.statusSteps ?: -1)
+        obj.put("statusDist", viewModel.statusDist ?: -1)
+        obj.put("statusHr", viewModel.statusHr ?: -1)
+        obj.put("statusSpo2", viewModel.statusSpo2 ?: -1)
+        val dateStr = if (android.os.Build.VERSION.SDK_INT >= 26) java.time.LocalDate.now().toString() else java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        obj.put("date", dateStr)
+        sp.edit().putString("vital_summary", obj.toString()).apply()
+    }
+    
+    private fun renderPersistedSummary() {
+        val view = view ?: return
+        val context = try { requireContext() } catch(e: Exception) { return }
+        val sp = context.getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
+        val json = sp.getString("vital_summary", null) ?: return
+        val obj = try { JSONObject(json) } catch(e: Exception) { return }
+        val steps = obj.optLong("steps", 0L)
+        val dist = obj.optDouble("dist", 0.0)
+        val avgHr = obj.optLong("avgHr", 0L)
+        val avgSpo2 = obj.optInt("avgSpo2", 0)
+        val statusSteps = obj.optInt("statusSteps", -1)
+        val statusDist = obj.optInt("statusDist", -1)
+        val statusHr = obj.optInt("statusHr", -1)
+        val statusSpo2 = obj.optInt("statusSpo2", -1)
+        val layoutLoading = view.findViewById<View>(R.id.layoutLoading)
+        val layoutDataCards = view.findViewById<View>(R.id.layoutDataCards)
+        val txtNoDataHint = view.findViewById<TextView>(R.id.txtNoDataHint)
+        layoutLoading?.visibility = View.GONE
+        layoutDataCards?.visibility = View.VISIBLE
+        val hasData = steps > 0 || dist > 0 || avgHr > 0 || avgSpo2 > 0
+        txtNoDataHint?.visibility = if (hasData) View.GONE else View.VISIBLE
+        view.findViewById<TextView>(R.id.valSteps)?.text = steps.toString()
+        val statusStepsTv = view.findViewById<TextView>(R.id.statusSteps)
+        if (steps > 0) {
+            if (statusSteps in 200..299) {
+                statusStepsTv?.text = "Synced"
+                statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (statusSteps >= 0) {
+                statusStepsTv?.text = "Sync Failed ($statusSteps)"
+                statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusStepsTv?.text = "Not Synced"
+                statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+            }
+        } else {
+            statusStepsTv?.text = "No Data"
+            statusStepsTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+        }
+        view.findViewById<TextView>(R.id.valDist)?.text = "%.0f".format(dist)
+        val statusDistTv = view.findViewById<TextView>(R.id.statusDist)
+        if (dist > 0) {
+            if (statusDist in 200..299) {
+                statusDistTv?.text = "Synced"
+                statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (statusDist >= 0) {
+                statusDistTv?.text = "Sync Failed ($statusDist)"
+                statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusDistTv?.text = "Not Synced"
+                statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+            }
+        } else {
+            statusDistTv?.text = "No Data"
+            statusDistTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+        }
+        view.findViewById<TextView>(R.id.valHr)?.text = if (avgHr > 0) avgHr.toString() else "--"
+        val statusHrTv = view.findViewById<TextView>(R.id.statusHr)
+        if (avgHr > 0) {
+            if (statusHr in 200..299) {
+                statusHrTv?.text = "Synced"
+                statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (statusHr >= 0) {
+                statusHrTv?.text = "Sync Failed ($statusHr)"
+                statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusHrTv?.text = "Not Synced"
+                statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+            }
+        } else {
+            statusHrTv?.text = "No Data"
+            statusHrTv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+        }
+        view.findViewById<TextView>(R.id.valSpo2)?.text = if (avgSpo2 > 0) "$avgSpo2%" else "--"
+        val statusSpo2Tv = view.findViewById<TextView>(R.id.statusSpo2)
+        if (avgSpo2 > 0) {
+            if (statusSpo2 in 200..299) {
+                statusSpo2Tv?.text = "Synced"
+                statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.btnSecondary))
+            } else if (statusSpo2 >= 0) {
+                statusSpo2Tv?.text = "Sync Failed ($statusSpo2)"
+                statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.btnDanger))
+            } else {
+                statusSpo2Tv?.text = "Not Synced"
+                statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
+            }
+        } else {
+            statusSpo2Tv?.text = "No Data"
+            statusSpo2Tv?.setTextColor(ContextCompat.getColor(context, R.color.hintText))
         }
     }
 }

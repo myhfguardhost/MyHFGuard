@@ -16,6 +16,8 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import java.text.SimpleDateFormat
 import java.util.Locale
 import okhttp3.MediaType.Companion.toMediaType
@@ -135,32 +137,34 @@ class RegisterActivity : AppCompatActivity() {
     }
 
     private suspend fun ensurePatientOnServer(patientId: String, firstName: String, lastName: String, dateOfBirth: String) {
-        try {
-            val serverUrl = getString(R.string.server_base_url)
-            val json = """
-                {
-                    "patientId": "$patientId",
-                    "firstName": "$firstName",
-                    "lastName": "$lastName",
-                    "dateOfBirth": "$dateOfBirth"
-                }
-            """.trimIndent()
+        withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val serverUrl = getString(R.string.server_base_url)
+                val json = """
+                    {
+                        "patientId": "$patientId",
+                        "firstName": "$firstName",
+                        "lastName": "$lastName",
+                        "dateOfBirth": "$dateOfBirth"
+                    }
+                """.trimIndent()
 
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val request = okhttp3.Request.Builder()
-                .url("$serverUrl/admin/ensure-patient")
-                .post(okhttp3.RequestBody.create(
-                    mediaType,
-                    json
-                ))
-                .addHeader("Content-Type", "application/json")
-                .build()
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = okhttp3.Request.Builder()
+                    .url("$serverUrl/admin/ensure-patient")
+                    .post(okhttp3.RequestBody.create(
+                        mediaType,
+                        json
+                    ))
+                    .addHeader("Content-Type", "application/json")
+                    .build()
 
-            val client = okhttp3.OkHttpClient()
-            client.newCall(request).execute()
-        } catch (e: Exception) {
-            // Log error but don't block registration
-            android.util.Log.e("RegisterActivity", "Failed to create patient on server", e)
+                val client = okhttp3.OkHttpClient()
+                client.newCall(request).execute()
+            } catch (e: Exception) {
+                // Log error but don't block registration
+                android.util.Log.e("RegisterActivity", "Failed to create patient on server", e)
+            }
         }
     }
 }

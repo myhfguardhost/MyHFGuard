@@ -18,10 +18,12 @@ class ReminderReceiver : BroadcastReceiver() {
         val channelId = "vitalink_reminders_v2"
         
         // Ensure channel exists (defensive)
-        if (nm.getNotificationChannel(channelId) == null) {
-            val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
-            ch.enableVibration(true)
-            nm.createNotificationChannel(ch)
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            if (nm.getNotificationChannel(channelId) == null) {
+                val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
+                ch.enableVibration(true)
+                nm.createNotificationChannel(ch)
+            }
         }
 
         var contentPi: android.app.PendingIntent? = null

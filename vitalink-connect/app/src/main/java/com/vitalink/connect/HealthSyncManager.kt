@@ -19,8 +19,8 @@ import java.time.ZoneId
 
 object HealthSyncManager {
     suspend fun syncData(context: Context) {
-        val client = HealthConnectClient.getOrCreate(context)
         try {
+            val client = HealthConnectClient.getOrCreate(context)
             val nowInstant = Instant.now()
             val sevenDaysAgo = nowInstant.minusSeconds(7 * 24 * 60 * 60)
             val steps7d = readAll(client, StepsRecord::class, sevenDaysAgo, nowInstant)
