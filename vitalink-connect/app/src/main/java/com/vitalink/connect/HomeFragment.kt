@@ -396,8 +396,10 @@ class HomeFragment : Fragment() {
                 val code = resp.code
                 
                 withContext(Dispatchers.Main) {
-                            if (resp.isSuccessful) {
-    odTL                        viewModel.statusSteps = code"Daa ynced"SHRT
+                    if (resp.isSuccessful) {
+                        val countMsg = "Synced: ${stepRecords.size} steps, ${hrRecords.size} HR, ${spo2Records.size} SpO2"
+                        android.widget.Toast.makeText(requireContext(), countMsg, android.widget.Toast.LENGTH_LONG).show()
+                        viewModel.statusSteps = code
                                 viewModel.statusDist = code
                         viewModel.statusHr = code
                         viewModel.statusSpo2 = code
