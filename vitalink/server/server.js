@@ -343,6 +343,115 @@ app.post('/api/admin/login', adminLoginRoute);
 }) */
 
 
+// --- MEDICATION ROUTES ---
+app.get('/patient/medications', async (req, res) => {
+  const pid = req.query.patientId
+  if (!pid) return res.status(400).json({ error: 'missing patientId' })
+
+  try {
+    const { data, error } = await supabase
+      .from('medication')
+      .select('*')
+      .eq('patient_id', pid)
+
+    if (error) throw error
+
+    const prefs = {
+      beta_blockers: false,
+      raas_inhibitors: false,
+      mras: false,
+      sglt2_inhibitors: false,
+      statin: false,
+      notify_hour: 9
+    }
+
+    if (data) {
+      data.forEach(m => {
+        if (m.class && prefs.hasOwnProperty(m.class)) {
+          prefs[m.class] = m.active
+        }
+      })
+    }
+    
+    return res.status(200).json({ preferences: prefs })
+  } catch (e) {
+    console.error('[medications] get error:', e)
+    return res.status(500).json({ error: e.message })
+  }
+})
+
+app.post('/patient/medications', async (req, res) => {
+  const { patientId, ...prefs } = req.body
+  if (!patientId) return res.status(400).json({ error: 'missing patientId' })
+
+  try {
+    // 1. Get existing medications to find IDs
+    const { data: existing, error: fetchError } = await supabase
+      .from('medication')
+      .select('*')
+      .eq('patient_id', patientId)
+    
+    if (fetchError) throw fetchError
+
+    const updates = []
+    const inserts = []
+
+    const categories = {
+      beta_blockers: 'Beta Blockers',
+      raas_inhibitors: 'RAAS Inhibitors',
+      mras: 'MRAs',
+      sglt2_inhibitors: 'SGLT2 Inhibitors',
+      statin: 'Statin'
+    }
+
+    Object.keys(categories).forEach(key => {
+      if (prefs.hasOwnProperty(key)) {
+        const isActive = prefs[key]
+        const match = existing ? existing.find(m => m.class === key) : null
+        
+        if (match) {
+          // Update if active status changed
+          if (match.active !== isActive) {
+            updates.push({
+              id: match.id,
+              active: isActive,
+              updated_at: new Date().toISOString()
+            })
+          }
+        } else {
+          inserts.push({
+            patient_id: patientId,
+            name: categories[key],
+            class: key,
+            active: isActive
+          })
+        }
+      }
+    })
+
+    console.log('[medications] computed', { patientId, updatesCount: updates.length, insertsCount: inserts.length })
+
+    if (updates.length > 0) {
+      for (const u of updates) {
+        const { error } = await supabase.from('medication').update({ active: u.active, updated_at: u.updated_at }).eq('id', u.id)
+        if (error) throw error
+      }
+    }
+
+    if (inserts.length > 0) {
+      const payload = inserts.map((x) => ({ ...x, patient_id: patientId }))
+      console.log('[medications] insert payload', payload)
+      const { error } = await supabase.from('medication').insert(payload)
+      if (error) throw error
+    }
+
+    return res.status(200).json({ ok: true })
+  } catch (e) {
+    console.error('[medications] save error:', e)
+    return res.status(500).json({ error: e.message })
+  }
+})
+
 // --- SYNC METRICS ROUTE ---
 app.post('/patient/sync-metrics', async (req, res) => {
   const { patient_id, steps_samples, hr_samples, distance_samples, spo2_samples, date } = req.body
@@ -729,7 +838,7 @@ async function fetchPatientHealthData(patientId) {
       // Current medications
       supabase
         .from('medication')
-        .select('name, class, dosage, instructions')
+        .select('name, class')
         .eq('patient_id', patientId)
         .eq('active', true)
     ])
@@ -783,7 +892,7 @@ async function fetchPatientHealthData(patientId) {
 
     const formatMedications = (data) => {
       if (!data || data.length === 0) return 'No active medications'
-      return data.map(m => `${m.name} (${m.class}) - ${m.dosage || 'As prescribed'}`).join('; ')
+      return data.map(m => `${m.name} (${m.class})`).join('; ')
     }
 
     return {

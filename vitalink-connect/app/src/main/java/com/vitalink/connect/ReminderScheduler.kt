@@ -158,14 +158,14 @@ object ReminderScheduler {
                     if (prefs.optBoolean("sglt2_inhibitors", false)) noonMeds.add("SGLT2 inhibitors")
 
                     if (noonMeds.isNotEmpty()) {
-                        val title = "Meds: " + noonMeds.joinToString(", ")
-                        scheduleDaily(context, 11000, title, hour)
+                        val title = "Time for medications: " + noonMeds.joinToString(", ")
+                        scheduleDaily(context, 11000, title, 12) // Fixed at 12:00 PM
                     } else {
                         cancelDaily(context, 11000)
                     }
 
                     if (prefs.optBoolean("statin", false)) {
-                        scheduleDaily(context, 11005, "Take Statin", 22) // 10 PM
+                        scheduleDaily(context, 11005, "Time for Statin medication", 22) // Fixed at 10:00 PM
                     } else {
                         cancelDaily(context, 11005)
                     }
