@@ -20,7 +20,7 @@ class VitalinkApplication : Application() {
             ).apply {
                 description = "Patient reminders"
             }
-            val nm = getSystemService(android.app.NotificationManager::class.java)
+            val nm = getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
             nm.createNotificationChannel(channel)
         }
     }

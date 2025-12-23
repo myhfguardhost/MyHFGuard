@@ -14,6 +14,8 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import okhttp3.MediaType.Companion.toMediaType
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -201,41 +203,45 @@ class LoginActivity : BaseActivity() {
     }
 
     private suspend fun ensurePatientOnServer(patientId: String) {
-        try {
-            val serverUrl = getString(R.string.server_base_url)
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val request = okhttp3.Request.Builder()
-                .url("$serverUrl/admin/ensure-patient")
-                .post(okhttp3.RequestBody.create(
-                    mediaType,
-                    """{"patientId":"$patientId"}"""
-                ))
-                .addHeader("Content-Type", "application/json")
-                .build()
+        withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val serverUrl = getString(R.string.server_base_url)
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = okhttp3.Request.Builder()
+                    .url("$serverUrl/admin/ensure-patient")
+                    .post(okhttp3.RequestBody.create(
+                        mediaType,
+                        """{"patientId":"$patientId"}"""
+                    ))
+                    .addHeader("Content-Type", "application/json")
+                    .build()
 
-            val client = okhttp3.OkHttpClient()
-            client.newCall(request).execute()
-        } catch (e: Exception) {
-            // Ignore errors - patient might already exist
+                val client = okhttp3.OkHttpClient()
+                client.newCall(request).execute()
+            } catch (e: Exception) {
+                // Ignore errors - patient might already exist
+            }
         }
     }
 
     private suspend fun promotePatientOnServer(email: String) {
-        try {
-            val serverUrl = getString(R.string.server_base_url)
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val request = okhttp3.Request.Builder()
-                .url("$serverUrl/admin/promote")
-                .post(okhttp3.RequestBody.create(
-                    mediaType,
-                    """{"email":"$email","role":"patient"}"""
-                ))
-                .addHeader("Content-Type", "application/json")
-                .build()
+        withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val serverUrl = getString(R.string.server_base_url)
+                val mediaType = "application/json; charset=utf-8".toMediaType()
+                val request = okhttp3.Request.Builder()
+                    .url("$serverUrl/admin/promote")
+                    .post(okhttp3.RequestBody.create(
+                        mediaType,
+                        """{"email":"$email","role":"patient"}"""
+                    ))
+                    .addHeader("Content-Type", "application/json")
+                    .build()
 
-            val client = okhttp3.OkHttpClient()
-            client.newCall(request).execute()
-        } catch (_: Exception) {
+                val client = okhttp3.OkHttpClient()
+                client.newCall(request).execute()
+            } catch (_: Exception) {
+            }
         }
     }
 

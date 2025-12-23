@@ -5,8 +5,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.Calendar
 import okhttp3.OkHttpClient
@@ -91,26 +89,31 @@ object ReminderScheduler {
                     val id = r.optString("id")
                     val title = r.optString("title")
                     val dateStr = r.optString("date")
-                    val t = try {
+                    val t: Long? = try {
                         if (android.os.Build.VERSION.SDK_INT >= 26) {
                             try {
-                                java.time.OffsetDateTime.parse(dateStr).toInstant()
+                                java.time.OffsetDateTime.parse(dateStr).toInstant().toEpochMilli()
                             } catch (_: Exception) {
-                                java.time.Instant.parse(dateStr)
+                                java.time.Instant.parse(dateStr).toEpochMilli()
                             }
                         } else {
-                            null
+                            // Fallback for older devices (basic ISO8601)
+                            try {
+                                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                                sdf.parse(dateStr)?.time
+                            } catch (_: Exception) { null }
                         }
                     } catch (_: Exception) { null }
                     if (t != null) {
                         // Check if the appointment is in the future
-                        val isFuture = t.isAfter(java.time.Instant.now())
+                        val nowMs = System.currentTimeMillis()
+                        val isFuture = t > nowMs
                         
                         // If it's a new ID we haven't seen before, AND it is in the future, notify user
                         if (!seenIds.contains(id) && isFuture) {
-                            val zdt = t.atZone(ZoneId.systemDefault())
-                            val fmt = DateTimeFormatter.ofPattern("dd/MM h:mma", Locale.getDefault())
-                            val dStr = fmt.format(zdt)
+                            val date = java.util.Date(t)
+                            val fmt = java.text.SimpleDateFormat("dd/MM h:mma", Locale.getDefault())
+                            val dStr = fmt.format(date)
                             val intent = Intent(context, ReminderReceiver::class.java)
                             intent.putExtra("title", "New Appointment")
                             intent.putExtra("body", "$title on $dStr")
@@ -196,10 +199,15 @@ object ReminderScheduler {
 
     private fun checkDailyNotifications(context: Context, http: OkHttpClient, baseUrl: String, patientId: String, token: String) {
         val sp = context.getSharedPreferences("vitalink_daily_checks", Context.MODE_PRIVATE)
-        val now = java.time.ZonedDateTime.now(ZoneId.of("Asia/Kuala_Lumpur"))
-        val todayStr = now.toLocalDate().toString()
-        val currentHour = now.hour
-        val currentMinute = now.minute
+        
+        // Use Calendar for compatibility
+        val cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Kuala_Lumpur"))
+        val currentHour = cal.get(Calendar.HOUR_OF_DAY)
+        val currentMinute = cal.get(Calendar.MINUTE)
+        val year = cal.get(Calendar.YEAR)
+        val month = cal.get(Calendar.MONTH) + 1
+        val day = cal.get(Calendar.DAY_OF_MONTH)
+        val todayStr = String.format(Locale.US, "%04d-%02d-%02d", year, month, day)
 
         fun isTimePassed(targetHour: Int, targetMinute: Int): Boolean {
             if (currentHour > targetHour) return true
@@ -277,9 +285,11 @@ object ReminderScheduler {
         val pi = PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         val channelId = "vitalink_reminders_v2"
-        if (nm.getNotificationChannel(channelId) == null) {
-            val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
-            nm.createNotificationChannel(ch)
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            if (nm.getNotificationChannel(channelId) == null) {
+                val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
+                nm.createNotificationChannel(ch)
+            }
         }
         val n = androidx.core.app.NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
@@ -297,9 +307,11 @@ object ReminderScheduler {
         val pi = PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
         val channelId = "vitalink_reminders_v2"
-        if (nm.getNotificationChannel(channelId) == null) {
-            val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
-            nm.createNotificationChannel(ch)
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            if (nm.getNotificationChannel(channelId) == null) {
+                val ch = android.app.NotificationChannel(channelId, "Vitalink Reminders", android.app.NotificationManager.IMPORTANCE_HIGH)
+                nm.createNotificationChannel(ch)
+            }
         }
         val n = androidx.core.app.NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_notification)
@@ -312,14 +324,13 @@ object ReminderScheduler {
         nm.notify(requestCode, n)
     }
 
-    private fun scheduleFor(context: Context, id: String, title: String, eventInstant: java.time.Instant) {
+    private fun scheduleFor(context: Context, id: String, title: String, eventMs: Long) {
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val now = java.time.Instant.now().toEpochMilli()
-        val eventMs = eventInstant.toEpochMilli()
+        val now = System.currentTimeMillis()
         
-        val zdt = eventInstant.atZone(ZoneId.systemDefault())
-        val fmt = DateTimeFormatter.ofPattern("dd/MM h:mma", Locale.getDefault())
-        val dStr = fmt.format(zdt)
+        val date = java.util.Date(eventMs)
+        val fmt = java.text.SimpleDateFormat("dd/MM h:mma", Locale.getDefault())
+        val dStr = fmt.format(date)
         val body = "$title on $dStr"
 
         val pairs = listOf(
@@ -347,7 +358,21 @@ object ReminderScheduler {
     }
 
     private fun setExact(am: AlarmManager, whenMs: Long, pi: PendingIntent) {
-        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                if (am.canScheduleExactAlarms()) {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+                } else {
+                    am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+                }
+            } else {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+            }
+        } catch (e: Exception) {
+            try {
+                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+            } catch (_: Exception) {}
+        }
     }
 
     private fun cancelDaily(context: Context, requestCode: Int) {

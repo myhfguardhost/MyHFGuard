@@ -76,7 +76,13 @@ class MainActivity : BaseActivity() {
             .build()
         baseUrl = getString(R.string.api_base_url)
 
-        setContentView(R.layout.activity_main)
+        try {
+            setContentView(R.layout.activity_main)
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "setContentView failed", e)
+            finish()
+            return
+        }
         setupThemeToggle(R.id.fabThemeToggle)
         
         findViewById<android.widget.ImageButton>(R.id.btnSettings).setOnClickListener {
@@ -87,7 +93,13 @@ class MainActivity : BaseActivity() {
         setupBottomNavigation()
         
         // Start background tasks
-        ReminderScheduler.startSchedule(this)
+        android.util.Log.d("MainActivity", "Initializing background tasks - PatientId: $patientId, Session Valid: ${supabase.auth.currentSessionOrNull() != null}")
+        try {
+            ReminderScheduler.startSchedule(this)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 ReminderScheduler.refresh(this@MainActivity, http, baseUrl, patientId)
@@ -129,14 +141,25 @@ class MainActivity : BaseActivity() {
         }
         // Load default fragment if container is empty
         if (supportFragmentManager.findFragmentById(R.id.fragment_container) == null) {
-            loadFragment(HomeFragment())
+            loadFragment(AppointmentsFragment())
+            val bottomNav = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottom_navigation)
+            bottomNav.selectedItemId = R.id.nav_appointments
         }
     }
 
     private fun loadFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragment_container, fragment)
-            .commit()
+        try {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, fragment)
+                .commit()
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Fragment load failed", e)
+            try {
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, AppointmentsFragment())
+                    .commit()
+            } catch (_: Exception) {}
+        }
     }
 
     private fun ensurePatientExists() {

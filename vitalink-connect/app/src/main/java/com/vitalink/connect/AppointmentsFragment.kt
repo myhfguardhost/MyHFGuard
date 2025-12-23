@@ -16,8 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.json.JSONArray
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 class AppointmentsFragment : Fragment() {
 
@@ -110,11 +109,21 @@ class AppointmentsFragment : Fragment() {
         val container = view?.findViewById<LinearLayout>(R.id.llAppointments) ?: return
         container.removeAllViews()
 
-        val now = java.time.Instant.now()
         val upcoming = list.filter {
-            try { java.time.OffsetDateTime.parse(it.date).toInstant().isAfter(now) } catch (_: Exception) {
-                try { java.time.Instant.parse(it.date).isAfter(now) } catch (_: Exception) { true }
-            }
+            val now = System.currentTimeMillis()
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= 26) {
+                    try {
+                        java.time.OffsetDateTime.parse(it.date).toInstant().toEpochMilli() > now
+                    } catch (_: Exception) {
+                        java.time.Instant.parse(it.date).toEpochMilli() > now
+                    }
+                } else {
+                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                    val date = sdf.parse(it.date)
+                    date != null && date.time > now
+                }
+            } catch (_: Exception) { true } // If parse fails, show it anyway
         }
 
         if (upcoming.isEmpty()) {
@@ -131,19 +140,26 @@ class AppointmentsFragment : Fragment() {
             view.findViewById<TextView>(R.id.txtTitle).text = "${appt.title} at ${appt.location}"
 
             try {
-                val fmt = DateTimeFormatter.ofPattern("dd/MM hh:mm a")
-                val z = java.time.ZoneId.systemDefault()
-                val txt = try {
-                    val odt = java.time.OffsetDateTime.parse(appt.date, DateTimeFormatter.ISO_DATE_TIME)
-                    odt.atZoneSameInstant(z).format(fmt)
-                } catch (_: Exception) {
-                    try {
-                        val inst = java.time.Instant.parse(appt.date)
-                        java.time.ZonedDateTime.ofInstant(inst, z).format(fmt)
+                val txt = if (android.os.Build.VERSION.SDK_INT >= 26) {
+                     val fmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM hh:mm a")
+                     val z = java.time.ZoneId.systemDefault()
+                     try {
+                        val odt = java.time.OffsetDateTime.parse(appt.date, java.time.format.DateTimeFormatter.ISO_DATE_TIME)
+                        odt.atZoneSameInstant(z).format(fmt)
                     } catch (_: Exception) {
-                        val ldt = LocalDateTime.parse(appt.date, DateTimeFormatter.ISO_DATE_TIME)
-                        ldt.atZone(z).format(fmt)
+                        try {
+                            val inst = java.time.Instant.parse(appt.date)
+                            java.time.ZonedDateTime.ofInstant(inst, z).format(fmt)
+                        } catch (_: Exception) {
+                            val ldt = java.time.LocalDateTime.parse(appt.date, java.time.format.DateTimeFormatter.ISO_DATE_TIME)
+                            ldt.atZone(z).format(fmt)
+                        }
                     }
+                } else {
+                    val inputFmt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+                    val outputFmt = java.text.SimpleDateFormat("dd/MM hh:mm a", Locale.getDefault())
+                    val d = inputFmt.parse(appt.date)
+                    if (d != null) outputFmt.format(d) else appt.date
                 }
                 view.findViewById<TextView>(R.id.txtDate).text = txt
             } catch (_: Exception) {
