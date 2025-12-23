@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { NavLink } from "@/components/NavLink"
-import { Heart, LayoutDashboard, BookOpen, Menu, ClipboardList, CalendarDays, LogOut, Pill, Activity, Bot } from "lucide-react"
+import { Heart, LayoutDashboard, BookOpen, Menu, ClipboardList, CalendarDays, LogOut, Pill, Activity, Bot, CircleHelp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { supabase } from "@/lib/supabase"
@@ -14,6 +14,7 @@ const navItems = [
   { to: "/vitals", label: "Vitals", icon: Activity },
   { to: "/ai-assistant", label: "AI Assistant", icon: Bot },
   { to: "/education", label: "Education", icon: BookOpen },
+  { to: "/contact", label: "Help & Support", icon: CircleHelp },
 ]
 
 export default function Navigation() {

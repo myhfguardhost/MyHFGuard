@@ -137,7 +137,7 @@ async function fetchPatientHealthData(patientId) {
             // Current medications
             supabase
                 .from('medication')
-                .select('name, class, dosage, instructions')
+                .select('name, class')
                 .eq('patient_id', patientId)
                 .eq('active', true)
         ])
@@ -191,7 +191,7 @@ async function fetchPatientHealthData(patientId) {
 
         const formatMedications = (data) => {
             if (!data || data.length === 0) return 'No active medications'
-            return data.map(m => `${m.name} (${m.class}) - ${m.dosage || 'As prescribed'}`).join('; ')
+            return data.map(m => `${m.name} (${m.class})`).join('; ')
         }
 
         return {

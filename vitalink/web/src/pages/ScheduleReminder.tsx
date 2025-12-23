@@ -120,6 +120,9 @@ export default function ScheduleReminder() {
     }
     const now = new Date()
     if (new Date(dtIso).getTime() <= now.getTime()) { setError("Date/time must be in the future"); return }
+    
+    if (!window.confirm(editId ? "Are you sure you want to update this reminder?" : "Are you sure you want to create this reminder?")) return
+
     setSubmitting(true)
     try {
       if (editId) {

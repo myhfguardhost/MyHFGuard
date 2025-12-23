@@ -68,6 +68,7 @@ const SelfCheck = () => {
   }, [patientId])
   async function handleLogWeight() {
     if (!patientId || !weightKg) return
+    if (!window.confirm("Are you sure you want to submit this weight reading?")) return
     setSubmitting(true)
     try {
       const kg = parseFloat(weightKg)
@@ -90,6 +91,7 @@ const SelfCheck = () => {
   }
   async function handleLogSymptoms() {
     if (!patientId) return
+    if (!window.confirm("Are you sure you want to submit these symptom ratings?")) return
     setSubmitting(true)
     try {
       const res = await postSymptomLog({ patientId, ...symptoms, notes: JSON.stringify(symptoms) })
@@ -142,8 +144,16 @@ const SelfCheck = () => {
                   {weightSubmittedToday ? (
                     <div className="text-sm text-muted-foreground">You have logged weight today.</div>
                   ) : (
-                    <Button className="w-full" onClick={handleLogWeight} disabled={submitting || !patientId || !weightKg}>Log Weight</Button>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleLogWeight} 
+                      disabled={submitting || !patientId || !weightKg}
+                    >
+                      {!patientId ? "Loading patient info..." : (!weightKg ? "Enter Weight to Submit" : (submitting ? "Saving..." : "Log Weight"))}
+                    </Button>
                   )}
+                  {!patientId && !weightSubmittedToday && <p className="text-xs text-center text-muted-foreground mt-2">Fetching patient details...</p>}
+                  {!weightKg && patientId && !weightSubmittedToday && <p className="text-xs text-center text-muted-foreground mt-2">Please enter your weight above to enable submission.</p>}
                 </CardContent>
               </Card>
             </TabsContent>
