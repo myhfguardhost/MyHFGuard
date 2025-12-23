@@ -143,12 +143,32 @@ object ReminderScheduler {
                     val body = it.body?.string() ?: "{}"
                     val obj = JSONObject(body)
                     val prefs = obj.optJSONObject("preferences") ?: JSONObject()
-                    val hour = prefs.optInt("notify_hour", 9)
-                    if (prefs.optBoolean("beta_blockers", false)) scheduleDaily(context, 11001, "Take Beta blockers", hour)
-                    if (prefs.optBoolean("raas_inhibitors", false)) scheduleDaily(context, 11002, "Take RAAS inhibitors", hour)
-                    if (prefs.optBoolean("mras", false)) scheduleDaily(context, 11003, "Take MRAs", hour)
-                    if (prefs.optBoolean("sglt2_inhibitors", false)) scheduleDaily(context, 11004, "Take SGLT2 inhibitors", hour)
-                    if (prefs.optBoolean("statin", false)) scheduleDaily(context, 11005, "Take Statin", hour)
+                    val hour = prefs.optInt("notify_hour", 12)
+                    
+                    // Cancel old individual alarms
+                    cancelDaily(context, 11001)
+                    cancelDaily(context, 11002)
+                    cancelDaily(context, 11003)
+                    cancelDaily(context, 11004)
+
+                    val noonMeds = mutableListOf<String>()
+                    if (prefs.optBoolean("beta_blockers", false)) noonMeds.add("Beta blockers")
+                    if (prefs.optBoolean("raas_inhibitors", false)) noonMeds.add("RAAS inhibitors")
+                    if (prefs.optBoolean("mras", false)) noonMeds.add("MRAs")
+                    if (prefs.optBoolean("sglt2_inhibitors", false)) noonMeds.add("SGLT2 inhibitors")
+
+                    if (noonMeds.isNotEmpty()) {
+                        val title = "Meds: " + noonMeds.joinToString(", ")
+                        scheduleDaily(context, 11000, title, hour)
+                    } else {
+                        cancelDaily(context, 11000)
+                    }
+
+                    if (prefs.optBoolean("statin", false)) {
+                        scheduleDaily(context, 11005, "Take Statin", 22) // 10 PM
+                    } else {
+                        cancelDaily(context, 11005)
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -328,6 +348,14 @@ object ReminderScheduler {
 
     private fun setExact(am: AlarmManager, whenMs: Long, pi: PendingIntent) {
         am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)
+    }
+
+    private fun cancelDaily(context: Context, requestCode: Int) {
+        val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val intent = Intent(context, ReminderReceiver::class.java)
+        val pi = PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        try { am.cancel(pi) } catch (_: Exception) {}
+        pi.cancel()
     }
 
     private fun scheduleDaily(context: Context, requestCode: Int, title: String, hour: Int) {

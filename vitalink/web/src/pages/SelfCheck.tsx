@@ -68,6 +68,7 @@ const SelfCheck = () => {
   }, [patientId])
   async function handleLogWeight() {
     if (!patientId || !weightKg) return
+    if (!window.confirm("Are you sure you want to submit this weight reading?")) return
     setSubmitting(true)
     try {
       const kg = parseFloat(weightKg)
@@ -90,6 +91,7 @@ const SelfCheck = () => {
   }
   async function handleLogSymptoms() {
     if (!patientId) return
+    if (!window.confirm("Are you sure you want to submit these symptom ratings?")) return
     setSubmitting(true)
     try {
       const res = await postSymptomLog({ patientId, ...symptoms, notes: JSON.stringify(symptoms) })
