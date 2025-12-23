@@ -49,10 +49,16 @@ export default function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Heart className="w-6 h-6 text-primary" />
-            </div>
-            <span className="text-xl font-bold text-foreground">MyHFGuard</span>
+            <NavLink
+              to={pid ? `/?patientId=${encodeURIComponent(pid)}` : "/"}
+              className="flex items-center gap-2"
+              activeClassName=""
+            >
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Heart className="w-6 h-6 text-primary" />
+              </div>
+              <span className="text-xl font-bold text-foreground">MyHFGuard</span>
+            </NavLink>
           </div>
           <div className="hidden md:flex items-center gap-1">
             {isLoggedIn && navItems.map((item) => {

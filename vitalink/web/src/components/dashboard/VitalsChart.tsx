@@ -13,6 +13,13 @@ type Props = { patientId?: string }
 
 const VitalsChart = ({ patientId }: Props) => {
   const [activeTab, setActiveTab] = useState("heartRate")
+  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== "undefined" ? window.innerWidth < 640 : false)
+  useEffect(() => {
+    const onResize = () => setIsMobile(typeof window !== "undefined" ? window.innerWidth < 640 : false)
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
+  const chartHeight = isMobile ? 420 : 320
   const [timePeriod, setTimePeriod] = useState<"daily" | "weekly" | "monthly">("daily")
   const [currentPeriod, setCurrentPeriod] = useState(new Date())
   const period = timePeriod === "weekly" ? "weekly" : (timePeriod === "monthly" ? "monthly" : "hourly")
@@ -468,7 +475,7 @@ const VitalsChart = ({ patientId }: Props) => {
             <TabsContent value="heartRate">
               {hasHrData ? (
               <>
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <ComposedChart data={merged}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
@@ -529,7 +536,7 @@ const VitalsChart = ({ patientId }: Props) => {
             <TabsContent value="spo2">
               {hasSpo2Data ? (
               <>
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <ComposedChart data={merged}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
@@ -569,7 +576,7 @@ const VitalsChart = ({ patientId }: Props) => {
             </TabsContent>
             <TabsContent value="weight">
               {hasWeightData ? (
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart data={weight}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
@@ -585,7 +592,7 @@ const VitalsChart = ({ patientId }: Props) => {
             <TabsContent value="steps">
               {stepsSelected.length ? (
               <>
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <BarChart data={stepsSelected.map((s: any) => ({ date: s.time, steps: s.count }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
@@ -611,7 +618,7 @@ const VitalsChart = ({ patientId }: Props) => {
             </TabsContent>
             <TabsContent value="bloodPressure">
               {hasBpData ? (
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={chartHeight}>
                 <ComposedChart data={bp}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" style={{ fontSize: "12px" }} tickFormatter={formatXAxis} />
