@@ -58,8 +58,8 @@
                         android:layout_marginTop="12dp"
                         android:text="Grant Permissions"
                         android:textSize="14sp"
-                        app:backgroundTint="@color/bannerRequiredAccent"
                         android:textColor="#FFFFFF"
+                        app:backgroundTint="@color/bannerRequiredAccent"
                         app:cornerRadius="8dp"/>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -200,47 +200,66 @@
                             android:gravity="center"/>
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
+            </LinearLayout>
 
-                <!-- Scan BP Card -->
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/cardScan"
-                    android:layout_width="0dp"
-                    android:layout_height="120dp"
-                    android:layout_weight="1"
-                    android:layout_margin="8dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="4dp"
-                    app:cardBackgroundColor="@color/cardBackground"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground">
+            <!-- Web Charts Card -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardWebCharts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:layout_marginHorizontal="8dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/cardBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@android:drawable/ic_menu_sort_by_size"
+                        android:tint="@color/btnPrimary"
+                        android:layout_marginEnd="16dp"/>
 
                     <LinearLayout
-                        android:orientation="vertical"
-                        android:padding="16dp"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:gravity="center">
-
-                        <ImageView
-                            android:layout_width="32dp"
-                            android:layout_height="32dp"
-                            android:src="@android:drawable/ic_menu_camera"
-                            android:tint="@color/btnDanger"
-                            android:layout_marginBottom="8dp"/>
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="Scan BP"
+                            android:text="View Web Charts"
                             android:textStyle="bold"
-                            android:textSize="14sp"
-                            android:textColor="@color/foreground"
-                            android:gravity="center"/>
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
+                            android:textSize="16sp"
+                            android:textColor="@color/foreground"/>
 
-            </LinearLayout>
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="View detailed charts on web dashboard"
+                            android:textSize="14sp"
+                            android:textColor="@color/foreground"/>
+                    </LinearLayout>
+                    
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@android:drawable/ic_menu_send"
+                        android:tint="@color/foreground"
+                        android:alpha="0.5"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
             <!-- Sync Status Card -->
             <androidx.cardview.widget.CardView
@@ -293,246 +312,238 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Loading Indicator -->
             <LinearLayout
                 android:id="@+id/layoutLoading"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
                 android:gravity="center"
-                android:padding="24dp"
+                android:orientation="vertical"
                 android:visibility="gone">
 
                 <ProgressBar
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:indeterminate="true"
-                    android:indeterminateTint="@color/btnPrimary"/>
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"/>
 
                 <TextView
                     android:id="@+id/txtLoadingStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Reading data..."
-                    android:textColor="@color/foreground"
-                    android:textSize="16sp"/>
+                    android:text="Syncing data..."
+                    android:textColor="@color/foreground"/>
             </LinearLayout>
 
-            <!-- Data Cards Container -->
+            <TextView
+                android:id="@+id/txtNoDataHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No data for today"
+                android:textSize="12sp"
+                android:textColor="@color/hintText"
+                android:padding="8dp"
+                android:visibility="gone"/>
+
             <LinearLayout
                 android:id="@+id/layoutDataCards"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:layout_marginBottom="16dp">
 
-                <!-- Row 1: Steps & Distance -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:baselineAligned="false"
-                    android:layout_marginBottom="16dp">
+                    android:orientation="horizontal">
 
-                    <!-- Steps Card -->
                     <androidx.cardview.widget.CardView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
+                        android:layout_margin="8dp"
                         app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp"
+                        app:cardElevation="4dp"
                         app:cardBackgroundColor="@color/cardBackground">
+
                         <LinearLayout
-                            android:orientation="vertical"
-                            android:padding="16dp"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="STEPS"
-                                android:textSize="12sp"
-                                android:textColor="@color/hintText"
-                                android:textStyle="bold"/>
+                                android:text="Steps"
+                                android:textStyle="bold"
+                                android:textColor="@color/foreground"
+                                android:textSize="14sp"/>
+
                             <TextView
                                 android:id="@+id/valSteps"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="--"
-                                android:textSize="24sp"
+                                android:text="0"
                                 android:textColor="@color/foreground"
-                                android:textStyle="bold"
+                                android:textSize="18sp"
                                 android:layout_marginTop="4dp"/>
+
                             <TextView
                                 android:id="@+id/statusSteps"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="No Data"
-                                android:textSize="12sp"
+                                android:text="Not Synced"
                                 android:textColor="@color/hintText"
-                                android:layout_marginTop="8dp"/>
+                                android:textSize="12sp"
+                                android:layout_marginTop="4dp"/>
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
 
-                    <!-- Distance Card -->
                     <androidx.cardview.widget.CardView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="8dp"
+                        android:layout_margin="8dp"
                         app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp"
+                        app:cardElevation="4dp"
                         app:cardBackgroundColor="@color/cardBackground">
+
                         <LinearLayout
-                            android:orientation="vertical"
-                            android:padding="16dp"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="DISTANCE (m)"
-                                android:textSize="12sp"
-                                android:textColor="@color/hintText"
-                                android:textStyle="bold"/>
+                                android:text="Distance (m)"
+                                android:textStyle="bold"
+                                android:textColor="@color/foreground"
+                                android:textSize="14sp"/>
+
                             <TextView
                                 android:id="@+id/valDist"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="--"
-                                android:textSize="24sp"
+                                android:text="0"
                                 android:textColor="@color/foreground"
-                                android:textStyle="bold"
+                                android:textSize="18sp"
                                 android:layout_marginTop="4dp"/>
+
                             <TextView
                                 android:id="@+id/statusDist"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="No Data"
-                                android:textSize="12sp"
+                                android:text="Not Synced"
                                 android:textColor="@color/hintText"
-                                android:layout_marginTop="8dp"/>
+                                android:textSize="12sp"
+                                android:layout_marginTop="4dp"/>
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
                 </LinearLayout>
 
-                <!-- Row 2: HR & SpO2 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:baselineAligned="false"
-                    android:layout_marginBottom="16dp">
+                    android:orientation="horizontal">
 
-                    <!-- HR Card -->
                     <androidx.cardview.widget.CardView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
+                        android:layout_margin="8dp"
                         app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp"
+                        app:cardElevation="4dp"
                         app:cardBackgroundColor="@color/cardBackground">
+
                         <LinearLayout
-                            android:orientation="vertical"
-                            android:padding="16dp"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="HEART RATE"
-                                android:textSize="12sp"
-                                android:textColor="@color/hintText"
-                                android:textStyle="bold"/>
+                                android:text="Heart Rate"
+                                android:textStyle="bold"
+                                android:textColor="@color/foreground"
+                                android:textSize="14sp"/>
+
                             <TextView
                                 android:id="@+id/valHr"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:text="--"
-                                android:textSize="24sp"
                                 android:textColor="@color/foreground"
-                                android:textStyle="bold"
+                                android:textSize="18sp"
                                 android:layout_marginTop="4dp"/>
+
                             <TextView
                                 android:id="@+id/statusHr"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="No Data"
-                                android:textSize="12sp"
+                                android:text="Not Synced"
                                 android:textColor="@color/hintText"
-                                android:layout_marginTop="8dp"/>
+                                android:textSize="12sp"
+                                android:layout_marginTop="4dp"/>
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
 
-                    <!-- SpO2 Card -->
                     <androidx.cardview.widget.CardView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:layout_marginStart="8dp"
+                        android:layout_margin="8dp"
                         app:cardCornerRadius="12dp"
-                        app:cardElevation="2dp"
+                        app:cardElevation="4dp"
                         app:cardBackgroundColor="@color/cardBackground">
+
                         <LinearLayout
-                            android:orientation="vertical"
-                            android:padding="16dp"
                             android:layout_width="match_parent"
-                            android:layout_height="wrap_content">
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp">
+
                             <TextView
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:text="SpO2"
-                                android:textSize="12sp"
-                                android:textColor="@color/hintText"
-                                android:textStyle="bold"/>
+                                android:textStyle="bold"
+                                android:textColor="@color/foreground"
+                                android:textSize="14sp"/>
+
                             <TextView
                                 android:id="@+id/valSpo2"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:text="--"
-                                android:textSize="24sp"
                                 android:textColor="@color/foreground"
-                                android:textStyle="bold"
+                                android:textSize="18sp"
                                 android:layout_marginTop="4dp"/>
+
                             <TextView
                                 android:id="@+id/statusSpo2"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="No Data"
-                                android:textSize="12sp"
+                                android:text="Not Synced"
                                 android:textColor="@color/hintText"
-                                android:layout_marginTop="8dp"/>
+                                android:textSize="12sp"
+                                android:layout_marginTop="4dp"/>
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
                 </LinearLayout>
-
-                <!-- No Data Help Text -->
-                <TextView
-                    android:id="@+id/txtNoDataHint"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="No data found today? Make sure your wearable is synced to Health Connect."
-                    android:gravity="center"
-                    android:textSize="12sp"
-                    android:textColor="@color/hintText"
-                    android:visibility="gone"/>
-
             </LinearLayout>
 
-            <!-- Old logs hidden/removed -->
             <TextView
                 android:id="@+id/txtOutput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:visibility="gone"/>
-            <TableLayout
-                android:id="@+id/tblData"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:visibility="gone"/>
-
+                android:text="Ready"
+                android:textSize="12sp"
+                android:textColor="@color/foreground"
+                android:alpha="0.7"
+                android:padding="8dp"/>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
