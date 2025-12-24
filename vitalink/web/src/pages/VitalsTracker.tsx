@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import correctImage from "@/assets/correct_image.jpeg";
 import slantedImage from "@/assets/slanted_image.jpg";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function VitalsTracker() {
   const [activeTab, setActiveTab] = useState("scan");
@@ -30,6 +31,7 @@ export default function VitalsTracker() {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     async function init() {
@@ -116,6 +118,9 @@ export default function VitalsTracker() {
         value3: manualForm.pulse
       }, patientId);
       toast.success("Blood pressure reading saved successfully!");
+      try {
+        queryClient.invalidateQueries({ queryKey: ["patient-vitals"] });
+      } catch (_) {}
       setManualForm({ sys: '', dia: '', pulse: '' });
       setOcrResult(null);
       setSelectedImage(null);

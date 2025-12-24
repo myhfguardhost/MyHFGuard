@@ -72,7 +72,9 @@ const VitalsChart = ({ patientId }: Props) => {
 
   const formatTooltipLabel = (v: string) => {
     const d = new Date(v.includes("T") ? v : v + "T00:00:00")
-    if (timePeriod === "weekly" || timePeriod === "monthly") return formatDate(d, "PP")
+    if (timePeriod === "weekly" || timePeriod === "monthly") {
+      return v.includes("T") ? formatDate(d, "PP p") : formatDate(d, "PP")
+    }
     return formatTimeHM(v)
   }
   
@@ -135,7 +137,7 @@ const VitalsChart = ({ patientId }: Props) => {
         if (typeof r.max === "number") o.max.push(r.max)
         acc[k] = o
         return acc
-      }, {})).map(([k, v]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a, b) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
+      }, {})).map(([k, v]: [string, any]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a: number, b: number) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
         .sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
 
   const spo2 = period === "hourly"
@@ -178,7 +180,7 @@ const VitalsChart = ({ patientId }: Props) => {
         if (typeof r.max === "number") o.max.push(r.max)
         acc[k] = o
         return acc
-      }, {})).map(([k, v]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a, b) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
+      }, {})).map(([k, v]: [string, any]) => ({ time: k, min: v.min.length ? Math.min(...v.min) : undefined, avg: v.avg.length ? Math.round(v.avg.reduce((a: number, b: number) => a + b, 0) / v.avg.length) : undefined, max: v.max.length ? Math.max(...v.max) : undefined }))
         .sort((a, b) => new Date(a.time as any).getTime() - new Date(b.time as any).getTime())
 
   const hrWeeklyPadded = timePeriod === "weekly"
