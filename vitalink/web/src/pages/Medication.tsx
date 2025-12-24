@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { supabase } from "@/lib/supabase"
 import { getPatientMedications, savePatientMedications } from "@/lib/api"
+import { toast } from "sonner"
 import { Pill, Clock, Info, CheckCircle2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
@@ -44,7 +45,6 @@ const Medication = () => {
     statin: false,
     notify_hour: 9,
   })
-  const [showSaved, setShowSaved] = useState(false)
 
   useEffect(() => {
     const p = data?.preferences
@@ -58,9 +58,11 @@ const Medication = () => {
     },
     onSuccess: () => { 
       queryClient.invalidateQueries({ queryKey: ["patient-medications", patientId] })
-      setShowSaved(true)
-      setTimeout(() => setShowSaved(false), 3000)
+      toast.success("Medication preferences saved")
     },
+    onError: (e) => {
+      toast.error(e.message || "Failed to save preferences")
+    }
   })
 
   const Item = ({ label, keyName, description }: { label: string; keyName: keyof typeof prefs; description?: string }) => (
@@ -130,7 +132,7 @@ const Medication = () => {
             disabled={!patientId || mutation.isPending} 
             onClick={() => mutation.mutate()}
           >
-            {mutation.isPending ? "Saving..." : (showSaved ? "Saved Successfully" : "Save Preferences")}
+            {mutation.isPending ? "Saving..." : "Save Preferences"}
           </Button>
         </CardFooter>
       </Card>
