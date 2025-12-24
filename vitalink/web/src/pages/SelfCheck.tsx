@@ -4,15 +4,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Weight, AlertCircle, Activity, Camera, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Minus, Plus } from "lucide-react"
+import { Weight, AlertCircle, Activity, Calendar as CalendarIcon, Minus, Plus } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { postWeightSample, postSymptomLog, getDailyStatus, getWeeklyStatus } from "@/lib/api"
-import { format, addDays, subDays, isSameDay, parseISO, isToday } from "date-fns"
+import { format, addDays, isSameDay, isToday } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 const SelfCheck = () => {
   const [patientId, setPatientId] = useState<string | undefined>(
@@ -30,7 +31,6 @@ const SelfCheck = () => {
   )
   const [weightKg, setWeightKg] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [dailyStatus, setDailyStatus] = useState<{ has_weight: boolean; has_bp: boolean; has_symptoms: boolean }>({ has_weight: false, has_bp: false, has_symptoms: false })
   const [weeklyStatus, setWeeklyStatus] = useState<Record<string, { has_weight: boolean; has_symptoms: boolean }>>({})
@@ -43,8 +43,6 @@ const SelfCheck = () => {
     sleeping: 0,
   })
   
-  const [showPermissionDialog, setShowPermissionDialog] = useState(false)
-  const [showSuccessCard, setShowSuccessCard] = useState(false)
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; title: string; desc: string; action: () => void; isAlert?: boolean }>({
     open: false,
     title: "",
@@ -91,8 +89,7 @@ const SelfCheck = () => {
       
       const res = await postWeightSample({ patientId: patientId!, kg, timeTs })
       if ((res as any)?.error) throw new Error((res as any).error)
-      setToast({ type: 'success', message: 'Weight saved' })
-      setTimeout(() => setToast(null), 3000)
+      toast.success('Weight saved')
       setWeightKg("")
       
       // Refresh status
@@ -100,8 +97,7 @@ const SelfCheck = () => {
       getDailyStatus(patientId!, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
-      setToast({ type: 'error', message: e.message || 'Failed to save weight' })
-      setTimeout(() => setToast(null), 3000)
+      toast.error(e.message || 'Failed to save weight')
     } finally {
       setSubmitting(false)
     }
@@ -142,16 +138,14 @@ const SelfCheck = () => {
       const timeTs = isToday(selectedDate) ? new Date().toISOString() : new Date(format(selectedDate, 'yyyy-MM-dd') + 'T12:00:00').toISOString()
       const res = await postSymptomLog({ patientId: patientId!, ...symptoms, notes: JSON.stringify(symptoms), timeTs })
       if ((res as any)?.error) throw new Error((res as any).error)
-      setToast({ type: 'success', message: 'Symptoms saved' })
-      setTimeout(() => setToast(null), 3000)
+      toast.success('Symptoms saved')
       
       // Refresh status
       const dateStr = format(selectedDate, 'yyyy-MM-dd')
       getDailyStatus(patientId!, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
-      setToast({ type: 'error', message: e.message || 'Failed to save symptoms' })
-      setTimeout(() => setToast(null), 3000)
+      toast.error(e.message || 'Failed to save symptoms')
     } finally {
       setSubmitting(false)
     }
@@ -333,15 +327,6 @@ const SelfCheck = () => {
           </Tabs>
         </CardContent>
       </Card>
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-          <Card className={toast.type === 'success' ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}>
-            <CardContent className="p-3 text-sm">
-              {toast.message}
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       <Dialog open={confirmDialog.open} onOpenChange={(o) => setConfirmDialog(prev => ({ ...prev, open: o }))}>
         <DialogContent>

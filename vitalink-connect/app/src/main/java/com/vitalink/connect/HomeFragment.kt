@@ -57,8 +57,14 @@ class HomeFragment : Fragment() {
         lifecycleScope.launch {
             val view = view ?: return@launch
             val txt = view.findViewById<TextView?>(R.id.txtOutput)
-            txt?.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
-            val ok = granted.containsAll(permissions)
+            val missing = permissions.minus(granted)
+            if (missing.isEmpty()) {
+                txt?.text = "Permissions granted"
+            } else {
+                val names = missing.joinToString { it.toString().substringAfterLast(".") }
+                txt?.text = "Missing: $names"
+            }
+            val ok = missing.isEmpty()
             if (ok) {
                 val sp = requireContext().getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
                 sp.edit().putBoolean("first_time_setup", false).apply()
@@ -154,7 +160,7 @@ class HomeFragment : Fragment() {
         val txtOutput = view.findViewById<TextView?>(R.id.txtOutput)
         val cardGrant = view.findViewById<CardView>(R.id.cardGrant)
         val cardRead = view.findViewById<CardView>(R.id.cardRead)
-        val cardScan = view.findViewById<CardView>(R.id.cardScan)
+        val cardWebCharts = view.findViewById<CardView>(R.id.cardWebCharts)
 
         if (status != HealthConnectClient.SDK_AVAILABLE) {
             txtOutput?.text = "Health Connect not available"
@@ -181,6 +187,9 @@ class HomeFragment : Fragment() {
                 lifecycleScope.launch {
                     val granted = client.permissionController.getGrantedPermissions()
                     if (!granted.containsAll(permissions)) {
+                        val missing = permissions.minus(granted)
+                        val names = missing.joinToString { it.toString().substringAfterLast(".") }
+                        android.widget.Toast.makeText(context, "Requesting: $names", android.widget.Toast.LENGTH_SHORT).show()
                         requestPermissions.launch(permissions)
                     }
                 }
@@ -222,6 +231,11 @@ class HomeFragment : Fragment() {
             lifecycleScope.launch {
                 val granted = client.permissionController.getGrantedPermissions()
                 if (!granted.containsAll(permissions)) {
+                    val missing = permissions.minus(granted)
+                    val missingNames = missing.joinToString { p -> 
+                        p.toString().substringAfterLast(".") 
+                    }
+                    android.widget.Toast.makeText(context, "Missing: $missingNames", android.widget.Toast.LENGTH_LONG).show()
                     requestPermissions.launch(permissions)
                     return@launch
                 }
@@ -238,14 +252,17 @@ class HomeFragment : Fragment() {
             }
         }
 
-        cardScan?.setOnClickListener {
+        cardWebCharts?.setOnClickListener {
             val main = getMainActivity()
             if (main != null) {
                 try {
                     val patientId = currentPatientId()
-                    // Use the scan_capture_url from strings.xml
-                    val webUrl = getString(R.string.scan_capture_url)
-                    val url = "$webUrl?patientId=$patientId"
+                    val baseUrl = getString(R.string.web_app_url)
+                    val url = if (baseUrl.endsWith("#")) {
+                        "$baseUrl/dashboard?patientId=$patientId"
+                    } else {
+                        "$baseUrl/#/dashboard?patientId=$patientId"
+                    }
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     startActivity(intent)
                 } catch (e: Exception) {
@@ -362,88 +379,137 @@ class HomeFragment : Fragment() {
         
         withContext(Dispatchers.IO) {
             try {
-                val json = JSONObject().apply {
-                    put("patient_id", patientId)
-                    put("steps", steps)
-                    put("distance", dist)
-                    put("avg_hr", avgHr)
-                    put("avg_spo2", avgSpo2)
-                    put("date", java.time.LocalDate.now().toString())
+                val zone = java.time.ZoneId.systemDefault()
+                val today = java.time.LocalDate.now(zone)
 
-                    // Add Raw Samples
-                    val stepsArray = JSONArray()
-                    stepRecords.forEach { r ->
-                        val item = JSONObject()
-                        item.put("startTime", r.startTime.toString())
-                        item.put("endTime", r.endTime.toString())
-                        item.put("count", r.count)
-                        stepsArray.put(item)
-                    }
-                    put("steps_samples", stepsArray)
+                // Group records by date to batch uploads
+                val allDates = mutableSetOf<java.time.LocalDate>()
+                stepRecords.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate()) }
+                distRecords.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate()) }
+                hrRecords.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate()) }
+                spo2Records.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.time, zone).toLocalDate()) }
+                allDates.add(today) // Ensure today is always processed
+                
+                val sortedDates = allDates.sorted()
+                var lastStatusCode = 0
+                var anySuccess = false
 
-                    val distArray = JSONArray()
-                    distRecords.forEach { r ->
-                        val item = JSONObject()
-                        item.put("startTime", r.startTime.toString())
-                        item.put("endTime", r.endTime.toString())
-                        item.put("distanceMeters", r.distance.inMeters)
-                        distArray.put(item)
-                    }
-                    put("distance_samples", distArray)
+                for (date in sortedDates) {
+                    val isToday = (date == today)
+                    val sRecs = stepRecords.filter { java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate() == date }
+                    val dRecs = distRecords.filter { java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate() == date }
+                    val hRecs = hrRecords.filter { java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate() == date }
+                    val oRecs = spo2Records.filter { java.time.LocalDateTime.ofInstant(it.time, zone).toLocalDate() == date }
+                    
+                    if (!isToday && sRecs.isEmpty() && dRecs.isEmpty() && hRecs.isEmpty() && oRecs.isEmpty()) continue
 
-                    val hrArray = JSONArray()
-                    hrRecords.forEach { r ->
-                        r.samples.forEach { s ->
+                    val json = JSONObject().apply {
+                        put("patient_id", patientId)
+                        put("steps", if (isToday) steps else 0)
+                        put("distance", if (isToday) dist else 0)
+                        put("avg_hr", if (isToday) avgHr else 0)
+                        put("avg_spo2", if (isToday) avgSpo2 else 0)
+                        put("date", date.toString())
+
+                        // Add Raw Samples
+                        val stepsArray = JSONArray()
+                        sRecs.forEach { r ->
                             val item = JSONObject()
-                            item.put("time", s.time.toString())
-                            item.put("bpm", s.beatsPerMinute)
-                            hrArray.put(item)
+                            item.put("startTime", r.startTime.toString())
+                            item.put("endTime", r.endTime.toString())
+                            item.put("count", r.count)
+                            stepsArray.put(item)
                         }
-                    }
-                    put("hr_samples", hrArray)
+                        put("steps_samples", stepsArray)
 
-                    val spo2Array = JSONArray()
-                    spo2Records.forEach { r ->
-                        val item = JSONObject()
-                        item.put("time", r.time.toString())
-                        item.put("percentage", r.percentage.value)
-                        spo2Array.put(item)
+                        val distArray = JSONArray()
+                        dRecs.forEach { r ->
+                            val item = JSONObject()
+                            item.put("startTime", r.startTime.toString())
+                            item.put("endTime", r.endTime.toString())
+                            item.put("distanceMeters", r.distance.inMeters)
+                            distArray.put(item)
+                        }
+                        put("distance_samples", distArray)
+
+                        val hrArray = JSONArray()
+                        hRecs.forEach { r ->
+                            r.samples.forEach { s ->
+                                val item = JSONObject()
+                                item.put("time", s.time.toString())
+                                item.put("bpm", s.beatsPerMinute)
+                                hrArray.put(item)
+                            }
+                        }
+                        put("hr_samples", hrArray)
+
+                        val spo2Array = JSONArray()
+                        oRecs.forEach { r ->
+                            val item = JSONObject()
+                            item.put("time", r.time.toString())
+                            item.put("percentage", r.percentage.value)
+                            spo2Array.put(item)
+                        }
+                        put("spo2_samples", spo2Array)
                     }
-                    put("spo2_samples", spo2Array)
-                }
-                
-                // Assuming endpoint /patient/sync-metrics exists or similar
-                val url = "${main.baseUrl}/patient/sync-metrics"
-                withContext(Dispatchers.Main) {
-                    android.util.Log.d("HomeFragment", "Syncing to: $url")
+
+                    // Sync logic for this batch
+                    val url = "${main.baseUrl}/patient/sync-metrics"
+                    val body = json.toString().toRequestBody("application/json".toMediaType())
+                    val reqBuilder = Request.Builder().url(url).post(body)
+                    if (token.isNotEmpty()) {
+                        reqBuilder.header("Authorization", "Bearer $token")
+                    }
+                    val req = reqBuilder.build()
+                    val resp = main.http.newCall(req).execute()
+                    val code = resp.code
+                    resp.close()
+
+                    if (code in 200..299) {
+                        anySuccess = true
+                    }
+                    
+                    // If it's today, we care about the status for the UI
+                    if (isToday) {
+                        lastStatusCode = code
+                    } else if (lastStatusCode == 0 && code >= 400) {
+                         // If we haven't processed today yet, keep track if something failed earlier?
+                         // Actually, let's just use Today's code for UI, or the last error.
+                    }
                 }
 
-                val body = json.toString().toRequestBody("application/json".toMediaType())
-                val reqBuilder = Request.Builder().url(url).post(body)
-                if (token.isNotEmpty()) {
-                    reqBuilder.header("Authorization", "Bearer $token")
-                }
-                val req = reqBuilder.build()
-                
-                val resp = main.http.newCall(req).execute()
-                val code = resp.code
-                
                 withContext(Dispatchers.Main) {
-                    if (resp.isSuccessful) {
+                    if (lastStatusCode in 200..299) {
                         val countMsg = "Synced: ${stepRecords.size} steps, ${hrRecords.size} HR, ${spo2Records.size} SpO2"
                         android.widget.Toast.makeText(requireContext(), countMsg, android.widget.Toast.LENGTH_LONG).show()
-                        viewModel.statusSteps = code
-                        viewModel.statusDist = code
-                        viewModel.statusHr = code
-                        viewModel.statusSpo2 = code
+                        viewModel.statusSteps = lastStatusCode
+                        viewModel.statusDist = lastStatusCode
+                        viewModel.statusHr = lastStatusCode
+                        viewModel.statusSpo2 = lastStatusCode
                         renderCards()
                     } else {
-                        android.widget.Toast.makeText(requireContext(), "Sync failed", android.widget.Toast.LENGTH_SHORT).show()
-                        viewModel.statusSteps = code
-                        viewModel.statusDist = code
-                        viewModel.statusHr = code
-                        viewModel.statusSpo2 = code
-                        renderCards()
+                        // If Today failed (or was never processed?), show error
+                        // If Today was empty and skipped, lastStatusCode might be 0.
+                        // If lastStatusCode is 0 but we had success on other days, maybe show success?
+                        // But UI shows Today's data. If Today is empty, it shows "No Data".
+                        // If Today has data and failed, lastStatusCode will be error.
+                        
+                        if (lastStatusCode == 0 && anySuccess) {
+                             // Synced past data, but today had no data or was skipped?
+                             // We can consider this a success for "sync" status generally.
+                             viewModel.statusSteps = 200
+                             viewModel.statusDist = 200
+                             viewModel.statusHr = 200
+                             viewModel.statusSpo2 = 200
+                             renderCards()
+                        } else {
+                            android.widget.Toast.makeText(requireContext(), "Sync failed", android.widget.Toast.LENGTH_SHORT).show()
+                            viewModel.statusSteps = if (lastStatusCode > 0) lastStatusCode else 500
+                            viewModel.statusDist = viewModel.statusSteps
+                            viewModel.statusHr = viewModel.statusSteps
+                            viewModel.statusSpo2 = viewModel.statusSteps
+                            renderCards()
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -588,7 +654,9 @@ class HomeFragment : Fragment() {
         
         val granted = client.permissionController.getGrantedPermissions()
         if (!granted.containsAll(permissions)) {
-            android.widget.Toast.makeText(requireContext(), "Permissions missing", android.widget.Toast.LENGTH_SHORT).show()
+            val missing = permissions.minus(granted)
+            val names = missing.joinToString { it.toString().substringAfterLast(".") }
+            android.widget.Toast.makeText(requireContext(), "Missing: $names", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         
@@ -750,10 +818,17 @@ class HomeFragment : Fragment() {
                     android.widget.Toast.makeText(requireContext(), msg, android.widget.Toast.LENGTH_LONG).show()
                 }
 
-                // Send ALL fetched raw records (last 7 days)
-                // We check if we have ANY data to sync (either today's summary OR any raw records)
-                if (todaySteps > 0 || steps7d.isNotEmpty() || dist7d.isNotEmpty() || hr7d.isNotEmpty() || spo27d.isNotEmpty()) {
-                    syncTodayToServer(todaySteps, todayDist, todayHr, todaySpo2, steps7d, dist7d, hr7d, spo27d)
+                // Send only TODAY's records to reduce payload size and prevent 502 errors
+                val todayZone = java.time.ZoneId.systemDefault()
+                val todayDate = java.time.LocalDate.now(todayZone)
+                
+                val stepsTodayRecs = steps7d.filter { java.time.LocalDateTime.ofInstant(it.startTime, todayZone).toLocalDate() == todayDate }
+                val distTodayRecs = dist7d.filter { java.time.LocalDateTime.ofInstant(it.startTime, todayZone).toLocalDate() == todayDate }
+                val hrTodayRecs = hr7d.filter { java.time.LocalDateTime.ofInstant(it.startTime, todayZone).toLocalDate() == todayDate }
+                val spo2TodayRecs = spo27d.filter { java.time.LocalDateTime.ofInstant(it.time, todayZone).toLocalDate() == todayDate }
+
+                if (todaySteps > 0 || stepsTodayRecs.isNotEmpty() || distTodayRecs.isNotEmpty() || hrTodayRecs.isNotEmpty() || spo2TodayRecs.isNotEmpty()) {
+                    syncTodayToServer(todaySteps, todayDist, todayHr, todaySpo2, stepsTodayRecs, distTodayRecs, hrTodayRecs, spo2TodayRecs)
                 } else {
                     withContext(Dispatchers.Main) {
                         android.widget.Toast.makeText(requireContext(), "No new data to sync", android.widget.Toast.LENGTH_SHORT).show()

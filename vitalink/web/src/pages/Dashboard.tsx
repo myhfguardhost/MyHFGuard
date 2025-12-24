@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,20 @@ import { formatDistanceToNow, isYesterday, isToday, format } from "date-fns";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [currentTime, setCurrentTime] = useState(new Date());
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const ClockDisplay = memo(() => {
+    const [now, setNow] = useState(new Date())
+    useEffect(() => {
+      const timer = setInterval(() => setNow(new Date()), 1000)
+      return () => clearInterval(timer)
+    }, [])
+    return (
+      <div className="text-left md:text-right">
+        <p className="text-lg md:text-xl font-medium text-muted-foreground">{format(now, 'd MMM yyyy')}</p>
+        <p className="text-3xl md:text-4xl font-bold text-primary">{format(now, 'h:mm a')}</p>
+      </div>
+    )
+  })
 
   const [patientId, setPatientId] = useState<string | undefined>(
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("patientId") || undefined : undefined
@@ -120,10 +128,7 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Welcome Back, {infoQuery.data?.patient?.first_name || "Patient"}</h1>
             <p className="text-muted-foreground">Here's your health overview for today</p>
           </div>
-          <div className="text-left md:text-right">
-            <p className="text-lg md:text-xl font-medium text-muted-foreground">{format(currentTime, 'd MMM yyyy')}</p>
-            <p className="text-3xl md:text-4xl font-bold text-primary">{format(currentTime, 'h:mm a')}</p>
-          </div>
+          <ClockDisplay />
         </div>
 
         {showSyncNotice && (

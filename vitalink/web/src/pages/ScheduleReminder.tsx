@@ -6,6 +6,7 @@ import { Calendar as CalendarIcon, Clock, Stethoscope, Plus } from "lucide-react
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { getPatientReminders, createPatientReminder, updatePatientReminder, deletePatientReminder } from "@/lib/api"
 import { supabase } from "@/lib/supabase"
+import { toast } from "sonner"
 
 
 export default function ScheduleReminder() {
@@ -54,6 +55,10 @@ export default function ScheduleReminder() {
       const r = await deletePatientReminder(patientId, id)
       if (!(r as any)?.ok) throw new Error('Failed to delete')
       queryClient.invalidateQueries({ queryKey: ["patient-reminders", patientId] })
+      toast.success("Reminder deleted")
+    } catch (e: any) {
+      const msg = e && e.message ? e.message : "Failed to delete reminder"
+      toast.error(msg)
     } finally {
       setSubmitting(false)
     }
@@ -139,9 +144,11 @@ export default function ScheduleReminder() {
       setNotes("")
       setEditId(null)
       queryClient.invalidateQueries({ queryKey: ["patient-reminders", patientId] })
+      toast.success(editId ? "Reminder updated" : "Reminder created")
     } catch (e: any) {
       const msg = e && e.message ? e.message : "Failed to save reminder"
       setError(msg)
+      toast.error(msg)
     } finally {
       setSubmitting(false)
     }

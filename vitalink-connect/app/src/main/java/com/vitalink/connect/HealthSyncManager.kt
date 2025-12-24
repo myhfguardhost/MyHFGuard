@@ -35,12 +35,19 @@ object HealthSyncManager {
             val hrSamplesToday = hr7d.flatMap { it.samples }.filter { java.time.LocalDateTime.ofInstant(it.time, zone).toLocalDate() == today }
             val spo2Today = spo27d.filter { java.time.LocalDateTime.ofInstant(it.time, zone).toLocalDate() == today }
 
+            val hrRecordsToday = hr7d.filter { 
+                java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate() == today 
+            }
+            val spo2RecordsToday = spo27d.filter { 
+                java.time.LocalDateTime.ofInstant(it.time, zone).toLocalDate() == today 
+            }
+
             val steps = stepsToday.sumOf { it.count }
             val dist = distToday.sumOf { it.distance.inMeters }.toLong()
             val avgHr = if (hrSamplesToday.isNotEmpty()) hrSamplesToday.map { it.beatsPerMinute }.average().toLong() else 0L
             val avgSpo2 = if (spo2Today.isNotEmpty()) spo2Today.map { it.percentage.value }.average().toInt() else 0
 
-            upload(context, steps, dist, avgHr, avgSpo2, steps7d, dist7d, hr7d, spo27d)
+            upload(context, steps, dist, avgHr, avgSpo2, stepsToday, distToday, hrRecordsToday, spo2RecordsToday)
         } catch (_: Exception) {}
     }
 
@@ -81,61 +88,90 @@ object HealthSyncManager {
         val patientId = sp.getString("patientId", null) ?: return
         val token = sp.getString("supabaseAccessToken", "") ?: ""
         val baseUrl = context.getString(R.string.api_base_url)
+        val zone = ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
 
-        val json = JSONObject().apply {
-            put("patient_id", patientId)
-            put("steps", steps)
-            put("distance", dist)
-            put("avg_hr", avgHr)
-            put("avg_spo2", avgSpo2)
-            put("date", java.time.LocalDate.now().toString())
+        // Identify all unique dates in the records to batch uploads by day
+        val allDates = mutableSetOf<java.time.LocalDate>()
+        stepRecords.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate()) }
+        distRecords.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate()) }
+        hrRecords.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate()) }
+        spo2Records.forEach { allDates.add(java.time.LocalDateTime.ofInstant(it.time, zone).toLocalDate()) }
+        allDates.add(today) // Ensure today is always processed
 
-            val stepsArray = JSONArray()
-            stepRecords.forEach {
-                val o = JSONObject()
-                o.put("startTime", it.startTime.toString())
-                o.put("endTime", it.endTime.toString())
-                o.put("count", it.count)
-                stepsArray.put(o)
-            }
-            put("steps_samples", stepsArray)
+        // Sort dates to upload chronologically
+        val sortedDates = allDates.sorted()
 
-            val distArray = JSONArray()
-            distRecords.forEach {
-                val o = JSONObject()
-                o.put("startTime", it.startTime.toString())
-                o.put("endTime", it.endTime.toString())
-                o.put("distanceMeters", it.distance.inMeters)
-                distArray.put(o)
-            }
-            put("distance_samples", distArray)
+        for (date in sortedDates) {
+            val isToday = (date == today)
+            
+            val sRecs = stepRecords.filter { java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate() == date }
+            val dRecs = distRecords.filter { java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate() == date }
+            val hRecs = hrRecords.filter { java.time.LocalDateTime.ofInstant(it.startTime, zone).toLocalDate() == date }
+            val oRecs = spo2Records.filter { java.time.LocalDateTime.ofInstant(it.time, zone).toLocalDate() == date }
 
-            val hrArray = JSONArray()
-            hrRecords.forEach { rec ->
-                rec.samples.forEach { s ->
-                    val o = JSONObject()
-                    o.put("time", s.time.toString())
-                    o.put("bpm", s.beatsPerMinute)
-                    hrArray.put(o)
+            if (!isToday && sRecs.isEmpty() && dRecs.isEmpty() && hRecs.isEmpty() && oRecs.isEmpty()) continue
+
+            try {
+                val json = JSONObject().apply {
+                    put("patient_id", patientId)
+                    put("steps", if (isToday) steps else 0)
+                    put("distance", if (isToday) dist else 0)
+                    put("avg_hr", if (isToday) avgHr else 0)
+                    put("avg_spo2", if (isToday) avgSpo2 else 0)
+                    put("date", date.toString())
+
+                    val stepsArray = JSONArray()
+                    sRecs.forEach {
+                        val o = JSONObject()
+                        o.put("startTime", it.startTime.toString())
+                        o.put("endTime", it.endTime.toString())
+                        o.put("count", it.count)
+                        stepsArray.put(o)
+                    }
+                    put("steps_samples", stepsArray)
+
+                    val distArray = JSONArray()
+                    dRecs.forEach {
+                        val o = JSONObject()
+                        o.put("startTime", it.startTime.toString())
+                        o.put("endTime", it.endTime.toString())
+                        o.put("distanceMeters", it.distance.inMeters)
+                        distArray.put(o)
+                    }
+                    put("distance_samples", distArray)
+
+                    val hrArray = JSONArray()
+                    hRecs.forEach { r ->
+                        r.samples.forEach { s ->
+                            val o = JSONObject()
+                            o.put("time", s.time.toString())
+                            o.put("bpm", s.beatsPerMinute)
+                            hrArray.put(o)
+                        }
+                    }
+                    put("hr_samples", hrArray)
+
+                    val spo2Array = JSONArray()
+                    oRecs.forEach { r ->
+                        val o = JSONObject()
+                        o.put("time", r.time.toString())
+                        o.put("percentage", r.percentage.value)
+                        spo2Array.put(o)
+                    }
+                    put("spo2_samples", spo2Array)
                 }
-            }
-            put("hr_samples", hrArray)
-
-            val spo2Array = JSONArray()
-            spo2Records.forEach {
-                val o = JSONObject()
-                o.put("time", it.time.toString())
-                o.put("percentage", it.percentage.value)
-                spo2Array.put(o)
-            }
-            put("spo2_samples", spo2Array)
+                
+                // Assuming endpoint /patient/sync-metrics exists
+                val url = "$baseUrl/patient/sync-metrics"
+                val body = json.toString().toRequestBody("application/json".toMediaType())
+                val reqBuilder = Request.Builder().url(url).post(body)
+                if (token.isNotEmpty()) {
+                    reqBuilder.header("Authorization", "Bearer $token")
+                }
+                val client = OkHttpClient()
+                client.newCall(reqBuilder.build()).execute().close()
+            } catch (_: Exception) {}
         }
-
-        val url = "$baseUrl/patient/sync-metrics"
-        val body = json.toString().toRequestBody("application/json".toMediaType())
-        val reqBuilder = Request.Builder().url(url).post(body)
-        if (token.isNotEmpty()) reqBuilder.header("Authorization", "Bearer $token")
-        val http = OkHttpClient()
-        http.newCall(reqBuilder.build()).execute().close()
     }
 }
