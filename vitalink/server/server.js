@@ -534,6 +534,45 @@ app.post('/patient/sync-metrics', async (req, res) => {
       (val) => ({ spo2_min: Math.round(val.min), spo2_max: Math.round(val.max), spo2_avg: Math.round(val.sum / val.count), spo2_count: val.count })
     )
 
+    // BLOOD PRESSURE
+    if (bp_samples && bp_samples.length > 0) {
+      console.log(`[sync-metrics] Processing ${bp_samples.length} BP samples`)
+      for (const s of bp_samples) {
+        try {
+          const dt = new Date(s.time)
+          // Convert to Malaysia Time (UTC+8) for reading_date/reading_time to match system convention
+          const offsetMin = 480
+          const localMs = dt.getTime() + offsetMin * 60000
+          const localDt = new Date(localMs)
+          
+          const rDate = localDt.toISOString().split('T')[0]
+          const rTime = localDt.toISOString().split('T')[1].split('.')[0]
+          
+          // Check for exact duplicate to avoid re-insertion
+          const { data: existing } = await sb.from('bp_readings')
+            .select('patient_id')
+            .eq('patient_id', patient_id)
+            .eq('reading_date', rDate)
+            .eq('reading_time', rTime)
+            .limit(1)
+            
+          if (!existing || existing.length === 0) {
+             const { error } = await sb.from('bp_readings').insert({
+               patient_id,
+               reading_date: rDate,
+               reading_time: rTime,
+               systolic: s.systolic,
+               diastolic: s.diastolic,
+               pulse: 0 // Default pulse as Health Connect BP record might not have it
+             })
+             if (error) console.error('[sync-metrics] BP insert error:', error.message)
+          }
+        } catch (e) {
+          console.error('[sync-metrics] BP processing error:', e)
+        }
+      }
+    }
+
     try {
       const offsetMin = 480
       const candidates = []

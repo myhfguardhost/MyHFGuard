@@ -57,8 +57,14 @@ class HomeFragment : Fragment() {
         lifecycleScope.launch {
             val view = view ?: return@launch
             val txt = view.findViewById<TextView?>(R.id.txtOutput)
-            txt?.text = if (granted.containsAll(permissions)) "Permissions granted" else "Permissions missing"
-            val ok = granted.containsAll(permissions)
+            val missing = permissions.minus(granted)
+            if (missing.isEmpty()) {
+                txt?.text = "Permissions granted"
+            } else {
+                val names = missing.joinToString { it.toString().substringAfterLast(".") }
+                txt?.text = "Missing: $names"
+            }
+            val ok = missing.isEmpty()
             if (ok) {
                 val sp = requireContext().getSharedPreferences("vitalink", android.content.Context.MODE_PRIVATE)
                 sp.edit().putBoolean("first_time_setup", false).apply()
@@ -181,6 +187,9 @@ class HomeFragment : Fragment() {
                 lifecycleScope.launch {
                     val granted = client.permissionController.getGrantedPermissions()
                     if (!granted.containsAll(permissions)) {
+                        val missing = permissions.minus(granted)
+                        val names = missing.joinToString { it.toString().substringAfterLast(".") }
+                        android.widget.Toast.makeText(context, "Requesting: $names", android.widget.Toast.LENGTH_SHORT).show()
                         requestPermissions.launch(permissions)
                     }
                 }
@@ -222,6 +231,11 @@ class HomeFragment : Fragment() {
             lifecycleScope.launch {
                 val granted = client.permissionController.getGrantedPermissions()
                 if (!granted.containsAll(permissions)) {
+                    val missing = permissions.minus(granted)
+                    val missingNames = missing.joinToString { p -> 
+                        p.toString().substringAfterLast(".") 
+                    }
+                    android.widget.Toast.makeText(context, "Missing: $missingNames", android.widget.Toast.LENGTH_LONG).show()
                     requestPermissions.launch(permissions)
                     return@launch
                 }
@@ -588,7 +602,9 @@ class HomeFragment : Fragment() {
         
         val granted = client.permissionController.getGrantedPermissions()
         if (!granted.containsAll(permissions)) {
-            android.widget.Toast.makeText(requireContext(), "Permissions missing", android.widget.Toast.LENGTH_SHORT).show()
+            val missing = permissions.minus(granted)
+            val names = missing.joinToString { it.toString().substringAfterLast(".") }
+            android.widget.Toast.makeText(requireContext(), "Missing: $names", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         
