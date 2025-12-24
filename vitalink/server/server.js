@@ -8,23 +8,24 @@ const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest'
+const cors = require('cors');
 const app = express()
 
 // Request logging middleware (moved to top)
-// app.use((req, res, next) => {
-//   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
-//   next()
-// })
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  optionsSuccessStatus: 200
+}));
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
+  next()
+})
 
 app.use(express.json({ limit: '50mb' }))
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-  if (req.method === 'OPTIONS') return res.sendStatus(200)
-  next()
-})
+// Manual CORS headers removed; using cors middleware
 
 let supabase
 let supabaseMock = false
