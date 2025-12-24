@@ -167,6 +167,7 @@ class LoginActivity : BaseActivity() {
                         .putString("patientId", userId)
                         .putString("userEmail", email)
                         .putString("supabaseAccessToken", session?.accessToken ?: "")
+                        .putString("supabaseRefreshToken", session?.refreshToken ?: "")
                         .apply()
                     
                     // Ensure patient exists on server

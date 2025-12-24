@@ -16,6 +16,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
 import java.time.ZoneId
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.auth.auth
 
 object HealthSyncManager {
     suspend fun syncData(context: Context) {
@@ -73,7 +76,7 @@ object HealthSyncManager {
         return out
     }
 
-    private fun upload(
+    private suspend fun upload(
         context: Context,
         steps: Long,
         dist: Long,
@@ -86,7 +89,7 @@ object HealthSyncManager {
     ) {
         val sp = context.getSharedPreferences("vitalink", Context.MODE_PRIVATE)
         val patientId = sp.getString("patientId", null) ?: return
-        val token = sp.getString("supabaseAccessToken", "") ?: ""
+        var token = sp.getString("supabaseAccessToken", "") ?: ""
         val baseUrl = context.getString(R.string.api_base_url)
         val zone = ZoneId.systemDefault()
         val today = java.time.LocalDate.now(zone)
@@ -101,6 +104,8 @@ object HealthSyncManager {
 
         // Sort dates to upload chronologically
         val sortedDates = allDates.sorted()
+        
+        val client = OkHttpClient()
 
         for (date in sortedDates) {
             val isToday = (date == today)
@@ -162,16 +167,56 @@ object HealthSyncManager {
                     put("spo2_samples", spo2Array)
                 }
                 
-                // Assuming endpoint /patient/sync-metrics exists
                 val url = "$baseUrl/patient/sync-metrics"
                 val body = json.toString().toRequestBody("application/json".toMediaType())
-                val reqBuilder = Request.Builder().url(url).post(body)
-                if (token.isNotEmpty()) {
-                    reqBuilder.header("Authorization", "Bearer $token")
+                
+                fun buildRequest(currentToken: String): Request {
+                    val builder = Request.Builder().url(url).post(body)
+                    if (currentToken.isNotEmpty()) {
+                        builder.header("Authorization", "Bearer $currentToken")
+                    }
+                    return builder.build()
                 }
-                val client = OkHttpClient()
-                client.newCall(reqBuilder.build()).execute().close()
+
+                var response = client.newCall(buildRequest(token)).execute()
+                if (response.code == 401) {
+                    response.close()
+                    // Try to refresh token
+                    val newToken = refreshToken(context)
+                    if (newToken != null) {
+                        token = newToken
+                        response = client.newCall(buildRequest(token)).execute()
+                    }
+                }
+                response.close()
             } catch (_: Exception) {}
+        }
+    }
+
+    private suspend fun refreshToken(context: Context): String? {
+        val sp = context.getSharedPreferences("vitalink", Context.MODE_PRIVATE)
+        val refreshToken = sp.getString("supabaseRefreshToken", "") ?: return null
+        if (refreshToken.isEmpty()) return null
+
+        return try {
+            val supabaseUrl = context.getString(R.string.supabase_url)
+            val supabaseKey = context.getString(R.string.supabase_anon_key)
+            val supabase = createSupabaseClient(supabaseUrl, supabaseKey) {
+                install(Auth)
+            }
+            // Try to retrieve session using refresh token
+            supabase.auth.refreshSession(refreshToken)
+            val session = supabase.auth.currentSessionOrNull()
+            if (session != null) {
+                sp.edit()
+                   .putString("supabaseAccessToken", session.accessToken)
+                   .putString("supabaseRefreshToken", session.refreshToken)
+                   .apply()
+                session.accessToken
+            } else null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 }
