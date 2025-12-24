@@ -127,6 +127,14 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
                     const dia = parseInt(jsonResult.dia);
                     const pulse = parseInt(jsonResult.pulse);
 
+                    // Check for duplicate recent reading
+                    const isDuplicate = await checkDuplicateReading(supabase, patientId, sys, dia, pulse);
+                    console.log('[processImage] Duplicate check result:', isDuplicate);
+                    if (isDuplicate) {
+                        console.warn('[processImage] Duplicate reading detected, not returning new values');
+                        return res.status(409).json({ error: 'Duplicate reading detected within recent timeframe.' });
+                    }
+
                     if (isNaN(sys) || isNaN(dia) || isNaN(pulse)) {
                         return res.status(400).json({ error: 'Invalid numeric values received from OCR.' });
                     }
