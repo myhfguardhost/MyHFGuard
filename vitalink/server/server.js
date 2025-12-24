@@ -8,23 +8,24 @@ const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest'
+const cors = require('cors');
 const app = express()
 
 // Request logging middleware (moved to top)
-// app.use((req, res, next) => {
-//   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
-//   next()
-// })
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+  optionsSuccessStatus: 200
+}));
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`)
+  next()
+})
 
 app.use(express.json({ limit: '50mb' }))
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-  if (req.method === 'OPTIONS') return res.sendStatus(200)
-  next()
-})
+// Manual CORS headers removed; using cors middleware
 
 let supabase
 let supabaseMock = false
@@ -257,7 +258,7 @@ app.get('/admin/patient-info', async (req, res) => {
       console.error('[admin/patient-info] error fetching patient:', patientRes.error)
       return res.status(404).json({ error: 'Patient not found', details: patientRes.error })
     }
-    
+
     console.log('[admin/patient-info] found patient:', patientRes.data.first_name)
 
     const devicesRes = await supabase
@@ -320,7 +321,7 @@ app.get('/patient/medications', async (req, res) => {
         }
       })
     }
-    
+
     return res.status(200).json({ preferences: prefs })
   } catch (e) {
     console.error('[medications] get error:', e)
@@ -338,7 +339,7 @@ app.post('/patient/medications', async (req, res) => {
       .from('medication')
       .select('*')
       .eq('patient_id', patientId)
-    
+
     if (fetchError) throw fetchError
 
     const updates = []
@@ -356,7 +357,7 @@ app.post('/patient/medications', async (req, res) => {
       if (prefs.hasOwnProperty(key)) {
         const isActive = prefs[key]
         const match = existing ? existing.find(m => m.class === key) : null
-        
+
         if (match) {
           // Update if active status changed
           if (match.active !== isActive) {
@@ -432,7 +433,7 @@ app.post('/patient/sync-metrics', async (req, res) => {
       const uid = `${patient_id}-${label}-${ts}`
       return { ...mapRaw(i), patient_id, record_uid: uid }
     })
-    
+
     const { error: errRaw } = await sb.from(rawTable).upsert(rawRows, { onConflict: 'record_uid', ignoreDuplicates: true })
     if (errRaw) console.error(`[sync-metrics] ${label} raw error:`, errRaw.message)
 
@@ -474,11 +475,11 @@ app.post('/patient/sync-metrics', async (req, res) => {
   try {
     // STEPS
     await processMetric(
-      'steps', 
-      steps_samples, 
-      'steps_event', 
-      'steps_hour', 
-      'steps_day', 
+      'steps',
+      steps_samples,
+      'steps_event',
+      'steps_hour',
+      'steps_day',
       (i) => ({ start_ts: i.startTime, end_ts: i.endTime, count: i.count }),
       (map, key, i) => map.set(key, (map.get(key) || 0) + i.count),
       (val) => ({ steps_total: val })
@@ -486,11 +487,11 @@ app.post('/patient/sync-metrics', async (req, res) => {
 
     // DISTANCE
     await processMetric(
-      'distance', 
-      distance_samples, 
-      'distance_event', 
-      'distance_hour', 
-      'distance_day', 
+      'distance',
+      distance_samples,
+      'distance_event',
+      'distance_hour',
+      'distance_day',
       (i) => ({ start_ts: i.startTime, end_ts: i.endTime, meters: Math.round(i.distanceMeters) }),
       (map, key, i) => map.set(key, (map.get(key) || 0) + i.distanceMeters),
       (val) => ({ meters_total: Math.round(val) })
@@ -498,11 +499,11 @@ app.post('/patient/sync-metrics', async (req, res) => {
 
     // HR
     await processMetric(
-      'hr', 
-      hr_samples, 
-      'hr_sample', 
-      'hr_hour', 
-      'hr_day', 
+      'hr',
+      hr_samples,
+      'hr_sample',
+      'hr_hour',
+      'hr_day',
       (i) => ({ time_ts: i.time, bpm: i.bpm }),
       (map, key, i) => {
         const curr = map.get(key) || { min: 999, max: 0, sum: 0, count: 0 }
@@ -517,11 +518,11 @@ app.post('/patient/sync-metrics', async (req, res) => {
 
     // SPO2
     await processMetric(
-      'spo2', 
-      spo2_samples, 
-      'spo2_sample', 
-      'spo2_hour', 
-      'spo2_day', 
+      'spo2',
+      spo2_samples,
+      'spo2_sample',
+      'spo2_hour',
+      'spo2_day',
       (i) => ({ time_ts: i.time, spo2_pct: i.percentage }),
       (map, key, i) => {
         const curr = map.get(key) || { min: 999, max: 0, sum: 0, count: 0 }
@@ -537,40 +538,40 @@ app.post('/patient/sync-metrics', async (req, res) => {
     try {
       const offsetMin = 480
       const candidates = []
-      ;(steps_samples || []).forEach(s => {
-        if (s.endTime) {
-          const utcMs = new Date(s.endTime).getTime()
-          const localMs = utcMs + offsetMin * 60000
-          candidates.push({ utcMs, localMs, ts: s.endTime })
-        }
-      })
-      ;(distance_samples || []).forEach(s => {
-        if (s.endTime) {
-          const utcMs = new Date(s.endTime).getTime()
-          const localMs = utcMs + offsetMin * 60000
-          candidates.push({ utcMs, localMs, ts: s.endTime })
-        }
-      })
-      ;(hr_samples || []).forEach(s => {
-        if (s.time) {
-          const utcMs = new Date(s.time).getTime()
-          const localMs = utcMs + offsetMin * 60000
-          candidates.push({ utcMs, localMs, ts: s.time })
-        }
-      })
-      ;(spo2_samples || []).forEach(s => {
-        if (s.time) {
-          const utcMs = new Date(s.time).getTime()
-          const localMs = utcMs + offsetMin * 60000
-          candidates.push({ utcMs, localMs, ts: s.time })
-        }
-      })
+        ; (steps_samples || []).forEach(s => {
+          if (s.endTime) {
+            const utcMs = new Date(s.endTime).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.endTime })
+          }
+        })
+        ; (distance_samples || []).forEach(s => {
+          if (s.endTime) {
+            const utcMs = new Date(s.endTime).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.endTime })
+          }
+        })
+        ; (hr_samples || []).forEach(s => {
+          if (s.time) {
+            const utcMs = new Date(s.time).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.time })
+          }
+        })
+        ; (spo2_samples || []).forEach(s => {
+          if (s.time) {
+            const utcMs = new Date(s.time).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.time })
+          }
+        })
       if (candidates.length) {
         const best = candidates.reduce((m, c) => (c.localMs > m.localMs ? c : m))
         const maxTs = new Date(best.ts).toISOString()
         await sb.from('device_sync_status').upsert({ patient_id, last_sync_ts: maxTs, updated_at: new Date().toISOString() }, { onConflict: 'patient_id' })
       }
-    } catch (_) {}
+    } catch (_) { }
     return res.status(200).json({ ok: true })
 
   } catch (e) {
@@ -651,11 +652,13 @@ app.get('/api/debug/list-models', async (req, res) => {
 
 // AI Symptom Checker Route
 app.post('/api/chat/symptoms', async (req, res) => {
+  console.log('[symptomChecker] Request received', { body: req.body });
   try {
-    const { message, patientId } = req.body
+    const { message, patientId } = req.body;
 
     if (!message) {
-      return res.status(400).json({ error: 'Message is required' })
+      console.warn('[symptomChecker] Missing message');
+      return res.status(400).json({ error: 'Message is required' });
     }
 
     if (!patientId) {
@@ -922,26 +925,26 @@ app.get('/patient/weekly-status', async (req, res) => {
     const end = endDate ? new Date(endDate) : new Date()
     // Ensure we include the full end date
     const endStr = end.toISOString().slice(0, 10)
-    
+
     const start = new Date(end)
     start.setDate(start.getDate() - 6) // Last 7 days including today
     const startStr = start.toISOString().slice(0, 10)
 
     if (supabaseMock) {
-       // Mock response
-       const m = {}
-       const curr = new Date(start)
-       while (curr <= end) {
-          const iso = curr.toISOString().slice(0, 10)
-          m[iso] = { has_weight: false, has_symptoms: false }
-          curr.setDate(curr.getDate() + 1)
-       }
-       return res.json(m)
+      // Mock response
+      const m = {}
+      const curr = new Date(start)
+      while (curr <= end) {
+        const iso = curr.toISOString().slice(0, 10)
+        m[iso] = { has_weight: false, has_symptoms: false }
+        curr.setDate(curr.getDate() + 1)
+      }
+      return res.json(m)
     }
 
     const w = await supabase.from('weight_day').select('date').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr)
     const s = await supabase.from('symptom_log').select('date').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr)
-    
+
     const map = {}
     const curr = new Date(start)
     while (curr <= end) {
@@ -960,7 +963,7 @@ app.get('/patient/weekly-status', async (req, res) => {
         if (map[x.date]) map[x.date].has_symptoms = true
       })
     }
-    
+
     return res.json(map)
   } catch (e) {
     return res.status(500).json({ error: e.message })
@@ -1040,442 +1043,442 @@ app.get('/patient/vitals', async (req, res) => {
   try {
     const pid = (req.query && req.query.patientId)
     const period = (req.query && req.query.period) || 'hourly'
-  const dateStr = (req.query && req.query.date) || null
-  // Use 480 offset for Malaysia Time (UTC+8) default, or from query
-  const tzOffsetMin = (req.query && req.query.tzOffsetMin) ? Number(req.query.tzOffsetMin) : 480
-  
-  if (!pid) return res.status(400).json({ error: 'missing patientId' })
-  
-  let out = { hr: [], spo2: [], steps: [], bp: [], weight: [] }
-  if (supabaseMock) {
-    return res.status(200).json(out)
-  }
-  
-  if (period === 'weekly') {
-    // Determine week range (Monday to Sunday)
-    let start, end
-    if (dateStr) {
-      const ref = new Date(dateStr)
-      // Adjust to Monday
-      const day = ref.getDay()
-      const diff = ref.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
-      start = new Date(ref.setDate(diff))
-      start.setHours(0, 0, 0, 0)
-      end = new Date(start)
-      end.setDate(start.getDate() + 6)
-      end.setHours(23, 59, 59, 999)
-    } else {
-      // Default to last 7 days ending today? Or current week?
-      // User likely wants "current week" context if no date provided, but typically date is provided.
-      // Fallback to "last 7 days" approach if no date
-      end = new Date()
-      start = new Date()
-      start.setDate(end.getDate() - 6)
+    const dateStr = (req.query && req.query.date) || null
+    // Use 480 offset for Malaysia Time (UTC+8) default, or from query
+    const tzOffsetMin = (req.query && req.query.tzOffsetMin) ? Number(req.query.tzOffsetMin) : 480
+
+    if (!pid) return res.status(400).json({ error: 'missing patientId' })
+
+    let out = { hr: [], spo2: [], steps: [], bp: [], weight: [] }
+    if (supabaseMock) {
+      return res.status(200).json(out)
     }
-    const startS = start.toISOString().slice(0, 10)
-    const endS = end.toISOString().slice(0, 10)
 
-    const hr = await supabase
-      .from('hr_day')
-      .select('date,hr_min,hr_max,hr_avg')
-      .eq('patient_id', pid)
-      .gte('date', startS)
-      .lte('date', endS)
-      .order('date', { ascending: true })
-    if (hr.error) return res.status(400).json({ error: hr.error.message })
-    
-    const spo2 = await supabase
-      .from('spo2_day')
-      .select('date,spo2_min,spo2_max,spo2_avg')
-      .eq('patient_id', pid)
-      .gte('date', startS)
-      .lte('date', endS)
-      .order('date', { ascending: true })
-    if (spo2.error) return res.status(400).json({ error: spo2.error.message })
-    
-    const steps = await supabase
-      .from('steps_day')
-      .select('date,steps_total')
-      .eq('patient_id', pid)
-      .gte('date', startS)
-      .lte('date', endS)
-      .order('date', { ascending: true })
-    if (steps.error) return res.status(400).json({ error: steps.error.message })
+    if (period === 'weekly') {
+      // Determine week range (Monday to Sunday)
+      let start, end
+      if (dateStr) {
+        const ref = new Date(dateStr)
+        // Adjust to Monday
+        const day = ref.getDay()
+        const diff = ref.getDate() - day + (day === 0 ? -6 : 1) // adjust when day is sunday
+        start = new Date(ref.setDate(diff))
+        start.setHours(0, 0, 0, 0)
+        end = new Date(start)
+        end.setDate(start.getDate() + 6)
+        end.setHours(23, 59, 59, 999)
+      } else {
+        // Default to last 7 days ending today? Or current week?
+        // User likely wants "current week" context if no date provided, but typically date is provided.
+        // Fallback to "last 7 days" approach if no date
+        end = new Date()
+        start = new Date()
+        start.setDate(end.getDate() - 6)
+      }
+      const startS = start.toISOString().slice(0, 10)
+      const endS = end.toISOString().slice(0, 10)
 
-    // Fetch BP readings for the week
-    const bp = await supabase
-      .from('bp_readings')
-      .select('reading_date,reading_time,systolic,diastolic,pulse')
-      .eq('patient_id', pid)
-      .gte('reading_date', startS)
-      .lte('reading_date', endS)
-      .order('reading_date', { ascending: true })
-      .order('reading_time', { ascending: true })
-    if (bp.error) return res.status(400).json({ error: bp.error.message })
+      const hr = await supabase
+        .from('hr_day')
+        .select('date,hr_min,hr_max,hr_avg')
+        .eq('patient_id', pid)
+        .gte('date', startS)
+        .lte('date', endS)
+        .order('date', { ascending: true })
+      if (hr.error) return res.status(400).json({ error: hr.error.message })
 
-    // Fetch weight from weight_sample to ensure fresh data
-    const startBuf = new Date(startS); startBuf.setDate(startBuf.getDate() - 1);
-    const endBuf = new Date(endS); endBuf.setDate(endBuf.getDate() + 1);
-    
-    const weightRaw = await supabase
-      .from('weight_sample')
-      .select('time_ts,kg')
-      .eq('patient_id', pid)
-      .gte('time_ts', startBuf.toISOString())
-      .lte('time_ts', endBuf.toISOString())
-      .order('time_ts', { ascending: true })
+      const spo2 = await supabase
+        .from('spo2_day')
+        .select('date,spo2_min,spo2_max,spo2_avg')
+        .eq('patient_id', pid)
+        .gte('date', startS)
+        .lte('date', endS)
+        .order('date', { ascending: true })
+      if (spo2.error) return res.status(400).json({ error: spo2.error.message })
 
-    const weightData = []
-    if (!weightRaw.error) {
-       const wMap = new Map()
-       for (const row of (weightRaw.data || [])) {
+      const steps = await supabase
+        .from('steps_day')
+        .select('date,steps_total')
+        .eq('patient_id', pid)
+        .gte('date', startS)
+        .lte('date', endS)
+        .order('date', { ascending: true })
+      if (steps.error) return res.status(400).json({ error: steps.error.message })
+
+      // Fetch BP readings for the week
+      const bp = await supabase
+        .from('bp_readings')
+        .select('reading_date,reading_time,systolic,diastolic,pulse')
+        .eq('patient_id', pid)
+        .gte('reading_date', startS)
+        .lte('reading_date', endS)
+        .order('reading_date', { ascending: true })
+        .order('reading_time', { ascending: true })
+      if (bp.error) return res.status(400).json({ error: bp.error.message })
+
+      // Fetch weight from weight_sample to ensure fresh data
+      const startBuf = new Date(startS); startBuf.setDate(startBuf.getDate() - 1);
+      const endBuf = new Date(endS); endBuf.setDate(endBuf.getDate() + 1);
+
+      const weightRaw = await supabase
+        .from('weight_sample')
+        .select('time_ts,kg')
+        .eq('patient_id', pid)
+        .gte('time_ts', startBuf.toISOString())
+        .lte('time_ts', endBuf.toISOString())
+        .order('time_ts', { ascending: true })
+
+      const weightData = []
+      if (!weightRaw.error) {
+        const wMap = new Map()
+        for (const row of (weightRaw.data || [])) {
           const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
           const y = d.getUTCFullYear()
           const m = String(d.getUTCMonth() + 1).padStart(2, '0')
           const day = String(d.getUTCDate()).padStart(2, '0')
           const k = `${y}-${m}-${day}`
           if (k >= startS && k <= endS) {
-             if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
-             const e = wMap.get(k)
-             e.sum += Number(row.kg)
-             e.count++
+            if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
+            const e = wMap.get(k)
+            e.sum += Number(row.kg)
+            e.count++
           }
-       }
-       for (const [k, v] of wMap) {
-          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
-       }
-       weightData.sort((a, b) => a.date.localeCompare(b.date))
-    }
-    const weight = { data: weightData, error: weightRaw.error }
-
-    const hrDays = (hr.data || [])
-    // Calculate resting HR from hourly data for the week range
-    let restingMap = new Map()
-    if (startS && endS) {
-      // We need strict UTC timestamps for the hourly query
-      // Assuming 'date' in hr_day aligns with local days, we approximate range or use date boundaries
-      // Better to use the start/end dates at 00:00/23:59 UTC if possible, or just cover the range
-      const startTs = `${startS}T00:00:00.000Z`
-      const endTs = `${endS}T23:59:59.999Z`
-      const hrs = await supabase
-        .from('hr_hour')
-        .select('hour_ts,hr_avg,hr_count')
-        .eq('patient_id', pid)
-        .gte('hour_ts', startTs)
-        .lte('hour_ts', endTs)
-        .order('hour_ts', { ascending: true })
-      
-      if (!hrs.error) {
-        const byDay = new Map()
-        for (const row of (hrs.data || [])) {
-          // Group by local day key based on the row timestamp
-          // Since we don't know the exact user timezone offset here (unless we use tzOffsetMin),
-          // we'll rely on the date string logic.
-          // Ideally we should use tzOffsetMin to group correctly.
-          const d = new Date(Date.parse(row.hour_ts) + (tzOffsetMin * 60000)) // shift to local
-          const y = d.getUTCFullYear()
-          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-          const day = String(d.getUTCDate()).padStart(2, '0')
-          const key = `${y}-${m}-${day}`
-          const h = d.getUTCHours()
-          const arr = byDay.get(key) || []
-          arr.push({ h, avg: row.hr_avg, count: row.hr_count })
-          byDay.set(key, arr)
         }
-        for (const [dk, arr] of byDay) {
-          const night = arr.filter(x => x.h >= 0 && x.h <= 6 && (x.count || 0) >= 10).sort((a, b) => a.h - b.h)
-          let val
-          if (night.length >= 1) {
-            let best = { score: Infinity, vals: [] }
-            for (let i = 0; i < night.length; i++) {
-              const w = [night[i], night[i + 1], night[i + 2]].filter(Boolean)
-              if (w.length) {
-                const score = w.reduce((s, x) => s + (x.avg || 0), 0) / w.length
-                const vals = w.map(x => x.avg || 0).sort((a, b) => a - b)
-                const mid = Math.floor(vals.length / 2)
-                const median = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2
-                if (score < best.score) best = { score, vals: [median] }
-              }
-            }
-            val = best.vals[0]
-          } else {
-            const dayAgg = hrDays.find(r => r.date === dk)
-            val = dayAgg ? dayAgg.hr_min || null : null
+        for (const [k, v] of wMap) {
+          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
+        }
+        weightData.sort((a, b) => a.date.localeCompare(b.date))
+      }
+      const weight = { data: weightData, error: weightRaw.error }
+
+      const hrDays = (hr.data || [])
+      // Calculate resting HR from hourly data for the week range
+      let restingMap = new Map()
+      if (startS && endS) {
+        // We need strict UTC timestamps for the hourly query
+        // Assuming 'date' in hr_day aligns with local days, we approximate range or use date boundaries
+        // Better to use the start/end dates at 00:00/23:59 UTC if possible, or just cover the range
+        const startTs = `${startS}T00:00:00.000Z`
+        const endTs = `${endS}T23:59:59.999Z`
+        const hrs = await supabase
+          .from('hr_hour')
+          .select('hour_ts,hr_avg,hr_count')
+          .eq('patient_id', pid)
+          .gte('hour_ts', startTs)
+          .lte('hour_ts', endTs)
+          .order('hour_ts', { ascending: true })
+
+        if (!hrs.error) {
+          const byDay = new Map()
+          for (const row of (hrs.data || [])) {
+            // Group by local day key based on the row timestamp
+            // Since we don't know the exact user timezone offset here (unless we use tzOffsetMin),
+            // we'll rely on the date string logic.
+            // Ideally we should use tzOffsetMin to group correctly.
+            const d = new Date(Date.parse(row.hour_ts) + (tzOffsetMin * 60000)) // shift to local
+            const y = d.getUTCFullYear()
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(d.getUTCDate()).padStart(2, '0')
+            const key = `${y}-${m}-${day}`
+            const h = d.getUTCHours()
+            const arr = byDay.get(key) || []
+            arr.push({ h, avg: row.hr_avg, count: row.hr_count })
+            byDay.set(key, arr)
           }
-          if (val != null) restingMap.set(dk, Math.round(val))
+          for (const [dk, arr] of byDay) {
+            const night = arr.filter(x => x.h >= 0 && x.h <= 6 && (x.count || 0) >= 10).sort((a, b) => a.h - b.h)
+            let val
+            if (night.length >= 1) {
+              let best = { score: Infinity, vals: [] }
+              for (let i = 0; i < night.length; i++) {
+                const w = [night[i], night[i + 1], night[i + 2]].filter(Boolean)
+                if (w.length) {
+                  const score = w.reduce((s, x) => s + (x.avg || 0), 0) / w.length
+                  const vals = w.map(x => x.avg || 0).sort((a, b) => a - b)
+                  const mid = Math.floor(vals.length / 2)
+                  const median = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2
+                  if (score < best.score) best = { score, vals: [median] }
+                }
+              }
+              val = best.vals[0]
+            } else {
+              const dayAgg = hrDays.find(r => r.date === dk)
+              val = dayAgg ? dayAgg.hr_min || null : null
+            }
+            if (val != null) restingMap.set(dk, Math.round(val))
+          }
         }
       }
-    }
-    
-    out = {
-      hr: hrDays.map((r) => ({ time: r.date, min: Math.round(r.hr_min || 0), avg: Math.round(r.hr_avg || 0), max: Math.round(r.hr_max || 0), resting: restingMap.get(r.date) })),
-      spo2: (spo2.data || []).map((r) => ({ time: r.date, min: Math.round(r.spo2_min || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round(r.spo2_max || 0) })),
-      steps: (steps.data || []).map((r) => ({ time: r.date, count: Math.round(r.steps_total || 0) })),
-      bp: (bp.data || []).map((r) => ({
-        time: `${r.reading_date}T${r.reading_time}`,
-        systolic: r.systolic,
-        diastolic: r.diastolic,
-        pulse: r.pulse
-      })),
-      weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
-    }
-  } else if (period === 'monthly') {
-    let start, end
-    if (dateStr) {
-      const ref = new Date(dateStr)
-      start = new Date(ref.getFullYear(), ref.getMonth(), 1)
-      end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0)
-    } else {
-      const now = new Date()
-      start = new Date(now.getFullYear(), now.getMonth(), 1)
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    }
-    const startStr = start.toISOString().slice(0, 10)
-    const endStr = end.toISOString().slice(0, 10)
-    const hr = await supabase
-      .from('hr_day')
-      .select('date,hr_min,hr_max,hr_avg')
-      .eq('patient_id', pid)
-      .gte('date', startStr)
-      .lte('date', endStr)
-      .order('date', { ascending: true })
-    if (hr.error) return res.status(400).json({ error: hr.error.message })
-    const spo2 = await supabase
-      .from('spo2_day')
-      .select('date,spo2_min,spo2_max,spo2_avg')
-      .eq('patient_id', pid)
-      .gte('date', startStr)
-      .lte('date', endStr)
-      .order('date', { ascending: true })
-    if (spo2.error) return res.status(400).json({ error: spo2.error.message })
-    const steps = await supabase
-      .from('steps_day')
-      .select('date,steps_total')
-      .eq('patient_id', pid)
-      .gte('date', startStr)
-      .lte('date', endStr)
-      .order('date', { ascending: true })
-    if (steps.error) return res.status(400).json({ error: steps.error.message })
 
-    // Fetch BP readings for the month
-    const bp = await supabase
-      .from('bp_readings')
-      .select('reading_date,reading_time,systolic,diastolic,pulse')
-      .eq('patient_id', pid)
-      .gte('reading_date', startStr)
-      .lte('reading_date', endStr)
-      .order('reading_date', { ascending: true })
-      .order('reading_time', { ascending: true })
-    if (bp.error) return res.status(400).json({ error: bp.error.message })
+      out = {
+        hr: hrDays.map((r) => ({ time: r.date, min: Math.round(r.hr_min || 0), avg: Math.round(r.hr_avg || 0), max: Math.round(r.hr_max || 0), resting: restingMap.get(r.date) })),
+        spo2: (spo2.data || []).map((r) => ({ time: r.date, min: Math.round(r.spo2_min || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round(r.spo2_max || 0) })),
+        steps: (steps.data || []).map((r) => ({ time: r.date, count: Math.round(r.steps_total || 0) })),
+        bp: (bp.data || []).map((r) => ({
+          time: `${r.reading_date}T${r.reading_time}`,
+          systolic: r.systolic,
+          diastolic: r.diastolic,
+          pulse: r.pulse
+        })),
+        weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
+      }
+    } else if (period === 'monthly') {
+      let start, end
+      if (dateStr) {
+        const ref = new Date(dateStr)
+        start = new Date(ref.getFullYear(), ref.getMonth(), 1)
+        end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0)
+      } else {
+        const now = new Date()
+        start = new Date(now.getFullYear(), now.getMonth(), 1)
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      }
+      const startStr = start.toISOString().slice(0, 10)
+      const endStr = end.toISOString().slice(0, 10)
+      const hr = await supabase
+        .from('hr_day')
+        .select('date,hr_min,hr_max,hr_avg')
+        .eq('patient_id', pid)
+        .gte('date', startStr)
+        .lte('date', endStr)
+        .order('date', { ascending: true })
+      if (hr.error) return res.status(400).json({ error: hr.error.message })
+      const spo2 = await supabase
+        .from('spo2_day')
+        .select('date,spo2_min,spo2_max,spo2_avg')
+        .eq('patient_id', pid)
+        .gte('date', startStr)
+        .lte('date', endStr)
+        .order('date', { ascending: true })
+      if (spo2.error) return res.status(400).json({ error: spo2.error.message })
+      const steps = await supabase
+        .from('steps_day')
+        .select('date,steps_total')
+        .eq('patient_id', pid)
+        .gte('date', startStr)
+        .lte('date', endStr)
+        .order('date', { ascending: true })
+      if (steps.error) return res.status(400).json({ error: steps.error.message })
 
-    // Fetch weight from weight_sample to ensure fresh data
-    const startBuf = new Date(startStr); startBuf.setDate(startBuf.getDate() - 1);
-    const endBuf = new Date(endStr); endBuf.setDate(endBuf.getDate() + 1);
-    
-    const weightRaw = await supabase
-      .from('weight_sample')
-      .select('time_ts,kg')
-      .eq('patient_id', pid)
-      .gte('time_ts', startBuf.toISOString())
-      .lte('time_ts', endBuf.toISOString())
-      .order('time_ts', { ascending: true })
+      // Fetch BP readings for the month
+      const bp = await supabase
+        .from('bp_readings')
+        .select('reading_date,reading_time,systolic,diastolic,pulse')
+        .eq('patient_id', pid)
+        .gte('reading_date', startStr)
+        .lte('reading_date', endStr)
+        .order('reading_date', { ascending: true })
+        .order('reading_time', { ascending: true })
+      if (bp.error) return res.status(400).json({ error: bp.error.message })
 
-    const weightData = []
-    if (!weightRaw.error) {
-       const wMap = new Map()
-       for (const row of (weightRaw.data || [])) {
+      // Fetch weight from weight_sample to ensure fresh data
+      const startBuf = new Date(startStr); startBuf.setDate(startBuf.getDate() - 1);
+      const endBuf = new Date(endStr); endBuf.setDate(endBuf.getDate() + 1);
+
+      const weightRaw = await supabase
+        .from('weight_sample')
+        .select('time_ts,kg')
+        .eq('patient_id', pid)
+        .gte('time_ts', startBuf.toISOString())
+        .lte('time_ts', endBuf.toISOString())
+        .order('time_ts', { ascending: true })
+
+      const weightData = []
+      if (!weightRaw.error) {
+        const wMap = new Map()
+        for (const row of (weightRaw.data || [])) {
           const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
           const y = d.getUTCFullYear()
           const m = String(d.getUTCMonth() + 1).padStart(2, '0')
           const day = String(d.getUTCDate()).padStart(2, '0')
           const k = `${y}-${m}-${day}`
           if (k >= startStr && k <= endStr) {
-             if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
-             const e = wMap.get(k)
-             e.sum += Number(row.kg)
-             e.count++
+            if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
+            const e = wMap.get(k)
+            e.sum += Number(row.kg)
+            e.count++
           }
-       }
-       for (const [k, v] of wMap) {
+        }
+        for (const [k, v] of wMap) {
           weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
-       }
-       weightData.sort((a, b) => a.date.localeCompare(b.date))
-    }
-    const weight = { data: weightData, error: weightRaw.error }
-
-    const hrDays = (hr.data || [])
-    let restingMap = new Map()
-    if (startStr && endStr) {
-      const startTs = `${startStr}T00:00:00.000Z`
-      const endTs = `${endStr}T23:59:59.999Z`
-      const hrs = await supabase
-        .from('hr_hour')
-        .select('hour_ts,hr_avg,hr_count')
-        .eq('patient_id', pid)
-        .gte('hour_ts', startTs)
-        .lte('hour_ts', endTs)
-        .order('hour_ts', { ascending: true })
-      if (!hrs.error) {
-        const byDay = new Map()
-        for (const row of (hrs.data || [])) {
-          const d = new Date(Date.parse(row.hour_ts) + (tzOffsetMin * 60000))
-          const y = d.getUTCFullYear()
-          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-          const day = String(d.getUTCDate()).padStart(2, '0')
-          const key = `${y}-${m}-${day}`
-          const h = d.getUTCHours()
-          const arr = byDay.get(key) || []
-          arr.push({ h, avg: row.hr_avg, count: row.hr_count })
-          byDay.set(key, arr)
         }
-        for (const [dk, arr] of byDay) {
-          const night = arr.filter(x => x.h >= 0 && x.h <= 6 && (x.count || 0) >= 10).sort((a, b) => a.h - b.h)
-          let val
-          if (night.length >= 1) {
-            let best = { score: Infinity, vals: [] }
-            for (let i = 0; i < night.length; i++) {
-              const w = [night[i], night[i + 1], night[i + 2]].filter(Boolean)
-              if (w.length) {
-                const score = w.reduce((s, x) => s + (x.avg || 0), 0) / w.length
-                const vals = w.map(x => x.avg || 0).sort((a, b) => a - b)
-                const mid = Math.floor(vals.length / 2)
-                const median = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2
-                if (score < best.score) best = { score, vals: [median] }
-              }
-            }
-            val = best.vals[0]
-          } else {
-            const dayAgg = hrDays.find(r => r.date === dk)
-            val = dayAgg ? dayAgg.hr_min || null : null
+        weightData.sort((a, b) => a.date.localeCompare(b.date))
+      }
+      const weight = { data: weightData, error: weightRaw.error }
+
+      const hrDays = (hr.data || [])
+      let restingMap = new Map()
+      if (startStr && endStr) {
+        const startTs = `${startStr}T00:00:00.000Z`
+        const endTs = `${endStr}T23:59:59.999Z`
+        const hrs = await supabase
+          .from('hr_hour')
+          .select('hour_ts,hr_avg,hr_count')
+          .eq('patient_id', pid)
+          .gte('hour_ts', startTs)
+          .lte('hour_ts', endTs)
+          .order('hour_ts', { ascending: true })
+        if (!hrs.error) {
+          const byDay = new Map()
+          for (const row of (hrs.data || [])) {
+            const d = new Date(Date.parse(row.hour_ts) + (tzOffsetMin * 60000))
+            const y = d.getUTCFullYear()
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(d.getUTCDate()).padStart(2, '0')
+            const key = `${y}-${m}-${day}`
+            const h = d.getUTCHours()
+            const arr = byDay.get(key) || []
+            arr.push({ h, avg: row.hr_avg, count: row.hr_count })
+            byDay.set(key, arr)
           }
-          if (val != null) restingMap.set(dk, Math.round(val))
+          for (const [dk, arr] of byDay) {
+            const night = arr.filter(x => x.h >= 0 && x.h <= 6 && (x.count || 0) >= 10).sort((a, b) => a.h - b.h)
+            let val
+            if (night.length >= 1) {
+              let best = { score: Infinity, vals: [] }
+              for (let i = 0; i < night.length; i++) {
+                const w = [night[i], night[i + 1], night[i + 2]].filter(Boolean)
+                if (w.length) {
+                  const score = w.reduce((s, x) => s + (x.avg || 0), 0) / w.length
+                  const vals = w.map(x => x.avg || 0).sort((a, b) => a - b)
+                  const mid = Math.floor(vals.length / 2)
+                  const median = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2
+                  if (score < best.score) best = { score, vals: [median] }
+                }
+              }
+              val = best.vals[0]
+            } else {
+              const dayAgg = hrDays.find(r => r.date === dk)
+              val = dayAgg ? dayAgg.hr_min || null : null
+            }
+            if (val != null) restingMap.set(dk, Math.round(val))
+          }
         }
       }
-    }
-    out = {
-      hr: hrDays.map((r) => ({ time: r.date, min: Math.round(r.hr_min || 0), avg: Math.round(r.hr_avg || 0), max: Math.round(r.hr_max || 0), resting: restingMap.get(r.date) })),
-      spo2: (spo2.data || []).map((r) => ({ time: r.date, min: Math.round(r.spo2_min || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round(r.spo2_max || 0) })),
-      steps: (steps.data || []).map((r) => ({ time: r.date, count: Math.round(r.steps_total || 0) })),
-      bp: (bp.data || []).map((r) => ({
-        time: `${r.reading_date}T${r.reading_time}`,
-        systolic: r.systolic,
-        diastolic: r.diastolic,
-        pulse: r.pulse
-      })),
-      weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
-    }
-  } else {
-    const date = (req.query && req.query.date) || null
-    // const tzOffRaw = (req.query && req.query.tzOffsetMin)
-    // const tzOffsetMin = tzOffRaw != null ? Number(tzOffRaw) : 0
-
-    // In supabase-js v2, filters like eq/gte/lte are available on the builder returned by select/update/delete
-    let hrQ = supabase
-      .from('hr_hour')
-      .select('hour_ts,hr_min,hr_max,hr_avg,hr_count')
-      .eq('patient_id', pid)
-    let spo2Q = supabase
-      .from('spo2_hour')
-      .select('hour_ts,spo2_min,spo2_max,spo2_avg')
-      .eq('patient_id', pid)
-    let stepsQ = supabase
-      .from('steps_hour')
-      .select('hour_ts,steps_total')
-      .eq('patient_id', pid)
-    let bpQ = supabase
-      .from('bp_readings')
-      .select('reading_date,reading_time,systolic,diastolic,pulse')
-      .eq('patient_id', pid)
-    let weightQ = supabase
-      .from('weight_day')
-      .select('date,kg_avg')
-      .eq('patient_id', pid)
-
-    if (date) {
-      // DB stores local time as UTC, so we query the date directly
-      const start = new Date(`${date}T00:00:00.000Z`)
-      const end = new Date(`${date}T23:59:59.999Z`)
-      hrQ = hrQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
-      spo2Q = spo2Q.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
-      stepsQ = stepsQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
-      const dateStr = date // YYYY-MM-DD
-      bpQ = bpQ.eq('reading_date', dateStr).order('reading_time', { ascending: true })
-      weightQ = weightQ.eq('date', dateStr)
-    } else {
-      hrQ = hrQ.order('hour_ts', { ascending: false }).limit(24)
-      spo2Q = spo2Q.order('hour_ts', { ascending: false }).limit(24)
-      stepsQ = stepsQ.order('hour_ts', { ascending: false }).limit(24)
-      bpQ = bpQ.order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(24)
-      weightQ = weightQ.order('date', { ascending: false }).limit(7)
-    }
-
-    const hr = await hrQ
-    if (hr.error) return res.status(400).json({ error: hr.error.message })
-    const spo2 = await spo2Q
-    if (spo2.error) return res.status(400).json({ error: spo2.error.message })
-    const steps = await stepsQ
-    if (steps.error) return res.status(400).json({ error: steps.error.message })
-    const bp = await bpQ
-    if (bp.error) return res.status(400).json({ error: bp.error.message })
-    const weight = await weightQ
-
-    let hrArr = date ? (hr.data || []) : (hr.data || []).reverse()
-    let spo2Arr = date ? (spo2.data || []) : (spo2.data || []).reverse()
-    let stepsArr = date ? (steps.data || []) : (steps.data || []).reverse()
-
-    if (date && hrArr.length === 0 && spo2Arr.length === 0 && stepsArr.length === 0) {
-      const hr2 = await supabase
-        .from('hr_hour')
-        .select('hour_ts,hr_min,hr_max,hr_avg,hr_count')
-        .eq('patient_id', pid)
-        .order('hour_ts', { ascending: false })
-        .limit(72)
-      const spo22 = await supabase
-        .from('spo2_hour')
-        .select('hour_ts,spo2_min,spo2_max,spo2_avg')
-        .eq('patient_id', pid)
-        .order('hour_ts', { ascending: false })
-        .limit(72)
-      const steps2 = await supabase
-        .from('steps_hour')
-        .select('hour_ts,steps_total')
-        .eq('patient_id', pid)
-        .order('hour_ts', { ascending: false })
-        .limit(72)
-      const toLocalDay = (ts) => {
-        const d = new Date(ts)
-        const y = d.getUTCFullYear()
-        const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-        const day = String(d.getUTCDate()).padStart(2, '0')
-        return `${y}-${m}-${day}`
-      }
-      hrArr = (hr2.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
-      spo2Arr = (spo22.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
-      stepsArr = (steps2.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
-    }
-    const toMalaysiaTime = (ts) => {
-      return ts ? ts.replace('Z', '') : ts
-    }
-
-    out = {
-      hr: hrArr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), min: Math.round((r.hr_min ?? r.hr_avg) || 0), avg: Math.round(r.hr_avg || 0), max: Math.round((r.hr_max ?? r.hr_avg) || 0), count: r.hr_count })),
-      spo2: spo2Arr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), min: Math.round((r.spo2_min ?? r.spo2_avg) || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round((r.spo2_max ?? r.spo2_avg) || 0) })),
-      steps: stepsArr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), count: Math.round(r.steps_total || 0) })),
-      bp: (bp.data || [])
-        .map((r) => ({
+      out = {
+        hr: hrDays.map((r) => ({ time: r.date, min: Math.round(r.hr_min || 0), avg: Math.round(r.hr_avg || 0), max: Math.round(r.hr_max || 0), resting: restingMap.get(r.date) })),
+        spo2: (spo2.data || []).map((r) => ({ time: r.date, min: Math.round(r.spo2_min || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round(r.spo2_max || 0) })),
+        steps: (steps.data || []).map((r) => ({ time: r.date, count: Math.round(r.steps_total || 0) })),
+        bp: (bp.data || []).map((r) => ({
           time: `${r.reading_date}T${r.reading_time}`,
           systolic: r.systolic,
           diastolic: r.diastolic,
           pulse: r.pulse
-        }))
-        .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()),
-      weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
+        })),
+        weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
+      }
+    } else {
+      const date = (req.query && req.query.date) || null
+      // const tzOffRaw = (req.query && req.query.tzOffsetMin)
+      // const tzOffsetMin = tzOffRaw != null ? Number(tzOffRaw) : 0
+
+      // In supabase-js v2, filters like eq/gte/lte are available on the builder returned by select/update/delete
+      let hrQ = supabase
+        .from('hr_hour')
+        .select('hour_ts,hr_min,hr_max,hr_avg,hr_count')
+        .eq('patient_id', pid)
+      let spo2Q = supabase
+        .from('spo2_hour')
+        .select('hour_ts,spo2_min,spo2_max,spo2_avg')
+        .eq('patient_id', pid)
+      let stepsQ = supabase
+        .from('steps_hour')
+        .select('hour_ts,steps_total')
+        .eq('patient_id', pid)
+      let bpQ = supabase
+        .from('bp_readings')
+        .select('reading_date,reading_time,systolic,diastolic,pulse')
+        .eq('patient_id', pid)
+      let weightQ = supabase
+        .from('weight_day')
+        .select('date,kg_avg')
+        .eq('patient_id', pid)
+
+      if (date) {
+        // DB stores local time as UTC, so we query the date directly
+        const start = new Date(`${date}T00:00:00.000Z`)
+        const end = new Date(`${date}T23:59:59.999Z`)
+        hrQ = hrQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
+        spo2Q = spo2Q.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
+        stepsQ = stepsQ.gte('hour_ts', start.toISOString()).lte('hour_ts', end.toISOString()).order('hour_ts', { ascending: true })
+        const dateStr = date // YYYY-MM-DD
+        bpQ = bpQ.eq('reading_date', dateStr).order('reading_time', { ascending: true })
+        weightQ = weightQ.eq('date', dateStr)
+      } else {
+        hrQ = hrQ.order('hour_ts', { ascending: false }).limit(24)
+        spo2Q = spo2Q.order('hour_ts', { ascending: false }).limit(24)
+        stepsQ = stepsQ.order('hour_ts', { ascending: false }).limit(24)
+        bpQ = bpQ.order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(24)
+        weightQ = weightQ.order('date', { ascending: false }).limit(7)
+      }
+
+      const hr = await hrQ
+      if (hr.error) return res.status(400).json({ error: hr.error.message })
+      const spo2 = await spo2Q
+      if (spo2.error) return res.status(400).json({ error: spo2.error.message })
+      const steps = await stepsQ
+      if (steps.error) return res.status(400).json({ error: steps.error.message })
+      const bp = await bpQ
+      if (bp.error) return res.status(400).json({ error: bp.error.message })
+      const weight = await weightQ
+
+      let hrArr = date ? (hr.data || []) : (hr.data || []).reverse()
+      let spo2Arr = date ? (spo2.data || []) : (spo2.data || []).reverse()
+      let stepsArr = date ? (steps.data || []) : (steps.data || []).reverse()
+
+      if (date && hrArr.length === 0 && spo2Arr.length === 0 && stepsArr.length === 0) {
+        const hr2 = await supabase
+          .from('hr_hour')
+          .select('hour_ts,hr_min,hr_max,hr_avg,hr_count')
+          .eq('patient_id', pid)
+          .order('hour_ts', { ascending: false })
+          .limit(72)
+        const spo22 = await supabase
+          .from('spo2_hour')
+          .select('hour_ts,spo2_min,spo2_max,spo2_avg')
+          .eq('patient_id', pid)
+          .order('hour_ts', { ascending: false })
+          .limit(72)
+        const steps2 = await supabase
+          .from('steps_hour')
+          .select('hour_ts,steps_total')
+          .eq('patient_id', pid)
+          .order('hour_ts', { ascending: false })
+          .limit(72)
+        const toLocalDay = (ts) => {
+          const d = new Date(ts)
+          const y = d.getUTCFullYear()
+          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+          const day = String(d.getUTCDate()).padStart(2, '0')
+          return `${y}-${m}-${day}`
+        }
+        hrArr = (hr2.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
+        spo2Arr = (spo22.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
+        stepsArr = (steps2.data || []).filter((r) => toLocalDay(r.hour_ts) === date).reverse()
+      }
+      const toMalaysiaTime = (ts) => {
+        return ts ? ts.replace('Z', '') : ts
+      }
+
+      out = {
+        hr: hrArr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), min: Math.round((r.hr_min ?? r.hr_avg) || 0), avg: Math.round(r.hr_avg || 0), max: Math.round((r.hr_max ?? r.hr_avg) || 0), count: r.hr_count })),
+        spo2: spo2Arr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), min: Math.round((r.spo2_min ?? r.spo2_avg) || 0), avg: Math.round(r.spo2_avg || 0), max: Math.round((r.spo2_max ?? r.spo2_avg) || 0) })),
+        steps: stepsArr.map((r) => ({ time: toMalaysiaTime(r.hour_ts), count: Math.round(r.steps_total || 0) })),
+        bp: (bp.data || [])
+          .map((r) => ({
+            time: `${r.reading_date}T${r.reading_time}`,
+            systolic: r.systolic,
+            diastolic: r.diastolic,
+            pulse: r.pulse
+          }))
+          .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()),
+        weight: (weight.data || []).map((r) => ({ time: r.date, value: r.kg_avg })),
+      }
     }
-  }
-  console.log('[patient/vitals] response size', {
-    hr: out.hr.length, spo2: out.spo2.length, steps: out.steps.length, bp: out.bp.length, weight: out.weight.length
-  })
-  return res.status(200).json({ vitals: out })
+    console.log('[patient/vitals] response size', {
+      hr: out.hr.length, spo2: out.spo2.length, steps: out.steps.length, bp: out.bp.length, weight: out.weight.length
+    })
+    return res.status(200).json({ vitals: out })
   } catch (err) {
     console.error('[patient/vitals] CRITICAL ERROR:', err)
     return res.status(500).json({ error: 'Internal Server Error', details: err.message })
@@ -1523,25 +1526,25 @@ app.delete('/appointments/:id', async (req, res) => {
 app.get('/patient/medications', async (req, res) => {
   const pid = req.query && req.query.patientId
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
-  
+
   const r = await supabase.from('medication')
-      .select('class')
-      .eq('patient_id', pid)
-      .eq('active', true)
-      
+    .select('class')
+    .eq('patient_id', pid)
+    .eq('active', true)
+
   if (r.error) return res.status(400).json({ error: r.error.message })
-  
+
   const classes = new Set((r.data || []).map(m => m.class ? m.class.toLowerCase() : ''))
-  
+
   const preferences = {
-      notify_hour: 9,
-      beta_blockers: classes.has('beta blocker') || classes.has('beta-blocker'),
-      raas_inhibitors: classes.has('raas inhibitor') || classes.has('ace inhibitor') || classes.has('arb'),
-      mras: classes.has('mra') || classes.has('mineralocorticoid receptor antagonist'),
-      sglt2_inhibitors: classes.has('sglt2 inhibitor') || classes.has('sglt2'),
-      statin: classes.has('statin')
+    notify_hour: 9,
+    beta_blockers: classes.has('beta blocker') || classes.has('beta-blocker'),
+    raas_inhibitors: classes.has('raas inhibitor') || classes.has('ace inhibitor') || classes.has('arb'),
+    mras: classes.has('mra') || classes.has('mineralocorticoid receptor antagonist'),
+    sglt2_inhibitors: classes.has('sglt2 inhibitor') || classes.has('sglt2'),
+    statin: classes.has('statin')
   }
-  
+
   return res.status(200).json({ preferences })
 })
 
@@ -1579,7 +1582,7 @@ app.post('/patient/reminders-edit', async (req, res) => {
   if (date) updates.due_ts = date
   if (notes !== undefined) updates.notes = notes
   updates.updated_at = new Date().toISOString()
-  
+
   const r = await supabase.from('reminders').update(updates).eq('id', id).eq('patient_id', patientId).select()
   if (r.error) return res.status(400).json({ error: r.error.message })
   const row = r.data && r.data[0]
@@ -2066,7 +2069,7 @@ app.post('/ingest/weight-samples', async (req, res) => {
     const avg = a.count ? Math.round((a.sum / a.count) * 10) / 10 : 0
     dayRows.push({ patient_id: pid, date: d, kg_min: a.min, kg_max: a.max, kg_avg: avg })
   }
-  
+
   // Use try/catch for weight_day to avoid blocking sample ingest
   try {
     const upd = await supabase.from('weight_day').upsert(dayRows, { onConflict: 'patient_id,date' })
@@ -2074,7 +2077,7 @@ app.post('/ingest/weight-samples', async (req, res) => {
   } catch (e) {
     console.error('weight_day upsert exception', e)
   }
-  
+
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_day: dayRows.length })
 })
 
