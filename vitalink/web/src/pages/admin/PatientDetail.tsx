@@ -476,5 +476,6 @@ export default function PatientDetail() {
                         </Card>
                     </div>
                 </div>
-            </> );
+            </div>
+        </>);
 }
