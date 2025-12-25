@@ -5,6 +5,7 @@ import { Heart, LayoutDashboard, BookOpen, Menu, ClipboardList, CalendarDays, Lo
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { supabase } from "@/lib/supabase"
+import ThemeToggle from "@/components/ThemeToggle"
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -62,6 +63,7 @@ export default function Navigation() {
             </NavLink>
           </div>
           <div className="hidden xl:flex items-center gap-1">
+            <ThemeToggle className="mr-2" />
             {isLoggedIn && navItems.map((item) => {
               const Icon = item.icon
               return (
@@ -82,7 +84,8 @@ export default function Navigation() {
               </Button>
             )}
           </div>
-          <div className="xl:hidden">
+          <div className="xl:hidden flex items-center gap-2">
+            <ThemeToggle />
             {isLoggedIn && (
               <Sheet>
                 <SheetTrigger asChild>

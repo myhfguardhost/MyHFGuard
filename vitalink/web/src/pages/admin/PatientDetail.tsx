@@ -228,7 +228,7 @@ export default function PatientDetail() {
         <>
             <div className="container mx-auto py-8 space-y-8">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <Button variant="outline" onClick={() => {
                         if (profile && pdfRef.current) {
                             generatePatientPdf(profile, pdfRef.current);
@@ -250,7 +250,7 @@ export default function PatientDetail() {
 
                 {/* --- FILTER BAR --- */}
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-muted-foreground">Quick Range:</span>
                         <Button variant="outline" size="sm" onClick={() => setPreset(1)}>1M</Button>
                         <Button variant="outline" size="sm" onClick={() => setPreset(3)}>3M</Button>
@@ -259,7 +259,7 @@ export default function PatientDetail() {
                         <Button variant="outline" size="sm" onClick={() => setYearPreset(3)}>3Y</Button>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-muted-foreground">Custom Range:</span>
 
                         {/* Start Date Picker */}
