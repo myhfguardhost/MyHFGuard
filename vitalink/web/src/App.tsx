@@ -64,7 +64,7 @@ const App = () => (
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
-          <ThemeToggle />
+
         </HashRouter>
       </TooltipProvider>
     </ThemeProvider>
