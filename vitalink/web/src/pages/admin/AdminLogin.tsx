@@ -103,6 +103,9 @@ export default function AdminLogin() {
                             )}
                         </Button>
                     </form>
+
+                    {/* Return to Patient Login */}
+                    <Button variant="link" className="w-full mt-2" onClick={() => navigate("/login")}>Return to Patient Login</Button>
                 </CardContent>
                 <CardFooter className="flex justify-center">
                     <p className="text-sm text-muted-foreground">

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { generatePatientPdf } from "@/lib/pdf";
 import { useParams, useNavigate } from "react-router-dom";
 import { getPatientProfile, PatientProfile } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,7 @@ export default function PatientDetail() {
     const [profile, setProfile] = useState<PatientProfile | null>(null);
 
     const [vitals, setVitals] = useState<any>({ hr: [], spo2: [], steps: [], bp: [] });
+    const pdfRef = useRef<HTMLDivElement>(null);
     const [loading, setLoading] = useState(true);
 
     // Date Range State - Default to last 30 days
@@ -223,249 +225,256 @@ export default function PatientDetail() {
     if (!profile && !loading) return null;
 
     return (
-        <div className="container mx-auto py-8 space-y-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => navigate("/admin/patients")}>
-                        <ArrowLeft className="w-4 h-4" />
+        <>
+            <div className="container mx-auto py-8 space-y-8">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <Button variant="outline" onClick={() => {
+                        if (profile && pdfRef.current) {
+                            generatePatientPdf(profile, pdfRef.current);
+                        }
+                    }}>Download PDF</Button>
+                    <div className="flex items-center gap-4">
+                        <Button variant="outline" size="icon" onClick={() => navigate("/admin/patients")}>
+                            <ArrowLeft className="w-4 h-4" />
+                        </Button>
+                        <div>
+                            <h1 className="text-3xl font-bold">{profile?.first_name} {profile?.last_name}</h1>
+                            <p className="text-muted-foreground">ID: {profile?.patient_id}</p>
+                        </div>
+                    </div>
+                    <Button onClick={() => id && dateRange?.from && dateRange?.to && fetchData(id, dateRange.from, dateRange.to)} variant="outline">
+                        <RefreshCw className="w-4 h-4 mr-2" /> Refresh
                     </Button>
-                    <div>
-                        <h1 className="text-3xl font-bold">{profile?.first_name} {profile?.last_name}</h1>
-                        <p className="text-muted-foreground">ID: {profile?.patient_id}</p>
+                </div>
+
+                {/* --- FILTER BAR --- */}
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground">Quick Range:</span>
+                        <Button variant="outline" size="sm" onClick={() => setPreset(1)}>1M</Button>
+                        <Button variant="outline" size="sm" onClick={() => setPreset(3)}>3M</Button>
+                        <Button variant="outline" size="sm" onClick={() => setPreset(6)}>6M</Button>
+                        <Button variant="outline" size="sm" onClick={() => setYearPreset(1)}>1Y</Button>
+                        <Button variant="outline" size="sm" onClick={() => setYearPreset(3)}>3Y</Button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground">Custom Range:</span>
+
+                        {/* Start Date Picker */}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-[140px] justify-start text-left font-normal",
+                                        !dateRange?.from && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? format(dateRange.from, "MMM dd, yyyy") : <span>Start Date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <DateScrollPicker
+                                    date={dateRange?.from}
+                                    setDate={(date) => setDateRange(prev => ({ ...prev, from: date, to: prev?.to }))}
+                                />
+                            </PopoverContent>
+                        </Popover>
+
+                        <span className="text-muted-foreground">-</span>
+
+                        {/* End Date Picker */}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-[140px] justify-start text-left font-normal",
+                                        !dateRange?.to && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.to ? format(dateRange.to, "MMM dd, yyyy") : <span>End Date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <DateScrollPicker
+                                    date={dateRange?.to}
+                                    setDate={(date) => setDateRange(prev => ({ ...prev, from: prev?.from, to: date }))}
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
                 </div>
-                <Button onClick={() => id && dateRange?.from && dateRange?.to && fetchData(id, dateRange.from, dateRange.to)} variant="outline">
-                    <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-                </Button>
-            </div>
 
-            {/* --- FILTER BAR --- */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Quick Range:</span>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(1)}>1M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(3)}>3M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(6)}>6M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setYearPreset(1)}>1Y</Button>
-                    <Button variant="outline" size="sm" onClick={() => setYearPreset(3)}>3Y</Button>
-                </div>
+                <h2 className="text-2xl font-bold">
+                    Overview
+                    {dateRange?.from && dateRange?.to && (
+                        <span className="text-muted-foreground font-normal text-lg ml-2">
+                            ({format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")})
+                        </span>
+                    )}
+                </h2>
 
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">Custom Range:</span>
+                {/* --- CHARTS SECTION --- */}
+                <div ref={pdfRef}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                    {/* Start Date Picker */}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                    "w-[140px] justify-start text-left font-normal",
-                                    !dateRange?.from && "text-muted-foreground"
+                        {/* 1. Steps Chart */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Daily Steps</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={vitals.steps}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
+                                                cursor={{ fill: '#f4f4f5' }}
+                                            />
+                                            <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Steps" />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 2. Heart Rate Chart */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Heart Rate (BPM)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={vitals.hr}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                                            <YAxis domain={[40, 180]} fontSize={12} tickLine={false} axisLine={false} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
+                                            />
+                                            <Legend />
+                                            <Line type="monotone" dataKey="max" stroke="#ef4444" strokeWidth={2} dot={false} name="Max" connectNulls />
+                                            <Line type="monotone" dataKey="avg" stroke="#f97316" strokeWidth={2} dot={false} name="Avg" connectNulls />
+                                            <Line type="monotone" dataKey="min" stroke="#22c55e" strokeWidth={2} dot={false} name="Min" connectNulls />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 3. Blood Pressure Chart */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Blood Pressure</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {vitals.bp.length === 0 ? (
+                                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                                        No data available for this period
+                                    </div>
+                                ) : (
+                                    <div className="h-[300px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={vitals.bp}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} angle={-15} textAnchor="end" height={50} />
+                                                <YAxis domain={[40, 200]} fontSize={12} tickLine={false} axisLine={false} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                    labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
+                                                />
+                                                <Legend verticalAlign="top" />
+                                                <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
+                                                <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
+                                                <Line type="monotone" dataKey="systolic" stroke="#8884d8" strokeWidth={3} name="Systolic" />
+                                                <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} name="Diastolic" />
+                                                <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} name="Pulse" />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
                                 )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? format(dateRange.from, "MMM dd, yyyy") : <span>Start Date</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <DateScrollPicker
-                                date={dateRange?.from}
-                                setDate={(date) => setDateRange(prev => ({ ...prev, from: date, to: prev?.to }))}
-                            />
-                        </PopoverContent>
-                    </Popover>
+                            </CardContent>
+                        </Card>
 
-                    <span className="text-muted-foreground">-</span>
+                        {/* 4. SpO2 Chart */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>SpO2 (%)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={vitals.spo2}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                                            <YAxis domain={[80, 100]} fontSize={12} tickLine={false} axisLine={false} />
+                                            <Tooltip
+                                                contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
+                                            />
+                                            <Line type="monotone" dataKey="avg" stroke="#06b6d4" strokeWidth={3} activeDot={{ r: 8 }} name="Avg %" connectNulls />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
 
-                    {/* End Date Picker */}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                    "w-[140px] justify-start text-left font-normal",
-                                    !dateRange?.to && "text-muted-foreground"
+                    {/* --- RAW DATA TABLES BELOW --- */}
+                    <h3 className="text-xl font-bold mt-12">Raw Data Logs</h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="max-h-[300px] overflow-auto">
+                            <CardHeader><CardTitle>Steps Log</CardTitle></CardHeader>
+                            <CardContent>
+                                {vitals.steps.filter((r: any) => r.count !== null).length === 0 ? (
+                                    <p className="text-muted-foreground text-center py-4">No data</p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Count</TableHead></TableRow></TableHeader>
+                                        <TableBody>
+                                            {[...vitals.steps].filter((r: any) => r.count !== null).reverse().map((r: any, i: number) => (
+                                                <TableRow key={i}><TableCell>{r.fullDate}</TableCell><TableCell>{r.count}</TableCell></TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.to ? format(dateRange.to, "MMM dd, yyyy") : <span>End Date</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <DateScrollPicker
-                                date={dateRange?.to}
-                                setDate={(date) => setDateRange(prev => ({ ...prev, from: prev?.from, to: date }))}
-                            />
-                        </PopoverContent>
-                    </Popover>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="max-h-[300px] overflow-auto">
+                            <CardHeader><CardTitle>BP Log</CardTitle></CardHeader>
+                            <CardContent>
+                                {vitals.bp.length === 0 ? (
+                                    <p className="text-muted-foreground text-center py-4">No data</p>
+                                ) : (
+                                    <Table>
+                                        <TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Sys/Dia</TableHead><TableHead>Pulse</TableHead></TableRow></TableHeader>
+                                        <TableBody>
+                                            {[...vitals.bp].reverse().map((r: any, i: number) => (
+                                                <TableRow key={i}>
+                                                    <TableCell>{r.time}</TableCell>
+                                                    <TableCell>{r.systolic}/{r.diastolic}</TableCell>
+                                                    <TableCell>{r.pulse}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
-            </div>
-
-            <h2 className="text-2xl font-bold">
-                Overview
-                {dateRange?.from && dateRange?.to && (
-                    <span className="text-muted-foreground font-normal text-lg ml-2">
-                        ({format(dateRange.from, "MMM d, yyyy")} - {format(dateRange.to, "MMM d, yyyy")})
-                    </span>
-                )}
-            </h2>
-
-            {/* --- CHARTS SECTION --- */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                {/* 1. Steps Chart */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Daily Steps</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={vitals.steps}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                        labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                        cursor={{ fill: '#f4f4f5' }}
-                                    />
-                                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Steps" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* 2. Heart Rate Chart */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Heart Rate (BPM)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={vitals.hr}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis domain={[40, 180]} fontSize={12} tickLine={false} axisLine={false} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                        labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                    />
-                                    <Legend />
-                                    <Line type="monotone" dataKey="max" stroke="#ef4444" strokeWidth={2} dot={false} name="Max" connectNulls />
-                                    <Line type="monotone" dataKey="avg" stroke="#f97316" strokeWidth={2} dot={false} name="Avg" connectNulls />
-                                    <Line type="monotone" dataKey="min" stroke="#22c55e" strokeWidth={2} dot={false} name="Min" connectNulls />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* 3. Blood Pressure Chart */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Blood Pressure</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {vitals.bp.length === 0 ? (
-                            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                                No data available for this period
-                            </div>
-                        ) : (
-                            <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={vitals.bp}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                        <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} angle={-15} textAnchor="end" height={50} />
-                                        <YAxis domain={[40, 200]} fontSize={12} tickLine={false} axisLine={false} />
-                                        <Tooltip
-                                            contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                            labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                        />
-                                        <Legend verticalAlign="top" />
-                                        <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
-                                        <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
-                                        <Line type="monotone" dataKey="systolic" stroke="#8884d8" strokeWidth={3} name="Systolic" />
-                                        <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} name="Diastolic" />
-                                        <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} name="Pulse" />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* 4. SpO2 Chart */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>SpO2 (%)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={vitals.spo2}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis domain={[80, 100]} fontSize={12} tickLine={false} axisLine={false} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                        labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                    />
-                                    <Line type="monotone" dataKey="avg" stroke="#06b6d4" strokeWidth={3} activeDot={{ r: 8 }} name="Avg %" connectNulls />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* --- RAW DATA TABLES BELOW --- */}
-            <h3 className="text-xl font-bold mt-12">Raw Data Logs</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="max-h-[300px] overflow-auto">
-                    <CardHeader><CardTitle>Steps Log</CardTitle></CardHeader>
-                    <CardContent>
-                        {vitals.steps.filter((r: any) => r.count !== null).length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">No data</p>
-                        ) : (
-                            <Table>
-                                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Count</TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {[...vitals.steps].filter((r: any) => r.count !== null).reverse().map((r: any, i: number) => (
-                                        <TableRow key={i}><TableCell>{r.fullDate}</TableCell><TableCell>{r.count}</TableCell></TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card className="max-h-[300px] overflow-auto">
-                    <CardHeader><CardTitle>BP Log</CardTitle></CardHeader>
-                    <CardContent>
-                        {vitals.bp.length === 0 ? (
-                            <p className="text-muted-foreground text-center py-4">No data</p>
-                        ) : (
-                            <Table>
-                                <TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Sys/Dia</TableHead><TableHead>Pulse</TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {[...vitals.bp].reverse().map((r: any, i: number) => (
-                                        <TableRow key={i}>
-                                            <TableCell>{r.time}</TableCell>
-                                            <TableCell>{r.systolic}/{r.diastolic}</TableCell>
-                                            <TableCell>{r.pulse}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    );
+            </> );
 }
