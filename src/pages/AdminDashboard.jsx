@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard,
@@ -17,20 +17,270 @@ import {
   Waves,
   Footprints,
   Mail,
-  CheckCircle2,
   Bell,
+  RefreshCw,
+  Scale,
+  Stethoscope,
+  UserRound,
+  Loader2,
 } from "lucide-react"
 import { serverUrl } from "@/lib/api"
 import { toast } from "sonner"
+import html2canvas from "html2canvas"
+import { jsPDF } from "jspdf"
+import * as XLSX from "xlsx"
+
+function formatNumber(value, fallback = "-") {
+  if (value === null || value === undefined || value === "") return fallback
+  const n = Number(value)
+  return Number.isNaN(n) ? fallback : n
+}
+
+function formatDate(value) {
+  if (!value) return "-"
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toLocaleString()
+}
+
+function formatShortDate(value) {
+  if (!value) return "-"
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toLocaleDateString()
+}
+
+function getStatusBadgeClass(status) {
+  if (status === "critical") {
+    return "bg-red-100 text-red-700 border border-red-200"
+  }
+  if (status === "warning") {
+    return "bg-amber-100 text-amber-700 border border-amber-200"
+  }
+  return "bg-emerald-100 text-emerald-700 border border-emerald-200"
+}
+
+function getAlertCardClass(level) {
+  if (level === "critical") {
+    return "border-red-200 bg-red-50"
+  }
+  if (level === "warning") {
+    return "border-amber-200 bg-amber-50"
+  }
+  return "border-emerald-200 bg-emerald-50"
+}
+
+function pickWorstStatus(alerts) {
+  if (alerts.some((a) => a.level === "critical")) return "critical"
+  if (alerts.some((a) => a.level === "warning")) return "warning"
+  return "stable"
+}
+
+function buildAlerts({ summaryData, vitalsData, weeklyStatus }) {
+  const alerts = []
+
+  const hr = formatNumber(summaryData?.summary?.heartRate, null)
+  const bpSystolic = formatNumber(summaryData?.summary?.bpSystolic, null)
+  const bpDiastolic = formatNumber(summaryData?.summary?.bpDiastolic, null)
+  const bpPulse = formatNumber(summaryData?.summary?.bpPulse, null)
+  const stepsToday = formatNumber(summaryData?.summary?.stepsToday, null)
+
+  const latestSpo2 =
+    vitalsData?.vitals?.spo2 && vitalsData.vitals.spo2.length > 0
+      ? formatNumber(vitalsData.vitals.spo2[vitalsData.vitals.spo2.length - 1]?.avg, null)
+      : null
+
+  const weightSeries =
+    vitalsData?.vitals?.weight?.map((w) => ({
+      time: w.time,
+      value: Number(w.value),
+    })) || []
+
+  // BP + pulse alert logic
+  if (
+    bpSystolic !== null &&
+    bpDiastolic !== null &&
+    bpPulse !== null
+  ) {
+    if (
+      bpSystolic >= 180 ||
+      bpSystolic < 80 ||
+      bpDiastolic >= 120 ||
+      bpDiastolic < 50 ||
+      bpPulse < 50 ||
+      bpPulse > 120
+    ) {
+      alerts.push({
+        id: `bp-critical`,
+        level: "critical",
+        title: "Critical BP / Pulse",
+        message: `BP ${bpSystolic}/${bpDiastolic} mmHg, Pulse ${bpPulse} bpm`,
+      })
+    } else if (
+      (bpSystolic >= 140 && bpSystolic <= 179) ||
+      (bpDiastolic >= 90 && bpDiastolic <= 119)
+    ) {
+      alerts.push({
+        id: `bp-warning-high`,
+        level: "warning",
+        title: "High Blood Pressure",
+        message: `BP ${bpSystolic}/${bpDiastolic} mmHg`,
+      })
+    } else if (
+      (bpSystolic >= 121 && bpSystolic <= 139) ||
+      (bpDiastolic >= 80 && bpDiastolic <= 89)
+    ) {
+      alerts.push({
+        id: `bp-warning-elevated`,
+        level: "warning",
+        title: "Elevated Blood Pressure",
+        message: `BP ${bpSystolic}/${bpDiastolic} mmHg`,
+      })
+    }
+  }
+
+  // HR alert logic
+  if (hr !== null) {
+    if (hr < 50 || hr > 120) {
+      alerts.push({
+        id: `hr-critical`,
+        level: "critical",
+        title: "Critical Heart Rate",
+        message: `Heart rate ${hr} bpm`,
+      })
+    } else if (hr < 60 || hr > 100) {
+      alerts.push({
+        id: `hr-warning`,
+        level: "warning",
+        title: "Heart Rate Out of Range",
+        message: `Heart rate ${hr} bpm`,
+      })
+    }
+  }
+
+  // SpO2 alert logic
+  if (latestSpo2 !== null) {
+    if (latestSpo2 < 90) {
+      alerts.push({
+        id: `spo2-critical`,
+        level: "critical",
+        title: "Low SpO₂",
+        message: `SpO₂ ${latestSpo2}%`,
+      })
+    } else if (latestSpo2 < 95) {
+      alerts.push({
+        id: `spo2-warning`,
+        level: "warning",
+        title: "Borderline SpO₂",
+        message: `SpO₂ ${latestSpo2}%`,
+      })
+    }
+  }
+
+  // Weight trend logic
+  if (weightSeries.length >= 2) {
+    const sorted = [...weightSeries].sort(
+      (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+    )
+
+    const latest = sorted[sorted.length - 1]?.value
+    const previous = sorted[sorted.length - 2]?.value
+
+    if (latest != null && previous != null) {
+      const diff1 = latest - previous
+      if (diff1 >= 1.5) {
+        alerts.push({
+          id: `weight-warning-1`,
+          level: "warning",
+          title: "Rapid Weight Gain",
+          message: `Weight increased ${diff1.toFixed(1)} kg since previous reading`,
+        })
+      }
+    }
+
+    if (sorted.length >= 3) {
+      const diff2 = latest - sorted[sorted.length - 3]?.value
+      if (!Number.isNaN(diff2) && diff2 >= 3) {
+        alerts.push({
+          id: `weight-critical-2`,
+          level: "critical",
+          title: "Significant Weight Gain",
+          message: `Weight increased ${diff2.toFixed(1)} kg over recent readings`,
+        })
+      }
+    }
+
+    if (sorted.length >= 6) {
+      const diff5 = latest - sorted[Math.max(0, sorted.length - 6)]?.value
+      if (!Number.isNaN(diff5) && diff5 >= 2) {
+        alerts.push({
+          id: `weight-warning-5`,
+          level: "warning",
+          title: "Weight Gain Trend",
+          message: `Weight increased ${diff5.toFixed(1)} kg over several days`,
+        })
+      }
+    }
+  }
+
+  // Low activity
+  if (stepsToday !== null && stepsToday < 3000) {
+    alerts.push({
+      id: `steps-warning`,
+      level: "warning",
+      title: "Low Daily Steps",
+      message: `Only ${stepsToday} steps recorded today`,
+    })
+  }
+
+  // Missing self-check logs
+  if (weeklyStatus) {
+    const days = Object.values(weeklyStatus)
+    const missingWeightDays = days.filter((d) => !d.has_weight).length
+    const missingSymptomDays = days.filter((d) => !d.has_symptoms).length
+
+    if (missingWeightDays >= 4) {
+      alerts.push({
+        id: `missing-weight`,
+        level: "warning",
+        title: "Incomplete Weight Logs",
+        message: `${missingWeightDays} days without weight log this week`,
+      })
+    }
+
+    if (missingSymptomDays >= 4) {
+      alerts.push({
+        id: `missing-symptoms`,
+        level: "warning",
+        title: "Incomplete Symptom Logs",
+        message: `${missingSymptomDays} days without symptom log this week`,
+      })
+    }
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({
+      id: "stable",
+      level: "stable",
+      title: "Stable",
+      message: "No major warning signs found",
+    })
+  }
+
+  return alerts
+}
 
 export default function AdminDashboard() {
   const navigate = useNavigate()
+  const exportRef = useRef(null)
+
   const [users, setUsers] = useState([])
   const [summary, setSummary] = useState([])
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(true)
   const [acknowledgedAlerts, setAcknowledgedAlerts] = useState([])
   const [showExportBox, setShowExportBox] = useState(false)
+
   const API = serverUrl()
 
   useEffect(() => {
@@ -44,20 +294,55 @@ export default function AdminDashboard() {
           const t = await p.text()
           throw new Error(`patients ${p.status} ${p.statusText} ${t}`)
         }
-        const pr = await p.json()
-        const ids = (pr.patients || []).map((x) => x.patient_id)
-        setUsers(ids)
 
-        const s = await fetch(`${API}/admin/summary`)
-        if (!s.ok) {
-          const t = await s.text()
-          throw new Error(`summary ${s.status} ${s.statusText} ${t}`)
-        }
-        const sr = await s.json()
-        const onlyPatientSummary = (sr.summary || []).filter((item) =>
-          ids.includes(item.patientId)
+        const pr = await p.json()
+        const patientRows = pr.patients || []
+        setUsers(patientRows)
+
+        const detailed = await Promise.all(
+          patientRows.map(async (patient) => {
+            const patientId = patient.patient_id
+
+            const [patientInfoRes, summaryRes, vitalsRes, weeklyStatusRes] =
+              await Promise.all([
+                fetch(`${API}/admin/patient-info?patientId=${patientId}`).then((r) =>
+                  r.ok ? r.json() : null
+                ),
+                fetch(`${API}/patient/summary?patientId=${patientId}`).then((r) =>
+                  r.ok ? r.json() : null
+                ),
+                fetch(`${API}/patient/vitals?patientId=${patientId}&period=weekly`).then((r) =>
+                  r.ok ? r.json() : null
+                ),
+                fetch(`${API}/patient/weekly-status?patientId=${patientId}`).then((r) =>
+                  r.ok ? r.json() : null
+                ),
+              ])
+
+            const alerts = buildAlerts({
+              summaryData: summaryRes,
+              vitalsData: vitalsRes,
+              weeklyStatus: weeklyStatusRes,
+            })
+
+            return {
+              patientId,
+              patientInfo: patientInfoRes,
+              summaryData: summaryRes,
+              vitalsData: vitalsRes,
+              weeklyStatus: weeklyStatusRes,
+              alerts,
+              status: pickWorstStatus(alerts),
+            }
+          })
         )
-        setSummary(onlyPatientSummary)
+
+        detailed.sort((a, b) => {
+          const rank = { critical: 0, warning: 1, stable: 2 }
+          return rank[a.status] - rank[b.status]
+        })
+
+        setSummary(detailed)
       } catch (e) {
         console.error("[AdminDashboard] fetchAll error", e)
         setError(String(e))
@@ -88,85 +373,53 @@ export default function AdminDashboard() {
     const alerts = []
 
     summary.forEach((item) => {
-      const s = item.steps || {}
-      const h = item.hr || {}
-      const o = item.spo2 || {}
+      const latestSpo2 =
+        item.vitalsData?.vitals?.spo2 && item.vitalsData.vitals.spo2.length > 0
+          ? Number(item.vitalsData.vitals.spo2[item.vitalsData.vitals.spo2.length - 1]?.avg)
+          : null
 
-      if (o.spo2_avg != null) {
-        avgSpo2 += Number(o.spo2_avg)
+      const hr = Number(item.summaryData?.summary?.heartRate)
+      const steps = Number(item.summaryData?.summary?.stepsToday)
+
+      if (!Number.isNaN(latestSpo2) && latestSpo2 > 0) {
+        avgSpo2 += latestSpo2
         spo2Count++
       }
 
-      if (h.hr_avg != null) {
-        avgHr += Number(h.hr_avg)
+      if (!Number.isNaN(hr) && hr > 0) {
+        avgHr += hr
         hrCount++
       }
 
-      if (s.steps_total != null) {
-        avgSteps += Number(s.steps_total)
+      if (!Number.isNaN(steps) && steps >= 0) {
+        avgSteps += steps
         stepsCount++
       }
 
-      let patientStatus = "stable"
-      let patientAlert = null
-
-      if (o.spo2_avg != null && Number(o.spo2_avg) < 90) {
-        patientStatus = "critical"
-        patientAlert = {
-          id: `${item.patientId}-spo2-critical`,
-          level: "critical",
-          title: "Critical",
-          patientId: item.patientId,
-          message: `Low SpO₂ (${Math.round(Number(o.spo2_avg))}%)`,
-        }
-      } else if (
-        h.hr_avg != null &&
-        (Number(h.hr_avg) > 120 || Number(h.hr_avg) < 50)
-      ) {
-        patientStatus = "critical"
-        patientAlert = {
-          id: `${item.patientId}-hr-critical`,
-          level: "critical",
-          title: "Critical",
-          patientId: item.patientId,
-          message: `Abnormal HR (${Math.round(Number(h.hr_avg))} bpm)`,
-        }
-      } else if (o.spo2_avg != null && Number(o.spo2_avg) < 95) {
-        patientStatus = "warning"
-        patientAlert = {
-          id: `${item.patientId}-spo2-warning`,
-          level: "warning",
-          title: "Warning",
-          patientId: item.patientId,
-          message: `Slightly low SpO₂ (${Math.round(Number(o.spo2_avg))}%)`,
-        }
-      } else if (
-        h.hr_avg != null &&
-        (Number(h.hr_avg) > 100 || Number(h.hr_avg) < 60)
-      ) {
-        patientStatus = "warning"
-        patientAlert = {
-          id: `${item.patientId}-hr-warning`,
-          level: "warning",
-          title: "Warning",
-          patientId: item.patientId,
-          message: `Heart rate out of range (${Math.round(Number(h.hr_avg))} bpm)`,
-        }
-      }
-
-      if (patientStatus === "critical") critical++
-      else if (patientStatus === "warning") warning++
+      if (item.status === "critical") critical++
+      else if (item.status === "warning") warning++
       else stable++
 
-      if (patientAlert && !acknowledgedAlerts.includes(patientAlert.id)) {
-        alerts.push(patientAlert)
+      const primaryAlert = item.alerts.find((a) => a.level !== "stable") || item.alerts[0]
+
+      if (
+        primaryAlert &&
+        !acknowledgedAlerts.includes(`${item.patientId}-${primaryAlert.id}`)
+      ) {
+        alerts.push({
+          id: `${item.patientId}-${primaryAlert.id}`,
+          level: primaryAlert.level,
+          title: primaryAlert.title,
+          patientId: item.patientId,
+          message: primaryAlert.message,
+        })
       }
     })
 
     return {
       totalPatients,
       activePatients,
-      newThisMonth: totalPatients,
+      newThisMonth: users.length,
       avgSpo2: spo2Count ? Math.round(avgSpo2 / spo2Count) : "-",
       avgHr: hrCount ? Math.round(avgHr / hrCount) : "-",
       avgSteps: stepsCount ? Math.round(avgSteps / stepsCount) : "-",
@@ -177,63 +430,84 @@ export default function AdminDashboard() {
     }
   }, [users, summary, acknowledgedAlerts])
 
-  const exportCSV = () => {
-    const headers = [
-      "Patient ID",
-      "Steps Date",
-      "Steps Total",
-      "HR Date",
-      "HR Min",
-      "HR Max",
-      "HR Avg",
-      "HR Count",
-      "SpO2 Date",
-      "SpO2 Min",
-      "SpO2 Max",
-      "SpO2 Avg",
-      "SpO2 Count",
-    ]
-
+  const exportExcel = () => {
     const rows = summary.map((item) => {
-      const s = item.steps || {}
-      const h = item.hr || {}
-      const o = item.spo2 || {}
+      const patient = item.patientInfo?.patient || {}
+      const s = item.summaryData?.summary || {}
+      const latestSpo2 =
+        item.vitalsData?.vitals?.spo2 && item.vitalsData.vitals.spo2.length > 0
+          ? item.vitalsData.vitals.spo2[item.vitalsData.vitals.spo2.length - 1]?.avg
+          : ""
 
-      return [
-        item.patientId,
-        s.date || "",
-        s.steps_total ?? "",
-        h.date || "",
-        h.hr_min ?? "",
-        h.hr_max ?? "",
-        h.hr_avg != null ? Math.round(h.hr_avg) : "",
-        h.hr_count ?? "",
-        o.date || "",
-        o.spo2_min ?? "",
-        o.spo2_max ?? "",
-        o.spo2_avg != null ? Math.round(o.spo2_avg) : "",
-        o.spo2_count ?? "",
-      ]
+      const latestWeight =
+        item.vitalsData?.vitals?.weight && item.vitalsData.vitals.weight.length > 0
+          ? item.vitalsData.vitals.weight[item.vitalsData.vitals.weight.length - 1]?.value
+          : ""
+
+      return {
+        "Patient ID": item.patientId,
+        "First Name": patient.first_name || "",
+        "Last Name": patient.last_name || "",
+        "Date of Birth": patient.dob || "",
+        "Heart Rate": s.heartRate ?? "",
+        "BP Systolic": s.bpSystolic ?? "",
+        "BP Diastolic": s.bpDiastolic ?? "",
+        "Pulse": s.bpPulse ?? "",
+        "Steps Today": s.stepsToday ?? "",
+        "Distance Today": s.distanceToday ?? "",
+        "Latest SpO2": latestSpo2 ?? "",
+        "Latest Weight": latestWeight ?? "",
+        Status: item.status,
+        "Primary Alert": item.alerts?.[0]?.title || "",
+        "Alert Detail": item.alerts?.[0]?.message || "",
+      }
     })
 
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((v) => `"${String(v ?? "")}"`).join(","))
-      .join("\n")
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.setAttribute("download", "admin_dashboard_summary.csv")
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.json_to_sheet(rows)
+    XLSX.utils.book_append_sheet(wb, ws, "Admin Dashboard")
+    XLSX.writeFile(wb, "admin_dashboard_report.xlsx")
     toast.success("Excel file downloaded")
   }
 
-  const exportPDF = () => {
-    window.print()
-    toast.success("PDF export started")
+  const exportPDF = async () => {
+    try {
+      if (!exportRef.current) return
+
+      const canvas = await html2canvas(exportRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#eef2f7",
+      })
+
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF("p", "pt", "a4")
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const imgWidth = pageWidth - 40
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      let heightLeft = imgHeight
+      let position = 20
+
+      pdf.setFontSize(16)
+      pdf.text("MyHFGuard Admin Dashboard Report", 20, 20)
+      pdf.addImage(imgData, "PNG", 20, 40, imgWidth, imgHeight)
+      heightLeft -= pageHeight - 40
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + 40
+        pdf.addPage()
+        pdf.addImage(imgData, "PNG", 20, position, imgWidth, imgHeight)
+        heightLeft -= pageHeight
+      }
+
+      pdf.save("admin_dashboard_report.pdf")
+      toast.success("PDF downloaded")
+    } catch (e) {
+      console.error(e)
+      toast.error("Failed to export PDF")
+    }
   }
 
   const acknowledgeAlert = (alertId) => {
@@ -242,18 +516,36 @@ export default function AdminDashboard() {
   }
 
   const sendAlertEmail = (alert) => {
-    toast.success(`Alert email sent for patient ${alert.patientId}`)
+    const row = summary.find((x) => x.patientId === alert.patientId)
+    const patient = row?.patientInfo?.patient || {}
+
+    const patientName =
+      `${patient.first_name || ""} ${patient.last_name || ""}`.trim() || alert.patientId
+
+    const subject = encodeURIComponent(`MyHFGuard Alert - ${patientName}`)
+    const body = encodeURIComponent(
+      [
+        `Patient: ${patientName}`,
+        `Patient ID: ${alert.patientId}`,
+        `Alert Level: ${alert.level.toUpperCase()}`,
+        `Alert: ${alert.title}`,
+        `Details: ${alert.message}`,
+      ].join("\n")
+    )
+
+    window.location.href = `mailto:?subject=${subject}&body=${body}`
+    toast.success(`Email draft opened for patient ${alert.patientId}`)
   }
 
   const goToPatient = (patientId) => {
     navigate(`/admin/patient/${patientId}`)
   }
 
-  const alertsToShow = dashboardData.alerts.slice(0, 4)
+  const alertsToShow = dashboardData.alerts.slice(0, 6)
 
   return (
     <div className="min-h-screen bg-[#eef2f7]">
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen" ref={exportRef}>
         <aside className="hidden lg:flex w-56 flex-col bg-[#1f5fa8] text-white">
           <div className="px-5 py-5 border-b border-white/15">
             <div className="text-2xl font-bold">MyHFGuard</div>
@@ -278,7 +570,9 @@ export default function AdminDashboard() {
             </Link>
 
             <button
-              onClick={() => document.getElementById("recent-alerts")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() =>
+                document.getElementById("recent-alerts")?.scrollIntoView({ behavior: "smooth" })
+              }
               className="w-full flex items-center gap-3 rounded-lg px-4 py-3 text-white hover:bg-white/10 text-left"
             >
               <Siren size={18} />
@@ -286,7 +580,9 @@ export default function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => document.getElementById("analytics-reports")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() =>
+                document.getElementById("analytics-reports")?.scrollIntoView({ behavior: "smooth" })
+              }
               className="w-full flex items-center gap-3 rounded-lg px-4 py-3 text-white hover:bg-white/10 text-left"
             >
               <FileBarChart2 size={18} />
@@ -305,15 +601,23 @@ export default function AdminDashboard() {
 
         <main className="flex-1 p-5">
           <div className="mx-auto max-w-7xl">
-            <div className="mb-5 flex items-start justify-between">
+            <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-4xl font-bold text-slate-800">Dashboard</h1>
                 <p className="text-slate-500 mt-1">
-                  Monitor alerts, patient status, and summary metrics.
+                  Monitor alerts, patient status, clinical data, and reports.
                 </p>
               </div>
 
-              <div className="relative">
+              <div className="flex items-center gap-2 relative">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-slate-700 font-semibold hover:bg-slate-50 shadow-sm"
+                >
+                  <RefreshCw size={16} />
+                  Refresh
+                </button>
+
                 <button
                   onClick={() => setShowExportBox((prev) => !prev)}
                   className="inline-flex items-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-white font-semibold hover:bg-slate-600 shadow-sm"
@@ -337,7 +641,7 @@ export default function AdminDashboard() {
                       </button>
 
                       <button
-                        onClick={exportCSV}
+                        onClick={exportExcel}
                         className="w-full flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-white font-medium hover:bg-emerald-500"
                       >
                         <FileSpreadsheet size={16} />
@@ -356,7 +660,8 @@ export default function AdminDashboard() {
             ) : null}
 
             {loading ? (
-              <div className="rounded-xl bg-white border border-slate-200 p-8 shadow-sm text-slate-700">
+              <div className="rounded-xl bg-white border border-slate-200 p-8 shadow-sm text-slate-700 flex items-center gap-3">
+                <Loader2 className="animate-spin" size={18} />
                 Loading dashboard...
               </div>
             ) : (
@@ -399,9 +704,7 @@ export default function AdminDashboard() {
                                 <p className="font-semibold text-sm text-slate-800">
                                   {alert.title}: {alert.patientId}
                                 </p>
-                                <p className="text-xs text-slate-600 mt-1">
-                                  {alert.message}
-                                </p>
+                                <p className="text-xs text-slate-600 mt-1">{alert.message}</p>
                               </div>
                             </div>
 
@@ -412,12 +715,14 @@ export default function AdminDashboard() {
                               >
                                 Acknowledge
                               </button>
+
                               <button
                                 onClick={() => goToPatient(alert.patientId)}
                                 className="rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-400"
                               >
                                 View Profile
                               </button>
+
                               <button
                                 onClick={() => sendAlertEmail(alert)}
                                 className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
@@ -436,10 +741,12 @@ export default function AdminDashboard() {
                     <h2 className="font-semibold text-slate-800 mb-3">Overall Status</h2>
 
                     <div className="flex flex-col items-center">
-                      <div className="relative h-40 w-40 rounded-full bg-[conic-gradient(#22c55e_0deg,#22c55e_230deg,#f59e0b_230deg,#f59e0b_300deg,#ef4444_300deg,#ef4444_360deg)] p-4">
+                      <div className="relative h-40 w-40 rounded-full bg-[conic-gradient(#22c55e_0deg,#22c55e_220deg,#f59e0b_220deg,#f59e0b_300deg,#ef4444_300deg,#ef4444_360deg)] p-4">
                         <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-center">
                           <div>
-                            <p className="text-3xl font-bold text-slate-800">{dashboardData.totalPatients}</p>
+                            <p className="text-3xl font-bold text-slate-800">
+                              {dashboardData.totalPatients}
+                            </p>
                             <p className="text-sm text-slate-500">Patients</p>
                           </div>
                         </div>
@@ -470,10 +777,12 @@ export default function AdminDashboard() {
                         <span className="text-sm text-slate-600">Total Patients</span>
                         <span className="font-bold text-slate-900">{dashboardData.totalPatients}</span>
                       </div>
+
                       <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
                         <span className="text-sm text-slate-600">New This Month</span>
                         <span className="font-bold text-slate-900">{dashboardData.newThisMonth}</span>
                       </div>
+
                       <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3">
                         <span className="text-sm text-slate-600">Active Patients</span>
                         <span className="font-bold text-slate-900">{dashboardData.activePatients}</span>
@@ -528,22 +837,27 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="space-y-2">
-                      {summary.slice(0, 4).map((item) => (
-                        <div
-                          key={item.patientId}
-                          className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-slate-800">
-                              Patient {item.patientId} record updated
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              Latest steps / heart rate / SpO₂ summary available
-                            </p>
+                      {summary.slice(0, 5).map((item) => {
+                        const patient = item.patientInfo?.patient || {}
+                        const name =
+                          `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+                          item.patientId
+
+                        return (
+                          <div
+                            key={item.patientId}
+                            className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3"
+                          >
+                            <div>
+                              <p className="text-sm font-medium text-slate-800">{name}</p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                Latest status: {item.status}
+                              </p>
+                            </div>
+                            <span className="text-xs text-slate-400">recently</span>
                           </div>
-                          <span className="text-xs text-slate-400">recently</span>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </section>
 
@@ -558,28 +872,26 @@ export default function AdminDashboard() {
                         <thead>
                           <tr className="bg-slate-100 text-slate-600">
                             <th className="px-3 py-3 text-left">Patient</th>
+                            <th className="px-3 py-3 text-left">BP</th>
+                            <th className="px-3 py-3 text-left">Pulse</th>
+                            <th className="px-3 py-3 text-left">Weight</th>
                             <th className="px-3 py-3 text-left">Steps</th>
-                            <th className="px-3 py-3 text-left">HR Avg</th>
-                            <th className="px-3 py-3 text-left">SpO₂ Avg</th>
                             <th className="px-3 py-3 text-left">Status</th>
                           </tr>
                         </thead>
                         <tbody>
                           {summary.map((item) => {
-                            const s = item.steps || {}
-                            const h = item.hr || {}
-                            const o = item.spo2 || {}
+                            const patient = item.patientInfo?.patient || {}
+                            const name =
+                              `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+                              item.patientId
 
-                            const isCritical =
-                              (o.spo2_avg != null && Number(o.spo2_avg) < 90) ||
-                              (h.hr_avg != null &&
-                                (Number(h.hr_avg) > 120 || Number(h.hr_avg) < 50))
-
-                            const isWarning =
-                              !isCritical &&
-                              ((o.spo2_avg != null && Number(o.spo2_avg) < 95) ||
-                                (h.hr_avg != null &&
-                                  (Number(h.hr_avg) > 100 || Number(h.hr_avg) < 60)))
+                            const s = item.summaryData?.summary || {}
+                            const latestWeight =
+                              item.vitalsData?.vitals?.weight &&
+                              item.vitalsData.vitals.weight.length > 0
+                                ? item.vitalsData.vitals.weight[item.vitalsData.vitals.weight.length - 1]?.value
+                                : "-"
 
                             return (
                               <tr
@@ -587,20 +899,35 @@ export default function AdminDashboard() {
                                 className="border-t border-slate-200 cursor-pointer hover:bg-slate-50"
                                 onClick={() => goToPatient(item.patientId)}
                               >
-                                <td className="px-3 py-3 font-medium text-slate-800">{item.patientId}</td>
-                                <td className="px-3 py-3 text-slate-600">{s.steps_total ?? "-"}</td>
-                                <td className="px-3 py-3 text-slate-600">
-                                  {h.hr_avg != null ? Math.round(h.hr_avg) : "-"}
-                                </td>
-                                <td className="px-3 py-3 text-slate-600">
-                                  {o.spo2_avg != null ? Math.round(o.spo2_avg) : "-"}
-                                </td>
                                 <td className="px-3 py-3">
-                                  {isCritical ? (
+                                  <div className="font-medium text-slate-800">{name}</div>
+                                  <div className="text-xs text-slate-500">{item.patientId}</div>
+                                </td>
+
+                                <td className="px-3 py-3 text-slate-600">
+                                  {s.bpSystolic && s.bpDiastolic
+                                    ? `${s.bpSystolic}/${s.bpDiastolic}`
+                                    : "-"}
+                                </td>
+
+                                <td className="px-3 py-3 text-slate-600">
+                                  {s.bpPulse ?? "-"}
+                                </td>
+
+                                <td className="px-3 py-3 text-slate-600">
+                                  {latestWeight !== "-" ? `${latestWeight} kg` : "-"}
+                                </td>
+
+                                <td className="px-3 py-3 text-slate-600">
+                                  {s.stepsToday ?? "-"}
+                                </td>
+
+                                <td className="px-3 py-3">
+                                  {item.status === "critical" ? (
                                     <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-600">
                                       Critical
                                     </span>
-                                  ) : isWarning ? (
+                                  ) : item.status === "warning" ? (
                                     <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-600">
                                       Warning
                                     </span>
@@ -618,6 +945,71 @@ export default function AdminDashboard() {
                       </table>
                     </div>
                   </section>
+                </div>
+
+                <div className="mt-4 rounded-xl bg-white border border-slate-200 p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <UserRound size={18} className="text-cyan-600" />
+                    <h2 className="font-semibold text-slate-800">Detailed Patient Alerts</h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {summary.map((item) => {
+                      const patient = item.patientInfo?.patient || {}
+                      const name =
+                        `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+                        item.patientId
+
+                      return (
+                        <div
+                          key={item.patientId}
+                          className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                        >
+                          <div className="flex items-center justify-between mb-3 gap-3">
+                            <div>
+                              <h3 className="font-semibold text-slate-800">{name}</h3>
+                              <p className="text-xs text-slate-500">{item.patientId}</p>
+                            </div>
+
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${getStatusBadgeClass(
+                                item.status
+                              )}`}
+                            >
+                              {item.status}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {item.alerts.map((alert) => (
+                              <div
+                                key={`${item.patientId}-${alert.id}`}
+                                className={`rounded-lg border p-3 ${getAlertCardClass(alert.level)}`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-slate-800">
+                                      {alert.title}
+                                    </p>
+                                    <p className="text-xs text-slate-600 mt-1">
+                                      {alert.message}
+                                    </p>
+                                  </div>
+                                  {alert.level === "critical" ? (
+                                    <TriangleAlert size={16} className="text-red-500 mt-0.5" />
+                                  ) : alert.level === "warning" ? (
+                                    <CircleAlert size={16} className="text-amber-500 mt-0.5" />
+                                  ) : (
+                                    <CircleCheckBig size={16} className="text-emerald-500 mt-0.5" />
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </>
             )}
