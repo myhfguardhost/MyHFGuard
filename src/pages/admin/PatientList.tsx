@@ -96,8 +96,12 @@ export default function PatientList() {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onClick={() => navigate(`/admin/patient/${patient.patient_id}`)}
-                                            >
+                                                onClick={() =>
+                                                    navigate(`/admin/patient/${patient.patient_id}`, {
+                                                    state: { from: "/admin/patients" },
+                                                    })
+                                                }
+                                                >
                                                 View Details
                                             </Button>
                                         </TableCell>

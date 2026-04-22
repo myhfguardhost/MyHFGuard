@@ -299,7 +299,9 @@ export default function AdminDashboard() {
   }
 
   const goToPatient = (patientId) => {
-    navigate(`/admin/patient/${patientId}`)
+    navigate(`/admin/patient/${patientId}`, {
+      state: { from: "/admin/dashboard" },
+    })
   }
 
   const alertsToShow = dashboardData.alerts.slice(0, 6)

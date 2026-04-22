@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { generatePatientPdf } from "@/lib/pdf";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getPatientProfile, PatientProfile } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ import {
 export default function PatientDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
+    const backPath = location.state?.from || "/admin/patients";
     const [profile, setProfile] = useState<PatientProfile | null>(null);
 
     const [vitals, setVitals] = useState<any>({ hr: [], spo2: [], steps: [], bp: [] });
@@ -235,7 +237,7 @@ export default function PatientDetail() {
                         }
                     }}>Download PDF</Button>
                     <div className="flex items-center gap-4">
-                        <Button variant="outline" size="icon" onClick={() => navigate("/admin/patients")}>
+                        <Button variant="outline" size="icon" onClick={() => navigate(backPath)}>
                             <ArrowLeft className="w-4 h-4" />
                         </Button>
                         <div>
