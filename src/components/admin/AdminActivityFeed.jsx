@@ -2,13 +2,13 @@ import { Activity } from "lucide-react"
 
 export default function AdminActivityFeed({ summary }) {
   return (
-    <section className="lg:col-span-5 rounded-xl bg-white border border-slate-200 p-4 shadow-sm">
-      <div className="flex items-center gap-2 mb-3">
+    <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm h-full">
+      <div className="flex items-center gap-2 mb-4">
         <Activity size={16} className="text-cyan-600" />
-        <h2 className="font-semibold text-slate-800">Activity Feed</h2>
+        <h2 className="font-semibold text-slate-900">Activity Feed</h2>
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {summary.slice(0, 5).map((item) => {
           const patient = item.patientInfo?.patient || {}
           const name =
@@ -18,15 +18,15 @@ export default function AdminActivityFeed({ summary }) {
           return (
             <div
               key={item.patientId}
-              className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3"
+              className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3"
             >
               <div>
-                <p className="text-sm font-medium text-slate-800">{name}</p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-sm font-semibold text-slate-900">{name}</p>
+                <p className="text-xs text-slate-600 mt-1">
                   Latest status: {item.status}
                 </p>
               </div>
-              <span className="text-xs text-slate-400">recently</span>
+              <span className="text-xs text-slate-500">recently</span>
             </div>
           )
         })}

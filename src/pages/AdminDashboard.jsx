@@ -332,7 +332,7 @@ export default function AdminDashboard() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                   <AdminRecentAlerts
                     alertsToShow={alertsToShow}
                     acknowledgeAlert={acknowledgeAlert}
@@ -340,16 +340,20 @@ export default function AdminDashboard() {
                     sendAlertEmail={sendAlertEmail}
                   />
 
-                  <AdminSummaryPanels dashboardData={dashboardData} />
+                  <div className="xl:col-span-7 grid grid-cols-1 gap-4">
+                    <AdminSummaryPanels dashboardData={dashboardData} />
+                    <AdminKeyMetricsPanel dashboardData={dashboardData} summary={summary} />
+                  </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
-                  <AdminActivityFeed summary={summary} />
-                  <AdminKeyMetricsPanel dashboardData={dashboardData} summary={summary} />
-                </div>
+                <div className="mt-4 grid grid-cols-1 xl:grid-cols-12 gap-4">
+                  <div className="xl:col-span-4">
+                    <AdminActivityFeed summary={summary} />
+                  </div>
 
-                <div className="mt-4">
-                  <AdminMonitoringTable summary={summary} goToPatient={goToPatient} />
+                  <div className="xl:col-span-8">
+                    <AdminMonitoringTable summary={summary} goToPatient={goToPatient} />
+                  </div>
                 </div>
               </>
             )}

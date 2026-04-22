@@ -4,8 +4,8 @@ export default function AdminMonitoringTable({ summary, goToPatient }) {
   return (
     <section className="lg:col-span-7 rounded-xl bg-white border border-slate-200 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-semibold text-slate-800">Patient Monitoring Table</h2>
-        <span className="text-xs text-slate-500">Click row to view profile</span>
+        <h2 className="font-semibold text-slate-900">Patient Monitoring Table</h2>
+        <span className="text-xs text-slate-600">Showing top 5 patients</span>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -22,7 +22,7 @@ export default function AdminMonitoringTable({ summary, goToPatient }) {
           </thead>
 
           <tbody>
-            {summary.map((item) => {
+            {summary.slice(0, 5).map((item) => {
               const patient = item.patientInfo?.patient || {}
               const name =
                 `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
