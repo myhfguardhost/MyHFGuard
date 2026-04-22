@@ -18,6 +18,7 @@ import AdminDetailedAlerts from "@/components/admin/AdminDetailedAlerts"
 import AdminActivityFeed from "@/components/admin/AdminActivityFeed"
 import AdminWeightChart from "@/components/admin/AdminWeightChart"
 import AdminBPChart from "@/components/admin/AdminBPChart"
+import AdminKeyMetricsPanel from "@/components/admin/AdminKeyMetricsPanel"
 import { useNavigate } from "react-router-dom"
 
 export default function AdminDashboard() {
@@ -342,19 +343,14 @@ export default function AdminDashboard() {
                   <AdminSummaryPanels dashboardData={dashboardData} />
                 </div>
 
-                <AdminAnalyticsCards dashboardData={dashboardData} />
-
                 <div className="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
                   <AdminActivityFeed summary={summary} />
+                  <AdminKeyMetricsPanel dashboardData={dashboardData} summary={summary} />
+                </div>
+
+                <div className="mt-4">
                   <AdminMonitoringTable summary={summary} goToPatient={goToPatient} />
                 </div>
-
-                <div className="mt-4 grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <AdminWeightChart summary={summary} />
-                  <AdminBPChart summary={summary} />
-                </div>
-
-                <AdminDetailedAlerts summary={summary} />
               </>
             )}
           </div>
