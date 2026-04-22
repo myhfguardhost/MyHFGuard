@@ -603,7 +603,7 @@ export default function AdminDashboard() {
           <div className="mx-auto max-w-7xl">
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-4xl font-bold text-slate-800">Dashboard</h1>
+                <h1 className="text-4xl font-bold text-slate-800">testtttt Dashboard</h1>
                 <p className="text-slate-500 mt-1">
                   Monitor alerts, patient status, clinical data, and reports.
                 </p>
