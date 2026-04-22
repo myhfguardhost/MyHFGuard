@@ -1,46 +1,53 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 
 export default function RequireAdmin({ children }: { children: React.ReactNode }) {
-    const [loading, setLoading] = useState(true);
-    const [isAdmin, setIsAdmin] = useState(false);
-    const location = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [allowed, setAllowed] = useState(false);
+  const location = useLocation();
 
-    useEffect(() => {
-        const checkAdminSession = () => {
-            const sessionData = localStorage.getItem("adminSession");
+  useEffect(() => {
+    let mounted = true;
 
-            if (!sessionData) {
-                setIsAdmin(false);
-                setLoading(false);
-                return;
-            }
+    async function checkAdmin() {
+      const { data } = await supabase.auth.getSession();
 
-            try {
-                const session = JSON.parse(sessionData);
-                const loginTime = new Date(session.loginTime);
-                const now = new Date();
-                const hoursSinceLogin = (now.getTime() - loginTime.getTime()) / (1000 * 60 * 60);
+      const user = data?.session?.user;
+      const role = user?.app_metadata?.role;
 
-                // Session expires after 8 hours
-                if (hoursSinceLogin > 8) {
-                    localStorage.removeItem("adminSession");
-                    setIsAdmin(false);
-                } else {
-                    setIsAdmin(true);
-                }
-            } catch (err) {
-                localStorage.removeItem("adminSession");
-                setIsAdmin(false);
-            }
+      if (!mounted) return;
 
-            setLoading(false);
-        };
+      setAllowed(!!user && role === "admin");
+      setLoading(false);
+    }
 
-        checkAdminSession();
-    }, []);
+    checkAdmin();
 
-    if (loading) return null;
-    if (!isAdmin) return <Navigate to="/admin/login" state={{ from: location }} replace />;
-    return <>{children}</>;
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const role = session?.user?.app_metadata?.role;
+
+        if (!mounted) return;
+
+        setAllowed(!!session && role === "admin");
+        setLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+      listener?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
+    return <div className="p-6 text-slate-600">Checking admin access...</div>;
+  }
+
+  if (!allowed) {
+    return <Navigate to="/admin/login" replace state={{ from: location }} />;
+  }
+
+  return <>{children}</>;
 }
