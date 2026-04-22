@@ -18,45 +18,61 @@ import {
 } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 
-const AdminLogin = () => {
+type FormData = {
+  email: string;
+  password: string;
+};
+
+export default function AdminLogin() {
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState<FormData>({
+    email: "",
+    password: "",
+  });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsSubmitting(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: formData.email,
-      password: formData.password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (error) {
+        setError(error.message);
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      const role = data?.session?.user?.app_metadata?.role;
+
+      if (role !== "admin") {
+        setError("You are not authorized to access the admin dashboard.");
+        await supabase.auth.signOut();
+        setIsSubmitting(false);
+        return;
+      }
+
       setIsSubmitting(false);
-      return;
-    }
-
-    const { data } = await supabase.auth.getSession();
-    const role = data?.session?.user?.app_metadata?.role;
-
-    if (role !== "admin") {
-      setError("You are not authorized to access the admin dashboard.");
-      await supabase.auth.signOut();
+      navigate("/admin/dashboard");
+    } catch (err) {
+      setError("Login failed. Please try again.");
       setIsSubmitting(false);
-      return;
     }
-
-    setIsSubmitting(false);
-    navigate("/admin/dashboard");
   };
 
   return (
@@ -68,7 +84,7 @@ const AdminLogin = () => {
           <div className="relative z-10">
             <div className="mb-6 inline-flex items-center gap-3 rounded-2xl bg-white/15 px-4 py-3 backdrop-blur-md border border-white/20">
               <HeartPulse className="w-7 h-7" />
-              <span className="text-xl font-semibold">HFGuard</span>
+              <span className="text-xl font-semibold">MyHFGuard</span>
             </div>
 
             <h2 className="text-4xl font-bold leading-tight mb-4">
@@ -87,6 +103,7 @@ const AdminLogin = () => {
                 Secure admin login and protected dashboard access
               </span>
             </div>
+
             <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-4 backdrop-blur-sm border border-white/10">
               <ActivitySquare className="w-6 h-6" />
               <span className="text-base">
@@ -112,7 +129,7 @@ const AdminLogin = () => {
                 <div className="rounded-3xl bg-white p-4 shadow-lg border border-slate-200">
                   <img
                     src={logoImg}
-                    alt="HFGuard Logo"
+                    alt="MyHFGuard Logo"
                     className="h-16 md:h-20 w-auto object-contain"
                   />
                 </div>
@@ -121,6 +138,7 @@ const AdminLogin = () => {
               <CardTitle className="text-4xl font-bold text-center text-slate-900 dark:text-white">
                 Admin Sign in
               </CardTitle>
+
               <CardDescription className="text-center text-base text-slate-600 dark:text-slate-300">
                 Enter your admin email and password to continue
               </CardDescription>
@@ -129,7 +147,10 @@ const AdminLogin = () => {
             <CardContent className="space-y-5 pt-2">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-slate-800 dark:text-white">
+                  <Label
+                    htmlFor="email"
+                    className="text-slate-800 dark:text-white"
+                  >
                     Email Address
                   </Label>
                   <Input
@@ -145,7 +166,10 @@ const AdminLogin = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-slate-800 dark:text-white">
+                  <Label
+                    htmlFor="password"
+                    className="text-slate-800 dark:text-white"
+                  >
                     Password
                   </Label>
                   <PasswordInput
@@ -185,6 +209,4 @@ const AdminLogin = () => {
       </div>
     </div>
   );
-};
-
-export default AdminLogin;
+}
