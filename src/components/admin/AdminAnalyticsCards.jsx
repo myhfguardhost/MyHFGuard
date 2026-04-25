@@ -1,8 +1,6 @@
 import { Footprints, HeartPulse, Waves } from "lucide-react"
-import { useNavigate } from "react-router-dom"
 
 export default function AdminAnalyticsCards({ dashboardData }) {
-  const navigate = useNavigate()
   return (
     <div id="analytics-reports" className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-sm">
