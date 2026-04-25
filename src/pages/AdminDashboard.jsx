@@ -342,6 +342,7 @@ export default function AdminDashboard() {
                     acknowledgeAlert={acknowledgeAlert}
                     goToPatient={goToPatient}
                     sendAlertEmail={sendAlertEmail}
+                    summary={summary}
                   />
 
                   {/* Overall Status */}
