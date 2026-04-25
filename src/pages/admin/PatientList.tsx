@@ -44,6 +44,13 @@ export default function PatientList() {
 
     return (
         <div className="container mx-auto py-8 space-y-6">
+            <button
+                onClick={() => navigate("/admin/dashboard")}
+                className="mb-4 bg-blue-600 text-white px-4 py-2 rounded-lg"
+                >
+                ← Back to Dashboard
+            </button>
+            
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold">Patient Management</h1>
             </div>

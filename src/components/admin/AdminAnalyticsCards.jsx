@@ -1,8 +1,17 @@
 import { Footprints, HeartPulse, Waves } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 
 export default function AdminAnalyticsCards({ dashboardData }) {
+  const navigate = useNavigate()
   return (
     <div id="analytics-reports" className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <button
+        onClick={() => navigate("/admin/dashboard")}
+        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded-lg"
+        >
+        ← Back to Dashboard
+      </button>
+      
       <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="rounded-full bg-slate-100 p-3">

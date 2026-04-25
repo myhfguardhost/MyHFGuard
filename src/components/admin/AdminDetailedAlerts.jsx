@@ -3,10 +3,19 @@ import {
   getAlertCardClass,
   getStatusBadgeClass,
 } from "@/lib/adminAlertUtils"
+import { useNavigate } from "react-router-dom"
 
 export default function AdminDetailedAlerts({ summary }) {
+  const navigate = useNavigate()
   return (
     <div className="mt-4 rounded-xl bg-white border border-slate-200 p-4 shadow-sm">
+      <button
+        onClick={() => navigate("/admin/dashboard")}
+        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded-lg"
+        >
+        ← Back to Dashboard
+      </button>
+
       <div className="flex items-center gap-2 mb-4">
         <UserRound size={18} className="text-cyan-600" />
         <h2 className="font-semibold text-slate-800">Detailed Patient Alerts</h2>
