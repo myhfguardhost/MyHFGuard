@@ -6,12 +6,25 @@ export default function AdminRecentAlerts({
   acknowledgeAlert,
   goToPatient,
   sendAlertEmail,
+  summary = [],
 }) {
   const [expanded, setExpanded] = useState(false)
 
   const visibleAlerts = useMemo(() => {
     return expanded ? alertsToShow : alertsToShow.slice(0, 4)
   }, [expanded, alertsToShow])
+
+  const getPatientName = (patientId) => {
+    const row = summary.find((item) => item.patientId === patientId)
+    const patient = row?.patientInfo?.patient || {}
+
+    return (
+      `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+      patient.full_name ||
+      patient.name ||
+      patientId
+    )
+  }
 
   return (
     <section
@@ -33,54 +46,66 @@ export default function AdminRecentAlerts({
           </div>
         ) : (
           <>
-            {visibleAlerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`rounded-lg border p-3 ${
-                  alert.level === "critical"
-                    ? "border-red-200 bg-red-50"
-                    : "border-amber-200 bg-amber-50"
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  {alert.level === "critical" ? (
-                    <TriangleAlert className="text-red-500 mt-0.5" size={16} />
-                  ) : (
-                    <CircleAlert className="text-amber-500 mt-0.5" size={16} />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-sm text-slate-800">
-                      {alert.title}: {alert.patientId}
-                    </p>
-                    <p className="text-xs text-slate-600 mt-1">{alert.message}</p>
+            {visibleAlerts.map((alert) => {
+              const patientName = getPatientName(alert.patientId)
+
+              return (
+                <div
+                  key={alert.id}
+                  className={`rounded-lg border p-3 ${
+                    alert.level === "critical"
+                      ? "border-red-200 bg-red-50"
+                      : "border-amber-200 bg-amber-50"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    {alert.level === "critical" ? (
+                      <TriangleAlert className="text-red-500 mt-0.5" size={16} />
+                    ) : (
+                      <CircleAlert className="text-amber-500 mt-0.5" size={16} />
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-sm text-slate-800">
+                        {alert.title}: {patientName}
+                      </p>
+
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Patient ID: {alert.patientId}
+                      </p>
+
+                      <p className="text-xs text-slate-600 mt-1">
+                        {alert.message}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => acknowledgeAlert(alert.id)}
+                      className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
+                    >
+                      Acknowledge
+                    </button>
+
+                    <button
+                      onClick={() => goToPatient(alert.patientId)}
+                      className="rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-400"
+                    >
+                      View Profile
+                    </button>
+
+                    <button
+                      onClick={() => sendAlertEmail(alert)}
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
+                    >
+                      <Mail size={12} />
+                      Send Email
+                    </button>
                   </div>
                 </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    onClick={() => acknowledgeAlert(alert.id)}
-                    className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
-                  >
-                    Acknowledge
-                  </button>
-
-                  <button
-                    onClick={() => goToPatient(alert.patientId)}
-                    className="rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-400"
-                  >
-                    View Profile
-                  </button>
-
-                  <button
-                    onClick={() => sendAlertEmail(alert)}
-                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
-                  >
-                    <Mail size={12} />
-                    Send Email
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
 
             {alertsToShow.length > 4 && (
               <button
