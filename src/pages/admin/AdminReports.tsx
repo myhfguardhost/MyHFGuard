@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
-  Download,
   FileSpreadsheet,
   Loader2,
   HeartPulse,
@@ -12,31 +11,76 @@ import {
 } from "lucide-react"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
+
 import { serverUrl } from "@/lib/api"
+import { buildAlerts, pickWorstStatus } from "@/lib/adminAlertUtils"
 
 export default function AdminReports() {
   const navigate = useNavigate()
   const API = serverUrl()
 
-  const [patients, setPatients] = useState<any[]>([])
+  const [summary, setSummary] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
   useEffect(() => {
-    fetchPatients()
+    fetchReports()
   }, [])
 
-  async function fetchPatients() {
+  async function fetchReports() {
     try {
       setLoading(true)
       setError("")
 
-      const res = await fetch(`${API}/api/admin/patients`)
-      if (!res.ok) throw new Error("Failed to fetch patient data")
+      const patientsRes = await fetch(`${API}/api/admin/patients`)
+      if (!patientsRes.ok) throw new Error("Failed to fetch patients")
 
-      const data = await res.json()
-      setPatients(data.patients || [])
+      const patientsData = await patientsRes.json()
+      const patientRows = patientsData.patients || []
+
+      const detailed = await Promise.all(
+        patientRows.map(async (patient: any) => {
+          const patientId = patient.patient_id
+
+          const [patientInfoRes, summaryRes, vitalsRes, weeklyStatusRes] =
+            await Promise.all([
+              fetch(`${API}/admin/patient-info?patientId=${patientId}`).then((r) =>
+                r.ok ? r.json() : null
+              ),
+              fetch(`${API}/patient/summary?patientId=${patientId}`).then((r) =>
+                r.ok ? r.json() : null
+              ),
+              fetch(`${API}/patient/vitals?patientId=${patientId}&period=weekly`).then((r) =>
+                r.ok ? r.json() : null
+              ),
+              fetch(`${API}/patient/weekly-status?patientId=${patientId}`).then((r) =>
+                r.ok ? r.json() : null
+              ),
+            ])
+
+          const alerts = buildAlerts({
+            patientId,
+            summaryData: summaryRes,
+            vitalsData: vitalsRes,
+            weeklyStatus: weeklyStatusRes,
+            demoMode: false,
+          })
+
+          return {
+            patientId,
+            patientInfo: patientInfoRes,
+            summaryData: summaryRes,
+            vitalsData: vitalsRes,
+            weeklyStatus: weeklyStatusRes,
+            alerts,
+            status: pickWorstStatus(alerts),
+          }
+        })
+      )
+
+      setSummary(detailed)
     } catch (e: any) {
+      console.error(e)
       setError(e.message || "Failed to load reports")
     } finally {
       setLoading(false)
@@ -44,33 +88,97 @@ export default function AdminReports() {
   }
 
   const reportData = useMemo(() => {
-    const total = patients.length
+    let spo2Total = 0
+    let spo2Count = 0
+    let hrTotal = 0
+    let hrCount = 0
+    let weightTotal = 0
+    let weightCount = 0
+
+    let stable = 0
+    let warning = 0
+    let critical = 0
+
+    summary.forEach((item) => {
+      const vitals = item.vitalsData?.vitals || {}
+      const s = item.summaryData?.summary || {}
+
+      const latestSpo2 =
+        vitals.spo2?.length > 0
+          ? Number(vitals.spo2[vitals.spo2.length - 1]?.avg)
+          : null
+
+      const latestWeight =
+        vitals.weight?.length > 0
+          ? Number(vitals.weight[vitals.weight.length - 1]?.value)
+          : null
+
+      const hr = Number(s.heartRate)
+
+      if (!Number.isNaN(latestSpo2) && latestSpo2 && latestSpo2 > 0) {
+        spo2Total += latestSpo2
+        spo2Count++
+      }
+
+      if (!Number.isNaN(hr) && hr > 0) {
+        hrTotal += hr
+        hrCount++
+      }
+
+      if (!Number.isNaN(latestWeight) && latestWeight && latestWeight > 0) {
+        weightTotal += latestWeight
+        weightCount++
+      }
+
+      if (item.status === "critical") critical++
+      else if (item.status === "warning") warning++
+      else stable++
+    })
 
     return {
-      totalPatients: total,
-      avgSpo2: "94%",
-      avgHeartRate: "76 bpm",
-      avgWeightChange: "+2.1 kg",
-      criticalAlerts: Math.round(total * 0.15),
-      warningAlerts: Math.round(total * 0.25),
-      stablePatients: Math.round(total * 0.6),
+      totalPatients: summary.length,
+      avgSpo2: spo2Count ? Math.round(spo2Total / spo2Count) : "-",
+      avgHeartRate: hrCount ? Math.round(hrTotal / hrCount) : "-",
+      avgWeight: weightCount ? (weightTotal / weightCount).toFixed(1) : "-",
+      stable,
+      warning,
+      critical,
     }
-  }, [patients])
+  }, [summary])
 
   function exportExcel() {
-    const rows = patients.map((p: any) => ({
-      "Patient ID": p.patient_id || "",
-      "First Name": p.first_name || "",
-      "Last Name": p.last_name || "",
-      Email: p.email || "",
-      Status: "Stable / Warning / Critical",
-    }))
+    const rows = summary.map((item) => {
+      const patient = item.patientInfo?.patient || {}
+      const s = item.summaryData?.summary || {}
+      const vitals = item.vitalsData?.vitals || {}
+
+      const latestSpo2 =
+        vitals.spo2?.length > 0 ? vitals.spo2[vitals.spo2.length - 1]?.avg : ""
+
+      const latestWeight =
+        vitals.weight?.length > 0 ? vitals.weight[vitals.weight.length - 1]?.value : ""
+
+      return {
+        "Patient ID": item.patientId,
+        Name:
+          `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+          item.patientId,
+        "Heart Rate": s.heartRate ?? "",
+        "BP Systolic": s.bpSystolic ?? "",
+        "BP Diastolic": s.bpDiastolic ?? "",
+        "Steps Today": s.stepsToday ?? "",
+        "Latest SpO2": latestSpo2 ?? "",
+        "Latest Weight": latestWeight ?? "",
+        Status: item.status,
+        "Primary Alert": item.alerts?.[0]?.title || "",
+        "Alert Detail": item.alerts?.[0]?.message || "",
+      }
+    })
 
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.json_to_sheet(rows)
     XLSX.utils.book_append_sheet(wb, ws, "Admin Reports")
-    XLSX.writeFile(wb, "admin_reports.xlsx")
-
+    XLSX.writeFile(wb, "admin_reports_real_data.xlsx")
     toast.success("Excel report downloaded")
   }
 
@@ -86,11 +194,9 @@ export default function AdminReports() {
 
       <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">
-            Analytics & Reports
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-800">Analytics & Reports</h1>
           <p className="text-sm text-slate-500">
-            View patient health trends, key metrics and export reports.
+            Real patient health data, alerts, vitals and exportable reports.
           </p>
         </div>
 
@@ -112,75 +218,50 @@ export default function AdminReports() {
       {loading ? (
         <div className="flex items-center gap-2 rounded-xl bg-white p-6 text-slate-600">
           <Loader2 className="animate-spin" size={18} />
-          Loading reports...
+          Loading real report data...
         </div>
       ) : (
         <>
           <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-4">
-            <ReportCard
-              icon={<Droplets />}
-              title="Average SpO2"
-              value={reportData.avgSpo2}
-            />
-            <ReportCard
-              icon={<HeartPulse />}
-              title="Average Heart Rate"
-              value={reportData.avgHeartRate}
-            />
-            <ReportCard
-              icon={<Scale />}
-              title="Average Weight Change"
-              value={reportData.avgWeightChange}
-            />
-            <ReportCard
-              icon={<Activity />}
-              title="Total Patients"
-              value={reportData.totalPatients}
-            />
+            <ReportCard icon={<Droplets />} title="Average SpO2" value={`${reportData.avgSpo2}%`} />
+            <ReportCard icon={<HeartPulse />} title="Average Heart Rate" value={`${reportData.avgHeartRate} bpm`} />
+            <ReportCard icon={<Scale />} title="Average Weight" value={`${reportData.avgWeight} kg`} />
+            <ReportCard icon={<Activity />} title="Total Patients" value={reportData.totalPatients} />
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h2 className="mb-4 font-bold text-slate-800">
-                Patient Status Overview
-              </h2>
-
+              <h2 className="mb-4 font-bold text-slate-800">Patient Status Overview</h2>
               <div className="space-y-4">
-                <Bar label="Stable Patients" value={reportData.stablePatients} total={reportData.totalPatients} />
-                <Bar label="Warning Alerts" value={reportData.warningAlerts} total={reportData.totalPatients} />
-                <Bar label="Critical Alerts" value={reportData.criticalAlerts} total={reportData.totalPatients} />
+                <Bar label="Stable Patients" value={reportData.stable} total={reportData.totalPatients} />
+                <Bar label="Warning Patients" value={reportData.warning} total={reportData.totalPatients} />
+                <Bar label="Critical Patients" value={reportData.critical} total={reportData.totalPatients} />
               </div>
             </div>
 
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h2 className="mb-4 font-bold text-slate-800">
-                Health Trend Summary
-              </h2>
+              <h2 className="mb-4 font-bold text-slate-800">Weekly SpO2 Trend</h2>
 
-              <div className="grid grid-cols-7 items-end gap-3 h-56 border-b border-slate-200 px-2">
-                {[65, 72, 68, 81, 76, 88, 79].map((h, index) => (
+              <div className="grid h-56 grid-cols-7 items-end gap-3 border-b border-slate-200 px-2">
+                {getWeeklySpo2(summary).map((value, index) => (
                   <div key={index} className="flex flex-col items-center gap-2">
                     <div
                       className="w-8 rounded-t-lg bg-blue-500"
-                      style={{ height: `${h * 2}px` }}
+                      style={{ height: `${value ? value * 1.8 : 8}px` }}
                     />
-                    <span className="text-xs text-slate-500">
-                      D{index + 1}
-                    </span>
+                    <span className="text-xs text-slate-500">D{index + 1}</span>
                   </div>
                 ))}
               </div>
 
               <p className="mt-4 text-sm text-slate-500">
-                This chart shows weekly health monitoring trend summary.
+                This chart is calculated from real weekly SpO2 values where available.
               </p>
             </div>
           </div>
 
           <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
-            <h2 className="mb-4 font-bold text-slate-800">
-              Patient Report Table
-            </h2>
+            <h2 className="mb-4 font-bold text-slate-800">Patient Report Table</h2>
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -188,30 +269,52 @@ export default function AdminReports() {
                   <tr>
                     <th className="px-4 py-3 text-left">Patient ID</th>
                     <th className="px-4 py-3 text-left">Name</th>
-                    <th className="px-4 py-3 text-left">Avg SpO2</th>
+                    <th className="px-4 py-3 text-left">SpO2</th>
                     <th className="px-4 py-3 text-left">Heart Rate</th>
-                    <th className="px-4 py-3 text-left">Weight Change</th>
+                    <th className="px-4 py-3 text-left">BP</th>
+                    <th className="px-4 py-3 text-left">Steps</th>
+                    <th className="px-4 py-3 text-left">Weight</th>
                     <th className="px-4 py-3 text-left">Status</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {patients.map((p: any, index: number) => (
-                    <tr key={p.patient_id || index} className="border-b">
-                      <td className="px-4 py-3">{p.patient_id || "-"}</td>
-                      <td className="px-4 py-3">
-                        {`${p.first_name || ""} ${p.last_name || ""}`.trim() || "-"}
-                      </td>
-                      <td className="px-4 py-3">94%</td>
-                      <td className="px-4 py-3">76 bpm</td>
-                      <td className="px-4 py-3">+2.1 kg</td>
-                      <td className="px-4 py-3">
-                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                          Stable
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {summary.map((item, index) => {
+                    const patient = item.patientInfo?.patient || {}
+                    const s = item.summaryData?.summary || {}
+                    const vitals = item.vitalsData?.vitals || {}
+
+                    const latestSpo2 =
+                      vitals.spo2?.length > 0
+                        ? vitals.spo2[vitals.spo2.length - 1]?.avg
+                        : "-"
+
+                    const latestWeight =
+                      vitals.weight?.length > 0
+                        ? vitals.weight[vitals.weight.length - 1]?.value
+                        : "-"
+
+                    return (
+                      <tr key={item.patientId || index} className="border-b">
+                        <td className="px-4 py-3">{item.patientId}</td>
+                        <td className="px-4 py-3">
+                          {`${patient.first_name || ""} ${patient.last_name || ""}`.trim() || "-"}
+                        </td>
+                        <td className="px-4 py-3">{latestSpo2 === "-" ? "-" : `${latestSpo2}%`}</td>
+                        <td className="px-4 py-3">{s.heartRate ? `${s.heartRate} bpm` : "-"}</td>
+                        <td className="px-4 py-3">
+                          {s.bpSystolic && s.bpDiastolic
+                            ? `${s.bpSystolic}/${s.bpDiastolic}`
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3">{s.stepsToday ?? "-"}</td>
+                        <td className="px-4 py-3">{latestWeight === "-" ? "-" : `${latestWeight} kg`}</td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={item.status} />
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -245,11 +348,44 @@ function Bar({ label, value, total }: any) {
       </div>
 
       <div className="h-3 rounded-full bg-slate-100">
-        <div
-          className="h-3 rounded-full bg-blue-500"
-          style={{ width: `${percent}%` }}
-        />
+        <div className="h-3 rounded-full bg-blue-500" style={{ width: `${percent}%` }} />
       </div>
     </div>
+  )
+}
+
+function StatusBadge({ status }: any) {
+  const style =
+    status === "critical"
+      ? "bg-red-100 text-red-700"
+      : status === "warning"
+      ? "bg-yellow-100 text-yellow-700"
+      : "bg-green-100 text-green-700"
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${style}`}>
+      {status}
+    </span>
+  )
+}
+
+function getWeeklySpo2(summary: any[]) {
+  const dailyTotals = Array(7).fill(0)
+  const dailyCounts = Array(7).fill(0)
+
+  summary.forEach((item) => {
+    const spo2List = item.vitalsData?.vitals?.spo2 || []
+
+    spo2List.slice(-7).forEach((row: any, index: number) => {
+      const value = Number(row.avg)
+      if (!Number.isNaN(value) && value > 0) {
+        dailyTotals[index] += value
+        dailyCounts[index]++
+      }
+    })
+  })
+
+  return dailyTotals.map((total, index) =>
+    dailyCounts[index] ? Math.round(total / dailyCounts[index]) : 0
   )
 }
