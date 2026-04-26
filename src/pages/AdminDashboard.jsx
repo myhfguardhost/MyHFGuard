@@ -41,6 +41,13 @@ export default function AdminDashboard() {
       setLoading(true)
       setError("")
 
+       const { data: logs} = await supabase
+      .from("daily_health_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+      console.log("logs", logs)
+
       const p = await fetch(`${API}/api/admin/patients`)
       if (!p.ok) {
         const t = await p.text()
