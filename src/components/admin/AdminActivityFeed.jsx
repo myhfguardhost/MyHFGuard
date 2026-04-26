@@ -1,6 +1,8 @@
-import { Activity, AlertTriangle, HeartPulse, Scale, CheckCircle } from "lucide-react"
+import { Activity, UserCircle } from "lucide-react"
 
 export default function AdminActivityFeed({ summary = [] }) {
+  const feedItems = buildFeedItems(summary)
+
   return (
     <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm h-full">
       <div className="flex items-center gap-2 mb-4">
@@ -9,109 +11,133 @@ export default function AdminActivityFeed({ summary = [] }) {
       </div>
 
       <div className="space-y-3">
-        {summary.slice(0, 5).map((item) => {
-          const patient = item.patientInfo?.patient || {}
-          const name =
-            `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
-            item.patientId
-
-          const activity = getActivity(item)
-
-          return (
+        {feedItems.length === 0 ? (
+          <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            No recent user activity.
+          </div>
+        ) : (
+          feedItems.slice(0, 5).map((item, index) => (
             <div
-              key={item.patientId}
-              className={`flex items-center justify-between rounded-xl border px-4 py-3 ${activity.boxStyle}`}
+              key={index}
+              className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3"
             >
-              <div className="flex items-start gap-3">
-                <div className={`mt-0.5 rounded-full p-2 ${activity.iconStyle}`}>
-                  {activity.icon}
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <UserCircle size={22} />
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{name}</p>
-                  <p className="text-xs text-slate-600 mt-1">
-                    {activity.message}
+                  <p className="text-sm font-medium text-slate-800">
+                    {item.message}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {item.detail}
                   </p>
                 </div>
               </div>
 
-              <span className="text-xs text-slate-500">recently</span>
+              <span className="text-xs text-slate-500 whitespace-nowrap">
+                {item.time}
+              </span>
             </div>
-          )
-        })}
-
-        {summary.length === 0 && (
-          <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-            No activity available.
-          </div>
+          ))
         )}
       </div>
     </section>
   )
 }
 
-function getActivity(item) {
-  const s = item.summaryData?.summary || {}
-  const vitals = item.vitalsData?.vitals || {}
+function buildFeedItems(summary) {
+  const items = []
 
-  const hr = s.heartRate
-  const bpSys = s.bpSystolic
-  const bpDia = s.bpDiastolic
+  summary.forEach((item) => {
+    const patient = item.patientInfo?.patient || {}
+    const name =
+      `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+      item.patientId
 
-  const latestWeight =
-    vitals.weight?.length > 0
-      ? vitals.weight[vitals.weight.length - 1]?.value
-      : null
+    const s = item.summaryData?.summary || {}
+    const vitals = item.vitalsData?.vitals || {}
 
-  if (item.status === "critical") {
+    const latestWeight =
+      vitals.weight?.length > 0
+        ? vitals.weight[vitals.weight.length - 1]
+        : null
+
+    const latestSpo2 =
+      vitals.spo2?.length > 0
+        ? vitals.spo2[vitals.spo2.length - 1]
+        : null
+
+    const bpSys = s.bpSystolic
+    const bpDia = s.bpDiastolic
+    const hr = s.heartRate
+    const steps = s.stepsToday
+
+    if (latestWeight?.value) {
+      items.push({
+        message: `${name} submitted weight log`,
+        detail: `Latest weight: ${latestWeight.value} kg`,
+        time: getActivityTime(latestWeight),
+      })
+    }
+
     if (bpSys && bpDia) {
-      return {
-        message: `Critical blood pressure detected (${bpSys}/${bpDia} mmHg)`,
-        icon: <AlertTriangle size={15} />,
-        boxStyle: "bg-red-50 border-red-100",
-        iconStyle: "bg-red-100 text-red-600",
-      }
+      items.push({
+        message: `${name} updated blood pressure reading`,
+        detail: `BP ${bpSys}/${bpDia} mmHg${hr ? `, Heart Rate ${hr} bpm` : ""}`,
+        time: getActivityTime(s),
+      })
     }
 
-    if (hr) {
-      return {
-        message: `Abnormal heart rate detected (${hr} bpm)`,
-        icon: <HeartPulse size={15} />,
-        boxStyle: "bg-red-50 border-red-100",
-        iconStyle: "bg-red-100 text-red-600",
-      }
+    if (latestSpo2?.avg) {
+      items.push({
+        message: `${name} synced SpO₂ data`,
+        detail: `Latest SpO₂: ${latestSpo2.avg}%`,
+        time: getActivityTime(latestSpo2),
+      })
     }
 
-    return {
-      message: "Critical alert detected",
-      icon: <AlertTriangle size={15} />,
-      boxStyle: "bg-red-50 border-red-100",
-      iconStyle: "bg-red-100 text-red-600",
-    }
-  }
-
-  if (item.status === "warning") {
-    if (latestWeight) {
-      return {
-        message: `Weight change detected (${latestWeight} kg)`,
-        icon: <Scale size={15} />,
-        boxStyle: "bg-amber-50 border-amber-100",
-        iconStyle: "bg-amber-100 text-amber-600",
-      }
+    if (steps !== undefined && steps !== null) {
+      items.push({
+        message: `${name} synced smartband step count`,
+        detail: `Today steps: ${steps}`,
+        time: getActivityTime(s),
+      })
     }
 
-    return {
-      message: "Warning condition detected from latest readings",
-      icon: <AlertTriangle size={15} />,
-      boxStyle: "bg-amber-50 border-amber-100",
-      iconStyle: "bg-amber-100 text-amber-600",
+    if (item.status === "critical") {
+      items.push({
+        message: `${name} triggered a critical alert`,
+        detail: item.alerts?.[0]?.message || "Critical condition detected",
+        time: getActivityTime(s),
+      })
     }
-  }
+  })
 
-  return {
-    message: "Vitals updated and patient condition stable",
-    icon: <CheckCircle size={15} />,
-    boxStyle: "bg-green-50 border-green-100",
-    iconStyle: "bg-green-100 text-green-600",
-  }
+  return items
+}
+
+function getActivityTime(data) {
+  const time =
+    data?.updated_at ||
+    data?.created_at ||
+    data?.timestamp ||
+    data?.recorded_at ||
+    data?.date ||
+    null
+
+  if (!time) return "recently"
+
+  const diffMs = Date.now() - new Date(time).getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+
+  if (diffMin < 1) return "just now"
+  if (diffMin < 60) return `${diffMin} mins ago`
+
+  const diffHr = Math.floor(diffMin / 60)
+  if (diffHr < 24) return `${diffHr} hours ago`
+
+  const diffDay = Math.floor(diffHr / 24)
+  return `${diffDay} days ago`
 }

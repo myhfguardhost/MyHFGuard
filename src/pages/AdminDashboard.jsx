@@ -113,6 +113,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchAll()
+
+    const timer = setInterval(() => {
+      fetchAll()
+    }, 30000) // every 30 seconds
+
+    return () => clearInterval(timer)
   }, [API])
 
   const dashboardData = useMemo(() => {
