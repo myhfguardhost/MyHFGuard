@@ -293,7 +293,7 @@ const Profile = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("baselineLocked")}
+                  {t("bloodPressureSystolic")}
                 </label>
                 <input
                   type="number"
