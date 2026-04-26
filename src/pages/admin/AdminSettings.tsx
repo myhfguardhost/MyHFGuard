@@ -7,21 +7,21 @@ import {
   LogOut,
   Mail,
   Save,
-  Settings,
   ShieldCheck,
   User,
+  Database,
+  RefreshCcw,
+  Activity,
 } from "lucide-react"
 import { toast } from "sonner"
 
 export default function AdminSettings() {
   const navigate = useNavigate()
 
-  const [adminName, setAdminName] = useState("Admin User")
+  const [adminName, setAdminName] = useState("Admin01")
   const [email, setEmail] = useState("myhfguard.host@gmail.com")
   const [role] = useState("Healthcare Provider")
   const [emailAlert, setEmailAlert] = useState(true)
-  const [language, setLanguage] = useState("English")
-  const [theme, setTheme] = useState("Light")
 
   const saveSettings = () => {
     toast.success("Settings saved successfully")
@@ -43,11 +43,9 @@ export default function AdminSettings() {
       </button>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">
-          Account Settings
-        </h1>
+        <h1 className="text-2xl font-bold text-slate-800">Account Settings</h1>
         <p className="text-sm text-slate-500">
-          Manage admin profile, notification and system preferences.
+          Manage admin profile, alert notification, security and system information.
         </p>
       </div>
 
@@ -99,9 +97,7 @@ export default function AdminSettings() {
         <section className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
             <Bell className="text-blue-600" size={20} />
-            <h2 className="font-bold text-slate-800">
-              Notification Settings
-            </h2>
+            <h2 className="font-bold text-slate-800">Alert Notification</h2>
           </div>
 
           <div className="space-y-4">
@@ -143,46 +139,6 @@ export default function AdminSettings() {
           </div>
         </section>
 
-        {/* System Preferences */}
-        <section className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Settings className="text-blue-600" size={20} />
-            <h2 className="font-bold text-slate-800">
-              System Preferences
-            </h2>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
-                Language
-              </label>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option>English</option>
-                <option>Bahasa Melayu</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
-                Theme
-              </label>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
-              >
-                <option>Light</option>
-                <option>Dark</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
         {/* Security */}
         <section className="rounded-2xl border bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center gap-2">
@@ -208,6 +164,37 @@ export default function AdminSettings() {
             </button>
           </div>
         </section>
+
+        {/* System Information */}
+        <section className="rounded-2xl border bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Database className="text-blue-600" size={20} />
+            <h2 className="font-bold text-slate-800">System Information</h2>
+          </div>
+
+          <div className="space-y-3">
+            <InfoRow
+              icon={<Activity size={17} />}
+              label="System Purpose"
+              value="Monitor patient health status and alerts"
+            />
+            <InfoRow
+              icon={<Database size={17} />}
+              label="Data Source"
+              value="Supabase + Smartband + User Input"
+            />
+            <InfoRow
+              icon={<RefreshCcw size={17} />}
+              label="Dashboard Refresh"
+              value="Auto refresh every 30 seconds"
+            />
+            <InfoRow
+              icon={<Bell size={17} />}
+              label="Alert Rules"
+              value="BP, heart rate, SpO₂, weight, water and salt logs"
+            />
+          </div>
+        </section>
       </div>
 
       <div className="mt-6 flex justify-end">
@@ -218,6 +205,20 @@ export default function AdminSettings() {
           <Save size={17} />
           Save Settings
         </button>
+      </div>
+    </div>
+  )
+}
+
+function InfoRow({ icon, label, value }: any) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+        {icon}
+      </div>
+      <div>
+        <p className="text-sm text-slate-500">{label}</p>
+        <p className="font-semibold text-slate-800">{value}</p>
       </div>
     </div>
   )
