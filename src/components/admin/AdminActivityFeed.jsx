@@ -144,10 +144,11 @@ function buildFeedItems(summary) {
     }
   })
 
-  return items
-    .filter(item => item.rawTime) // remove invalid time
-    .sort((a, b) => new Date(b.rawTime) - new Date(a.rawTime))
-  }
+  return items.sort((a, b) => {
+    const timeA = a.rawTime ? new Date(a.rawTime).getTime() : 0
+    const timeB = b.rawTime ? new Date(b.rawTime).getTime() : 0
+    return timeB - timeA
+  })
 
 function getRawTime(data) {
   return (
