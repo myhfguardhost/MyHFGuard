@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { User, HeartPulse, Pill, Coins, Save, Lock } from "lucide-react"
+import {
+  User,
+  HeartPulse,
+  Pill,
+  Coins,
+  Save,
+  Lock,
+  RefreshCw,
+} from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { getUserCoins } from "../lib/coinService"
 
 type ProfileForm = {
   fullName: string
@@ -18,9 +27,11 @@ type ProfileForm = {
   coins: number
 }
 
+
 const Profile = () => {
   const navigate = useNavigate()
   const { setLanguage, t } = useLanguage()
+
 
   const [form, setForm] = useState<ProfileForm>({
     fullName: "",
@@ -36,97 +47,145 @@ const Profile = () => {
     coins: 0,
   })
 
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [refreshingCoins, setRefreshingCoins] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+
 
   const bmi = useMemo(() => {
     const weight = parseFloat(form.dryWeight)
     const heightCm = parseFloat(form.height)
 
+
     if (!weight || !heightCm) return ""
+
 
     const heightM = heightCm / 100
     const result = weight / (heightM * heightM)
 
+
     return result.toFixed(1)
   }, [form.dryWeight, form.height])
 
+
   useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const user = sessionData.session?.user
-
-        if (!user) {
-          setLoading(false)
-          return
-        }
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("user_id", user.id)
-          .maybeSingle()
-
-        if (error) {
-          console.error("Load profile error:", error)
-          setLoading(false)
-          return
-        }
-
-        if (data) {
-          setForm({
-            fullName: data.full_name || "",
-            age: data.age?.toString() || "",
-            ic: data.ic || "",
-            systolicBP: data.systolic_bp?.toString() || "",
-            diastolicBP: data.diastolic_bp?.toString() || "",
-            heartRate: data.heart_rate?.toString() || "",
-            dryWeight: data.dry_weight?.toString() || "",
-            height: data.height?.toString() || "",
-            currentMedication: data.current_medication || "",
-            language: data.language === "BM" ? "BM" : "BI",
-            coins: data.coins || 0,
-          })
-
-          setIsLocked(!!data.baseline_locked)
-
-          if (data.profile_completed) {
-            localStorage.setItem("profileCompleted", "true")
-          }
-        }
-      } catch (err) {
-        console.error("Unexpected profile load error:", err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     loadProfile()
   }, [])
 
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true)
+
+
+      const { data: sessionData } = await supabase.auth.getSession()
+      const user = sessionData.session?.user
+
+
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+
+      if (error) {
+        console.error("Load profile error:", error)
+        setLoading(false)
+        return
+      }
+
+
+      if (data) {
+        setForm({
+          fullName: data.full_name || "",
+          age: data.age?.toString() || "",
+          ic: data.ic || "",
+          systolicBP: data.systolic_bp?.toString() || "",
+          diastolicBP: data.diastolic_bp?.toString() || "",
+          heartRate: data.heart_rate?.toString() || "",
+          dryWeight: data.dry_weight?.toString() || "",
+          height: data.height?.toString() || "",
+          currentMedication: data.current_medication || "",
+          language: data.language === "BM" ? "BM" : "BI",
+          coins: data.coins || 0,
+        })
+
+
+        setIsLocked(!!data.baseline_locked)
+
+
+        if (data.profile_completed) {
+          localStorage.setItem("profileCompleted", "true")
+        }
+      }
+    } catch (err) {
+      console.error("Unexpected profile load error:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+  const refreshCoins = async () => {
+    try {
+      setRefreshingCoins(true)
+      const latestCoins = await getUserCoins()
+
+
+      setForm((prev) => ({
+        ...prev,
+        coins: latestCoins,
+      }))
+    } catch (error) {
+      console.error("Refresh coins error:", error)
+      alert("Failed to refresh coins.")
+    } finally {
+      setRefreshingCoins(false)
+    }
+  }
+
+
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target
+
+
     setForm((prev) => ({
       ...prev,
       [name]: value,
     }))
   }
 
+
   const handleSave = async () => {
     try {
       setSaving(true)
 
+
       const { data: sessionData } = await supabase.auth.getSession()
       const user = sessionData.session?.user
+
 
       if (!user) {
         alert("User session not found. Please log in again.")
         return
       }
+
+
+      const latestCoins = await getUserCoins().catch(() => form.coins)
+
 
       const profileData = {
         user_id: user.id,
@@ -141,15 +200,17 @@ const Profile = () => {
         bmi: bmi ? Number(bmi) : null,
         current_medication: form.currentMedication,
         language: form.language,
-        coins: form.coins,
+        coins: latestCoins,
         profile_completed: true,
         baseline_locked: true,
         updated_at: new Date().toISOString(),
       }
 
+
       const { error } = await supabase
         .from("profiles")
         .upsert(profileData, { onConflict: "user_id" })
+
 
       if (error) {
         console.error("Save profile error:", error)
@@ -157,9 +218,17 @@ const Profile = () => {
         return
       }
 
+
+      setForm((prev) => ({
+        ...prev,
+        coins: latestCoins,
+      }))
+
+
       localStorage.setItem("profileCompleted", "true")
       setLanguage(form.language)
       setIsLocked(true)
+
 
       alert("Profile saved successfully!")
       navigate("/")
@@ -171,8 +240,10 @@ const Profile = () => {
     }
   }
 
+
   const baselineInputClass =
     "w-full rounded-xl bg-background border border-border px-4 py-3 text-foreground outline-none focus:border-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed"
+
 
   if (loading) {
     return (
@@ -182,19 +253,16 @@ const Profile = () => {
     )
   }
 
+
   return (
     <div className="min-h-screen bg-background text-foreground px-6 py-8">
       <div className="max-w-6xl mx-auto">
-
-        {/* ❌ Back button REMOVED here */}
-
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-4xl font-bold">{t("myProfile")}</h1>
-            <p className="text-muted-foreground mt-2">
-              {t("profileDesc")}
-            </p>
+            <p className="text-muted-foreground mt-2">{t("profileDesc")}</p>
           </div>
+
 
           {isLocked && (
             <div className="inline-flex items-center gap-2 rounded-xl bg-cyan-500/10 border border-cyan-400/20 px-4 py-2 text-cyan-600 dark:text-cyan-300">
@@ -204,25 +272,31 @@ const Profile = () => {
           )}
         </div>
 
-        {/* rest of your code unchanged... */}
 
         {isLocked && (
           <div className="mb-6 rounded-2xl bg-yellow-500/10 border border-yellow-400/20 px-5 py-4 text-yellow-700 dark:text-yellow-200">
-            {t("baselineNotice")}
-            You can still update your medication and language preference.
+            {t("baselineNotice")} You can still update your medication and
+            language preference.
           </div>
         )}
+
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Personal Information */}
           <div className="lg:col-span-2 bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
               <User className="w-6 h-6 text-cyan-500" />
-              <h2 className="text-2xl font-semibold">{t("personalInformation")}</h2>            </div>
+              <h2 className="text-2xl font-semibold">
+                {t("personalInformation")}
+              </h2>
+            </div>
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block mb-2 text-sm text-muted-foreground">{t("fullName")}</label>
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("fullName")}
+                </label>
                 <input
                   type="text"
                   name="fullName"
@@ -234,8 +308,11 @@ const Profile = () => {
                 />
               </div>
 
+
               <div>
-                <label className="block mb-2 text-sm text-muted-foreground">{t("age")}</label>
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("age")}
+                </label>
                 <input
                   type="number"
                   name="age"
@@ -247,8 +324,11 @@ const Profile = () => {
                 />
               </div>
 
+
               <div className="md:col-span-2">
-                <label className="block mb-2 text-sm text-muted-foreground">{t("icNumber")}</label>
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("icNumber")}
+                </label>
                 <input
                   type="text"
                   name="ic"
@@ -262,6 +342,7 @@ const Profile = () => {
             </div>
           </div>
 
+
           {/* Preferences */}
           <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
@@ -269,26 +350,60 @@ const Profile = () => {
               <h2 className="text-2xl font-semibold">{t("preferences")}</h2>
             </div>
 
+
             <div className="space-y-4">
               <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                {t("language")} {form.language === "BM" ? "BM" : "EN"} — use the top language button to switch the whole app.
+                {t("language")} {form.language === "BM" ? "BM" : "EN"} — use
+                the top language button to switch the whole app.
               </div>
 
+
               <div>
-                <label className="block mb-2 text-sm text-muted-foreground">{t("coinCollection")}</label>
-                <div className="rounded-xl bg-background border border-border px-4 py-3 text-xl font-semibold text-yellow-600 dark:text-yellow-300">
-                  {form.coins} Coins
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("coinCollection")}
+                </label>
+
+
+                <div className="rounded-xl bg-yellow-500/10 border border-yellow-400/20 px-4 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-300">
+                        {form.coins}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Coins earned from education videos
+                      </div>
+                    </div>
+
+
+                    <Coins className="w-10 h-10 text-yellow-500" />
+                  </div>
+
+
+                  <button
+                    type="button"
+                    onClick={refreshCoins}
+                    disabled={refreshingCoins}
+                    className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-yellow-400/30 bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    {refreshingCoins ? "Refreshing..." : "Refresh Coins"}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
 
+
           {/* Baseline Health Data */}
           <div className="lg:col-span-2 bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
               <HeartPulse className="w-6 h-6 text-red-500" />
-              <h2 className="text-2xl font-semibold">{t("baselineHealthData")}</h2>
+              <h2 className="text-2xl font-semibold">
+                {t("baselineHealthData")}
+              </h2>
             </div>
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -306,9 +421,10 @@ const Profile = () => {
                 />
               </div>
 
+
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                   {t("bloodPressureDiastolic")}
+                  {t("bloodPressureDiastolic")}
                 </label>
                 <input
                   type="number"
@@ -321,8 +437,11 @@ const Profile = () => {
                 />
               </div>
 
+
               <div>
-                <label className="block mb-2 text-sm text-muted-foreground">{t("heartRate")}</label>
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("heartRate")}
+                </label>
                 <input
                   type="number"
                   name="heartRate"
@@ -334,8 +453,11 @@ const Profile = () => {
                 />
               </div>
 
+
               <div>
-                <label className="block mb-2 text-sm text-muted-foreground">{t("dryWeight")}</label>
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("dryWeight")}
+                </label>
                 <input
                   type="number"
                   step="0.1"
@@ -348,8 +470,11 @@ const Profile = () => {
                 />
               </div>
 
+
               <div>
-                <label className="block mb-2 text-sm text-muted-foreground">{t("height")}</label>
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("height")}
+                </label>
                 <input
                   type="number"
                   step="0.1"
@@ -362,8 +487,11 @@ const Profile = () => {
                 />
               </div>
 
+
               <div>
-                <label className="block mb-2 text-sm text-muted-foreground">{t("bmi")}</label>
+                <label className="block mb-2 text-sm text-muted-foreground">
+                  {t("bmi")}
+                </label>
                 <div className="rounded-xl bg-cyan-500/10 border border-cyan-400/20 px-4 py-3 text-cyan-600 dark:text-cyan-300 font-semibold">
                   {bmi || "Auto calculated"}
                 </div>
@@ -371,12 +499,16 @@ const Profile = () => {
             </div>
           </div>
 
+
           {/* Medication */}
           <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
               <Pill className="w-6 h-6 text-green-500" />
-              <h2 className="text-2xl font-semibold">{t("currentMedication")}</h2>
+              <h2 className="text-2xl font-semibold">
+                {t("currentMedication")}
+              </h2>
             </div>
+
 
             <textarea
               name="currentMedication"
@@ -388,6 +520,7 @@ const Profile = () => {
             />
           </div>
         </div>
+
 
         <div className="mt-8 flex justify-end">
           <button
@@ -404,4 +537,6 @@ const Profile = () => {
   )
 }
 
+
 export default Profile
+

@@ -8,9 +8,19 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Coins,
+  CheckCircle,
+  Lock,
+  PlayCircle,
 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import {
+  rewardUserForVideo,
+  hasVideoReward,
+  VIDEO_REWARD_COINS,
+} from "../lib/coinService"
+
 
 type Submodule = {
   titleKey: string
@@ -18,6 +28,7 @@ type Submodule = {
   contentKey: string
   sourceUrl: string
 }
+
 
 type ModuleType = {
   id: string
@@ -27,6 +38,40 @@ type ModuleType = {
   color: string
   submodules: Submodule[]
 }
+
+
+type EducationVideo = {
+  id: string
+  title: string
+  description: string
+  videoUrl: string
+}
+
+
+const educationVideos: EducationVideo[] = [
+  {
+    id: "heart-failure-basic",
+    title: "Understanding Heart Failure",
+    description:
+      "Learn the basic meaning of heart failure, common symptoms, and why daily monitoring is important.",
+    videoUrl: "https://www.youtube.com/embed/9fxm85Fy4sQ",
+  },
+  {
+    id: "low-salt-diet",
+    title: "Low Salt Diet Guide",
+    description:
+      "Learn why reducing salt intake is important for heart failure patients.",
+    videoUrl: "https://www.youtube.com/embed/3gD2aJgNnuk",
+  },
+  {
+    id: "fluid-management",
+    title: "Fluid Intake Management",
+    description:
+      "Learn why heart failure patients may need to control daily water and fluid intake.",
+    videoUrl: "https://www.youtube.com/embed/qJq5hA4pnOk",
+  },
+]
+
 
 const modules: ModuleType[] = [
   {
@@ -276,6 +321,7 @@ const modules: ModuleType[] = [
   },
 ]
 
+
 type SelectedContent = {
   moduleId: string
   moduleTitle: string
@@ -285,28 +331,120 @@ type SelectedContent = {
   sourceUrl: string
 }
 
+
 export default function Education() {
   const { t } = useTranslation()
   const [query, setQuery] = React.useState("")
   const [openModule, setOpenModule] = React.useState<string | null>(null)
-  const [selectedContent, setSelectedContent] = React.useState<SelectedContent | null>(null)
+  const [selectedContent, setSelectedContent] =
+    React.useState<SelectedContent | null>(null)
+
+
+  const [selectedVideoId, setSelectedVideoId] = React.useState<string | null>(null)
+  const [watchSeconds, setWatchSeconds] = React.useState(0)
+  const [rewardedVideos, setRewardedVideos] = React.useState<Record<string, boolean>>({})
+  const [claimingVideoId, setClaimingVideoId] = React.useState<string | null>(null)
+  const [coinMessage, setCoinMessage] = React.useState("")
+
+
+  const requiredWatchSeconds = 60
+
+
+  React.useEffect(() => {
+    loadRewardStatus()
+  }, [])
+
+
+  React.useEffect(() => {
+    if (!selectedVideoId) return
+
+
+    setWatchSeconds(0)
+    setCoinMessage("")
+
+
+    const timer = window.setInterval(() => {
+      setWatchSeconds((prev) => {
+        if (prev >= requiredWatchSeconds) {
+          window.clearInterval(timer)
+          return prev
+        }
+
+
+        return prev + 1
+      })
+    }, 1000)
+
+
+    return () => window.clearInterval(timer)
+  }, [selectedVideoId])
+
+
+  async function loadRewardStatus() {
+    const result: Record<string, boolean> = {}
+
+
+    for (const video of educationVideos) {
+      try {
+        result[video.id] = await hasVideoReward(video.id)
+      } catch (error) {
+        console.error(error)
+        result[video.id] = false
+      }
+    }
+
+
+    setRewardedVideos(result)
+  }
+
+
+  async function handleClaimReward(videoId: string) {
+    try {
+      setClaimingVideoId(videoId)
+      setCoinMessage("")
+
+
+      const result = await rewardUserForVideo(videoId)
+
+
+      setCoinMessage(result.message)
+
+
+      if (result.success) {
+        setRewardedVideos((prev) => ({
+          ...prev,
+          [videoId]: true,
+        }))
+      }
+    } catch (error) {
+      console.error(error)
+      setCoinMessage("Failed to add coins. Please try again.")
+    } finally {
+      setClaimingVideoId(null)
+    }
+  }
+
 
   const filtered = modules.filter((m) => {
     const q = query.trim().toLowerCase()
     if (!q) return true
 
+
     const moduleTitle = t(m.titleKey).toLowerCase()
     const moduleDescription = t(m.descriptionKey).toLowerCase()
+
 
     const matchesModule =
       m.id.toLowerCase().includes(q) ||
       moduleTitle.includes(q) ||
       moduleDescription.includes(q)
 
+
     const matchesSubmodule = m.submodules.some((s) => {
       const subTitle = t(s.titleKey).toLowerCase()
       const subDescription = t(s.descriptionKey).toLowerCase()
       const subContent = t(s.contentKey).toLowerCase()
+
 
       return (
         subTitle.includes(q) ||
@@ -315,8 +453,10 @@ export default function Education() {
       )
     })
 
+
     return matchesModule || matchesSubmodule
   })
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -330,6 +470,7 @@ export default function Education() {
           </p>
         </div>
 
+
         <div className="mb-6">
           <input
             value={query}
@@ -340,12 +481,14 @@ export default function Education() {
           />
         </div>
 
+
         {selectedContent && (
           <Card className="mb-8 p-6 border-primary/20">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="flex-1">
                 <div className="text-xs font-semibold text-muted-foreground mb-1">
-                  {t("education.moduleLabel")} {selectedContent.moduleId} · {selectedContent.moduleTitle}
+                  {t("education.moduleLabel")} {selectedContent.moduleId} ·{" "}
+                  {selectedContent.moduleTitle}
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">
                   {selectedContent.title}
@@ -354,6 +497,7 @@ export default function Education() {
                   {selectedContent.description}
                 </p>
               </div>
+
 
               <button
                 onClick={() => setSelectedContent(null)}
@@ -364,6 +508,7 @@ export default function Education() {
               </button>
             </div>
 
+
             <div className="rounded-lg border border-border bg-card p-5">
               <h3 className="font-semibold text-foreground mb-3">
                 {t("education.learningContent")}
@@ -372,6 +517,7 @@ export default function Education() {
                 {selectedContent.content}
               </p>
             </div>
+
 
             <div className="mt-4">
               <a
@@ -386,12 +532,14 @@ export default function Education() {
           </Card>
         )}
 
+
         <div className="space-y-6">
           {filtered.map((module) => {
             const Icon = module.icon
             const isOpen = openModule === module.id
             const moduleTitle = t(module.titleKey)
             const moduleDescription = t(module.descriptionKey)
+
 
             return (
               <Card key={module.id} className="p-6">
@@ -400,6 +548,7 @@ export default function Education() {
                     <div className={`p-3 rounded-lg ${module.color}`}>
                       <Icon className="w-6 h-6" />
                     </div>
+
 
                     <div className="flex-1">
                       <div className="text-xs font-semibold text-muted-foreground mb-1">
@@ -412,18 +561,23 @@ export default function Education() {
                         {moduleDescription}
                       </p>
 
+
                       <div className="flex flex-wrap gap-3">
                         <button
-                          onClick={() => setOpenModule(isOpen ? null : module.id)}
+                          onClick={() =>
+                            setOpenModule(isOpen ? null : module.id)
+                          }
                           className="px-4 py-2 rounded-md border border-border text-sm font-medium flex items-center gap-2"
                         >
                           {isOpen ? (
                             <>
-                              {t("education.hideSubmodules")} <ChevronUp className="w-4 h-4" />
+                              {t("education.hideSubmodules")}{" "}
+                              <ChevronUp className="w-4 h-4" />
                             </>
                           ) : (
                             <>
-                              {t("education.showSubmodules")} <ChevronDown className="w-4 h-4" />
+                              {t("education.showSubmodules")}{" "}
+                              <ChevronDown className="w-4 h-4" />
                             </>
                           )}
                         </button>
@@ -432,12 +586,14 @@ export default function Education() {
                   </div>
                 </div>
 
+
                 {isOpen && (
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     {module.submodules.map((sub, index) => {
                       const subTitle = t(sub.titleKey)
                       const subDescription = t(sub.descriptionKey)
                       const subContent = t(sub.contentKey)
+
 
                       return (
                         <Card key={index} className="p-4 border border-border">
@@ -447,6 +603,7 @@ export default function Education() {
                           <p className="text-sm text-muted-foreground mb-4">
                             {subDescription}
                           </p>
+
 
                           <div className="flex flex-wrap gap-2">
                             <button
@@ -474,6 +631,7 @@ export default function Education() {
             )
           })}
         </div>
+
 
         <Card className="mt-8 p-6 bg-primary/5 border-primary/20">
           <div className="flex items-start gap-4">
@@ -504,7 +662,184 @@ export default function Education() {
             </div>
           </div>
         </Card>
+
+
+        {/* New video coin reward section */}
+        <Card className="mt-8 p-6 border-yellow-200 bg-yellow-50/60">
+          <div className="flex items-start gap-4 mb-6">
+            <div className="p-3 bg-yellow-100 rounded-lg">
+              <Coins className="w-6 h-6 text-yellow-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-foreground mb-1">
+                Earn Coins by Watching Education Videos
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Watch a video for at least {requiredWatchSeconds} seconds to
+                claim {VIDEO_REWARD_COINS} coins. Each video can only be claimed
+                once.
+              </p>
+            </div>
+          </div>
+
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {educationVideos.map((video) => (
+              <Card key={video.id} className="overflow-hidden bg-card">
+                <div className="aspect-video w-full bg-black">
+                  <iframe
+                    className="w-full h-full"
+                    src={video.videoUrl}
+                    title={video.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+
+
+                <div className="p-4">
+                  <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <PlayCircle className="w-5 h-5 text-primary" />
+                    {video.title}
+                  </h4>
+
+
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {video.description}
+                  </p>
+
+
+                  <VideoCoinReward
+                    videoId={video.id}
+                    selectedVideoId={selectedVideoId}
+                    setSelectedVideoId={setSelectedVideoId}
+                    watchSeconds={watchSeconds}
+                    requiredWatchSeconds={requiredWatchSeconds}
+                    rewardedVideos={rewardedVideos}
+                    claiming={claimingVideoId === video.id}
+                    handleClaimReward={handleClaimReward}
+                  />
+                </div>
+              </Card>
+            ))}
+          </div>
+
+
+          {coinMessage && (
+            <div className="mt-5 rounded-md border border-green-200 bg-green-50 px-4 py-3">
+              <p className="text-sm font-medium text-green-700 text-center">
+                {coinMessage}
+              </p>
+            </div>
+          )}
+        </Card>
       </div>
+    </div>
+  )
+}
+
+
+type VideoCoinRewardProps = {
+  videoId: string
+  selectedVideoId: string | null
+  setSelectedVideoId: (id: string) => void
+  watchSeconds: number
+  requiredWatchSeconds: number
+  rewardedVideos: Record<string, boolean>
+  claiming: boolean
+  handleClaimReward: (videoId: string) => void
+}
+
+
+function VideoCoinReward({
+  videoId,
+  selectedVideoId,
+  setSelectedVideoId,
+  watchSeconds,
+  requiredWatchSeconds,
+  rewardedVideos,
+  claiming,
+  handleClaimReward,
+}: VideoCoinRewardProps) {
+  const isSelected = selectedVideoId === videoId
+  const isRewarded = rewardedVideos[videoId]
+
+
+  const progress = isSelected
+    ? Math.min((watchSeconds / requiredWatchSeconds) * 100, 100)
+    : 0
+
+
+  const canClaim =
+    isSelected && watchSeconds >= requiredWatchSeconds && !isRewarded
+
+
+  return (
+    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 space-y-3">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Coins className="w-4 h-4 text-yellow-600" />
+        <span>Reward: {VIDEO_REWARD_COINS} coins</span>
+      </div>
+
+
+      {!isSelected && !isRewarded && (
+        <button
+          onClick={() => setSelectedVideoId(videoId)}
+          className="w-full px-4 py-2 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted"
+        >
+          Start Watching for Coins
+        </button>
+      )}
+
+
+      {isSelected && !isRewarded && (
+        <>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Watching progress</span>
+            <span>
+              {Math.min(watchSeconds, requiredWatchSeconds)} /{" "}
+              {requiredWatchSeconds} seconds
+            </span>
+          </div>
+
+
+          <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-green-500 transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+
+
+          <button
+            disabled={!canClaim || claiming}
+            onClick={() => handleClaimReward(videoId)}
+            className="w-full px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {!canClaim ? (
+              <>
+                <Lock className="w-4 h-4" />
+                Continue Watching
+              </>
+            ) : claiming ? (
+              "Adding Coins..."
+            ) : (
+              <>
+                <Coins className="w-4 h-4" />
+                Claim {VIDEO_REWARD_COINS} Coins
+              </>
+            )}
+          </button>
+        </>
+      )}
+
+
+      {isRewarded && (
+        <div className="flex items-center justify-center gap-2 text-green-700 font-medium text-sm">
+          <CheckCircle className="w-4 h-4" />
+          Coins already claimed
+        </div>
+      )}
     </div>
   )
 }
