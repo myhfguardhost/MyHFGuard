@@ -150,38 +150,40 @@ function buildFeedItems(summary) {
     return timeB - timeA
   })
 
-function getRawTime(data) {
-  return (
-    data?.updated_at ||
-    data?.created_at ||
-    data?.timestamp ||
-    data?.recorded_at ||
-    data?.entry_date ||
-    null)
-}
+  function getRawTime(data) {
+    return (
+      data?.updated_at ||
+      data?.created_at ||
+      data?.timestamp ||
+      data?.recorded_at ||
+      data?.entry_date ||
+      null
+    )
+  }
 
-function getActivityTime(data) {
-  const time = getRawTime(data)
+  function getActivityTime(data) {
+    const time = getRawTime(data)
 
-  if (!time) return "-"
+    if (!time) return "recently"
 
-  const diffMs = Date.now() - new Date(time).getTime()
-  const diffMin = Math.floor(diffMs / 60000)
+    const diffMs = Date.now() - new Date(time).getTime()
+    const diffMin = Math.floor(diffMs / 60000)
 
-  if (diffMin < 1) return "just now"
-  if (diffMin < 60) return `${diffMin} mins ago`
+    if (diffMin < 1) return "just now"
+    if (diffMin < 60) return `${diffMin} mins ago`
 
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr} hours ago`
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return `${diffHr} hours ago`
 
-  const diffDay = Math.floor(diffHr / 24)
-  return `${diffDay} days ago`
-}
+    const diffDay = Math.floor(diffHr / 24)
+    return `${diffDay} days ago`
+  }
 
-function formatStatus(status) {
-  if (!status) return "-"
-  if (status === "green") return "Within range"
-  if (status === "orange") return "Slightly above range"
-  if (status === "red") return "Exceeded range"
-  return status
+  function formatStatus(status) {
+    if (!status) return "-"
+    if (status === "green") return "Within range"
+    if (status === "orange") return "Slightly above range"
+    if (status === "red") return "Exceeded range"
+    return status
+  }
 }
