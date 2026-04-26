@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import {
   ArrowLeft,
@@ -10,18 +10,35 @@ import {
   ShieldCheck,
   User,
   Database,
-  RefreshCcw,
-  Activity,
 } from "lucide-react"
 import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
 
 export default function AdminSettings() {
   const navigate = useNavigate()
 
-  const [adminName, setAdminName] = useState("Admin01")
-  const [email, setEmail] = useState("myhfguard.host@gmail.com")
+  const [adminName, setAdminName] = useState("")
+  const [email, setEmail] = useState("")
   const [role] = useState("Healthcare Provider")
   const [emailAlert, setEmailAlert] = useState(true)
+
+  // 🔐 password
+  const [newPassword, setNewPassword] = useState("")
+  const [showPasswordBox, setShowPasswordBox] = useState(false)
+
+  // ✅ load real admin info
+  useEffect(() => {
+    const loadAdmin = async () => {
+      const { data } = await supabase.auth.getUser()
+
+      if (data?.user) {
+        setAdminName(data.user.email?.split("@")[0] || "Admin")
+        setEmail(data.user.email || "")
+      }
+    }
+
+    loadAdmin()
+  }, [])
 
   const saveSettings = () => {
     toast.success("Settings saved successfully")
@@ -32,8 +49,30 @@ export default function AdminSettings() {
     navigate("/admin/login")
   }
 
+  // 🔐 change password
+  const changePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters")
+      return
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+
+    setNewPassword("")
+    setShowPasswordBox(false)
+    toast.success("Password changed successfully")
+  }
+
   return (
     <div className="min-h-screen bg-[#eef2f7] p-6">
+      {/* Back */}
       <button
         onClick={() => navigate("/admin/dashboard")}
         className="mb-5 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
@@ -42,81 +81,87 @@ export default function AdminSettings() {
         Back to Dashboard
       </button>
 
+      {/* Title */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">Account Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-800">
+          Account Settings
+        </h1>
         <p className="text-sm text-slate-500">
-          Manage admin profile, alert notification, security and system information.
+          Manage admin profile, alerts, security and system information.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Admin Profile */}
         <section className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <User className="text-blue-600" size={20} />
             <h2 className="font-bold text-slate-800">Admin Profile</h2>
           </div>
 
+          <p className="text-sm text-slate-500 mb-4">
+            This account receives alerts and manages patient monitoring.
+          </p>
+
           <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
-                Admin Name
-              </label>
+              <label className="text-sm text-slate-600">Admin Name</label>
               <input
                 value={adminName}
                 onChange={(e) => setAdminName(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
+                className="w-full rounded-lg border px-3 py-2 mt-1"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
-                Email Address
-              </label>
+              <label className="text-sm text-slate-600">Email Address</label>
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border px-3 py-2 outline-none focus:border-blue-500"
+                className="w-full rounded-lg border px-3 py-2 mt-1"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                Last login: {new Date().toLocaleString()}
+              </p>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
-                Role
-              </label>
+              <label className="text-sm text-slate-600">Role</label>
               <input
                 value={role}
                 disabled
-                className="w-full rounded-lg border bg-slate-100 px-3 py-2 text-slate-500"
+                className="w-full rounded-lg border bg-slate-100 px-3 py-2 mt-1 text-slate-500"
               />
             </div>
           </div>
         </section>
 
-        {/* Notification Settings */}
+        {/* Notification */}
         <section className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <Bell className="text-blue-600" size={20} />
-            <h2 className="font-bold text-slate-800">Alert Notification</h2>
+            <h2 className="font-bold text-slate-800">
+              Alert Notification
+            </h2>
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-xl border p-4">
+            <div className="flex justify-between border p-4 rounded-xl">
               <div>
-                <p className="font-medium text-slate-700">
+                <p className="font-medium">
                   Email Alert Notification
                 </p>
                 <p className="text-sm text-slate-500">
-                  Send email when patient status becomes warning or critical.
+                  Send email when patient is warning/critical
                 </p>
               </div>
 
               <button
                 onClick={() => setEmailAlert(!emailAlert)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                className={`px-4 py-2 rounded-full text-sm ${
                   emailAlert
                     ? "bg-green-100 text-green-700"
-                    : "bg-slate-100 text-slate-500"
+                    : "bg-gray-100"
                 }`}
               >
                 {emailAlert ? "Enabled" : "Disabled"}
@@ -124,11 +169,11 @@ export default function AdminSettings() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">
+              <label className="text-sm text-slate-600">
                 Alert Receiver Email
               </label>
-              <div className="flex items-center gap-2 rounded-lg border px-3 py-2">
-                <Mail size={17} className="text-slate-400" />
+              <div className="flex items-center gap-2 border rounded-lg px-3 py-2 mt-1">
+                <Mail size={16} />
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -141,68 +186,72 @@ export default function AdminSettings() {
 
         {/* Security */}
         <section className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <ShieldCheck className="text-blue-600" size={20} />
             <h2 className="font-bold text-slate-800">Security</h2>
           </div>
 
-          <div className="space-y-4">
-            <button
-              onClick={() => toast.info("Change password function can be added later")}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-3 font-medium text-slate-700 hover:bg-slate-200"
-            >
-              <Lock size={17} />
-              Change Password
-            </button>
+          <button
+            onClick={() => setShowPasswordBox(!showPasswordBox)}
+            className="w-full bg-slate-100 py-3 rounded-lg mb-3"
+          >
+            <Lock size={16} className="inline mr-2" />
+            Change Password
+          </button>
 
-            <button
-              onClick={logout}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-50 px-4 py-3 font-medium text-red-600 hover:bg-red-100"
-            >
-              <LogOut size={17} />
-              Logout
-            </button>
-          </div>
+          {showPasswordBox && (
+            <div className="border rounded-xl p-4 space-y-3 bg-slate-50">
+              <input
+                type="password"
+                placeholder="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full border px-3 py-2 rounded-lg"
+              />
+
+              <button
+                onClick={changePassword}
+                className="w-full bg-blue-600 text-white py-2 rounded-lg"
+              >
+                Update Password
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={logout}
+            className="w-full mt-3 bg-red-50 text-red-600 py-3 rounded-lg"
+          >
+            <LogOut size={16} className="inline mr-2" />
+            Logout
+          </button>
         </section>
 
-        {/* System Information */}
+        {/* System Info */}
         <section className="rounded-2xl border bg-white p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <Database className="text-blue-600" size={20} />
-            <h2 className="font-bold text-slate-800">System Information</h2>
+            <h2 className="font-bold text-slate-800">
+              System Information
+            </h2>
           </div>
 
           <div className="space-y-3">
-            <InfoRow
-              icon={<Activity size={17} />}
-              label="System Purpose"
-              value="Monitor patient health status and alerts"
-            />
-            <InfoRow
-              icon={<Database size={17} />}
-              label="Data Source"
-              value="Supabase + Smartband + User Input"
-            />
-            <InfoRow
-              icon={<RefreshCcw size={17} />}
-              label="Dashboard Refresh"
-              value="Auto refresh every 30 seconds"
-            />
-            <InfoRow
-              icon={<Bell size={17} />}
-              label="Alert Rules"
-              value="BP, heart rate, SpO₂, weight, water and salt logs"
-            />
+            <InfoRow label="System Purpose" value="Monitor patient health" />
+            <InfoRow label="Data Source" value="Supabase + Smartband" />
+            <InfoRow label="Refresh Rate" value="Every 30 seconds" />
+            <InfoRow label="Alert Rules" value="BP, HR, SpO2, Weight" />
           </div>
         </section>
       </div>
 
-      <div className="mt-6 flex justify-end">
+      {/* Save */}
+      <div className="mt-6 text-right">
         <button
           onClick={saveSettings}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+          className="bg-blue-600 text-white px-6 py-3 rounded-lg"
         >
-          <Save size={17} />
+          <Save size={16} className="inline mr-2" />
           Save Settings
         </button>
       </div>
@@ -210,16 +259,11 @@ export default function AdminSettings() {
   )
 }
 
-function InfoRow({ icon, label, value }: any) {
+function InfoRow({ label, value }: any) {
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm text-slate-500">{label}</p>
-        <p className="font-semibold text-slate-800">{value}</p>
-      </div>
+    <div className="flex justify-between bg-slate-50 p-3 rounded-lg">
+      <span className="text-sm text-slate-500">{label}</span>
+      <span className="font-medium">{value}</span>
     </div>
   )
 }
