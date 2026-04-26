@@ -147,7 +147,9 @@ export default function SymptomChecker() {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content:
+          data?.response ||
           data?.reply ||
+          data?.message ||
           getText(
             "aiFallbackError",
             "I'm sorry, I encountered an error processing your request. Please try again."
