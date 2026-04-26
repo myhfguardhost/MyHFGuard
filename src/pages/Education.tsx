@@ -233,42 +233,42 @@ const modules: ModuleType[] = [
   },
   {
     id: "F",
-    titleKey: "education.modules.F.title",
-    descriptionKey: "education.modules.F.description",
+    titleKey: "education.modules.H.title",
+    descriptionKey: "education.modules.H.description",
     icon: AlertCircle,
     color: "bg-accent/10 text-accent",
     submodules: [
       {
-        titleKey: "education.modules.F.submodules.introduction.title",
-        descriptionKey: "education.modules.F.submodules.introduction.description",
-        contentKey: "education.modules.F.submodules.introduction.content",
+        titleKey: "education.modules.H.submodules.introduction.title",
+        descriptionKey: "education.modules.H.submodules.introduction.description",
+        contentKey: "education.modules.H.submodules.introduction.content",
         sourceUrl: "https://www.heartfailurematters.org/warning-signs/",
       },
       {
-        titleKey: "education.modules.F.submodules.shortnessOfBreath.title",
-        descriptionKey: "education.modules.F.submodules.shortnessOfBreath.description",
-        contentKey: "education.modules.F.submodules.shortnessOfBreath.content",
+        titleKey: "education.modules.H.submodules.shortnessOfBreath.title",
+        descriptionKey: "education.modules.H.submodules.shortnessOfBreath.description",
+        contentKey: "education.modules.H.submodules.shortnessOfBreath.content",
         sourceUrl:
           "https://www.heartfailurematters.org/warning-signs/shortness-of-breath/",
       },
       {
-        titleKey: "education.modules.F.submodules.chestPain.title",
-        descriptionKey: "education.modules.F.submodules.chestPain.description",
-        contentKey: "education.modules.F.submodules.chestPain.content",
+        titleKey: "education.modules.H.submodules.chestPain.title",
+        descriptionKey: "education.modules.H.submodules.chestPain.description",
+        contentKey: "education.modules.H.submodules.chestPain.content",
         sourceUrl:
           "https://www.heartfailurematters.org/warning-signs/chest-pain/",
       },
       {
-        titleKey: "education.modules.F.submodules.rapidWeightGain.title",
-        descriptionKey: "education.modules.F.submodules.rapidWeightGain.description",
-        contentKey: "education.modules.F.submodules.rapidWeightGain.content",
+        titleKey: "education.modules.H.submodules.rapidWeightGain.title",
+        descriptionKey: "education.modules.H.submodules.rapidWeightGain.description",
+        contentKey: "education.modules.H.submodules.rapidWeightGain.content",
         sourceUrl:
           "https://www.heartfailurematters.org/warning-signs/rapid-weight-gain/",
       },
       {
-        titleKey: "education.modules.F.submodules.swellingLegs.title",
-        descriptionKey: "education.modules.F.submodules.swellingLegs.description",
-        contentKey: "education.modules.F.submodules.swellingLegs.content",
+        titleKey: "education.modules.H.submodules.swellingLegs.title",
+        descriptionKey: "education.modules.H.submodules.swellingLegs.description",
+        contentKey: "education.modules.H.submodules.swellingLegs.content",
         sourceUrl:
           "https://www.heartfailurematters.org/warning-signs/swelling-in-legs-or-ankles/",
       },
