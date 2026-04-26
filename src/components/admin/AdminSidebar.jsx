@@ -1,14 +1,21 @@
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard,
   Users,
   Siren,
   FileBarChart2,
   Settings,
+  LogOut,
 } from "lucide-react"
 
 export default function AdminSidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    localStorage.removeItem("admin")
+    navigate("/admin/login")
+  }
 
   const navItems = [
     {
@@ -66,6 +73,16 @@ export default function AdminSidebar() {
           )
         })}
       </nav>
+
+      <div className="mt-auto p-3 border-t border-slate-200">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition"
+        >
+          <LogOut size={17} />
+          Logout
+        </button>
+      </div>
     </aside>
   )
 }
