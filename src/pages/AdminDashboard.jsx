@@ -4,6 +4,7 @@ import html2canvas from "html2canvas"
 import { jsPDF } from "jspdf"
 import * as XLSX from "xlsx"
 import { toast } from "sonner"
+import { supabase } from "@/lib/supabase"
 
 import { serverUrl } from "@/lib/api"
 import { buildAlerts, pickWorstStatus } from "@/lib/adminAlertUtils"
@@ -61,7 +62,7 @@ export default function AdminDashboard() {
               ? "demo-warning"
               : realPatientId
 
-          const [patientInfoRes, summaryRes, vitalsRes, weeklyStatusRes] =
+          const [patientInfoRes, summaryRes, vitalsRes, weeklyStatusRes, waterSaltRes] =
             await Promise.all([
               fetch(`${API}/admin/patient-info?patientId=${realPatientId}`).then((r) =>
                 r.ok ? r.json() : null
@@ -75,6 +76,13 @@ export default function AdminDashboard() {
               fetch(`${API}/patient/weekly-status?patientId=${realPatientId}`).then((r) =>
                 r.ok ? r.json() : null
               ),
+              supabase
+                .from("water_salt_logs")
+                .select("*")
+                .eq("patient_id", realPatientId)
+                .order("entry_date", { ascending: false })
+                .limit(1)
+                .then(({ data, error }) => (error ? null : data?.[0] || null)),
             ])
 
           const alerts = buildAlerts({
@@ -91,6 +99,7 @@ export default function AdminDashboard() {
             summaryData: summaryRes,
             vitalsData: vitalsRes,
             weeklyStatus: weeklyStatusRes,
+            waterSaltLog: waterSaltRes,
             alerts,
             status: pickWorstStatus(alerts),
           }
