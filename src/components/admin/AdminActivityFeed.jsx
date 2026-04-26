@@ -144,12 +144,10 @@ function buildFeedItems(summary) {
     }
   })
 
-  return items.sort((a, b) => {
-    const timeA = new Date(a.rawTime || 0).getTime()
-    const timeB = new Date(b.rawTime || 0).getTime()
-    return timeB - timeA
-  })
-}
+  return items
+    .filter(item => item.rawTime) // remove invalid time
+    .sort((a, b) => new Date(b.rawTime) - new Date(a.rawTime))
+  }
 
 function getRawTime(data) {
   return (
@@ -158,7 +156,7 @@ function getRawTime(data) {
     data?.timestamp ||
     data?.recorded_at ||
     data?.entry_date ||
-    null
+    new Date().toISOString()
   )
 }
 
