@@ -238,7 +238,7 @@ export default function AdminSettings() {
 
           <div className="space-y-3">
             <InfoRow label="System Purpose" value="Monitor patient health" />
-            <InfoRow label="Data Source" value="Supabase + Smartband" />
+            <InfoRow label="Data Source" value="Supabase + Smartband + User Input" />
             <InfoRow label="Refresh Rate" value="Every 30 seconds" />
             <InfoRow label="Alert Rules" value="BP, HR, SpO2, Weight" />
           </div>
