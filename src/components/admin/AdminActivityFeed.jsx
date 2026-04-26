@@ -156,14 +156,13 @@ function getRawTime(data) {
     data?.timestamp ||
     data?.recorded_at ||
     data?.entry_date ||
-    new Date().toISOString()
-  )
+    null)
 }
 
 function getActivityTime(data) {
   const time = getRawTime(data)
 
-  if (!time) return "recently"
+  if (!time) return "-"
 
   const diffMs = Date.now() - new Date(time).getTime()
   const diffMin = Math.floor(diffMs / 60000)
