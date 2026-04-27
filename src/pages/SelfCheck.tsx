@@ -169,20 +169,20 @@ const SelfCheck = () => {
 
       if (!userId) return
 
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("id")
+      const { data: patient, error } = await supabase
+        .from("patients")
+        .select("patient_id")
         .eq("user_id", userId)
         .single()
 
       if (error) {
         console.error(error)
-        toast.error("Profile not found")
+        toast.error("Patient record not found")
         return
       }
 
       if (mounted) {
-        setPatientId(profile.id)
+        setPatientId(patient.patient_id)
       }
     }
 
