@@ -44,61 +44,48 @@ export default function AdminDashboard() {
       const { data: patients, error: patientsError } = await supabase
         .from("patients")
         .select("*")
+        .order("created_at", { ascending: false })
 
-      const { data: bp, error: bpError } = await supabase
+      if (patientsError) throw patientsError
+
+      const { data: bp } = await supabase
         .from("bp_readings")
         .select("*")
-      .order("created_at", { ascending: false })
+        .order("created_at", { ascending: false })
 
-
-      const { data: weight, error: weightError } = await supabase
+      const { data: weight } = await supabase
         .from("weight_day")
         .select("*")
         .order("date", { ascending: false })
 
-      const { data: symptoms, error: symptomError } = await supabase
+      const { data: symptoms } = await supabase
         .from("symptom_log")
         .select("*")
+        .order("created_at", { ascending: false })
 
-      console.log("SUPABASE PATIENTS:", patients)
-      console.log("SUPABASE BP:", bp)
-      console.log("SUPABASE WEIGHT:", weight)
-      console.log("SUPABASE SYMPTOMS:", symptoms)
+      console.log("Dashboard patients:", patients)
 
-      if (patientsError || bpError || weightError || symptomError) {
-        throw new Error(
-          patientsError?.message ||
-            bpError?.message ||
-            weightError?.message ||
-            symptomError?.message
-        )
-      }
+      const patientRows = patients || []
 
-      const combined = (patients || []).map((patient) => {
-        const patientId = patient.patient_id
+      const combined = patientRows.map((patient) => {
+        const patientId = patient.patient_id || patient.id || patient.user_id
 
         const latestBP = (bp || []).find(
-          (x) =>
-            x.patient_id === patientId
+          (x) => x.patient_id === patientId || x.user_id === patientId
         )
 
         const latestWeight = (weight || []).find(
-          (x) =>
-            x.patient_id === patientId
+          (x) => x.patient_id === patientId || x.user_id === patientId
         )
 
         const latestSymptom = (symptoms || []).find(
-          (x) =>
-            x.patient_id === patientId ||
-            x.user_id === patientId ||
-            x.profile_id === patientId
+          (x) => x.patient_id === patientId || x.user_id === patientId || x.profile_id === patientId
         )
 
-        const systolic = Number(latestBP?.systolic || 0)
-        const diastolic = Number(latestBP?.diastolic || 0)
-        const heartRate = Number(latestBP?.pulse || 0)
-
-        const weightValue = Number(latestWeight?.kg_avg || 0)
+        const systolic = Number(latestBP?.systolic || latestBP?.sys || 0)
+        const diastolic = Number(latestBP?.diastolic || latestBP?.dia || 0)
+        const heartRate = Number(latestBP?.pulse || latestBP?.heart_rate || 0)
+        const weightValue = Number(latestWeight?.kg_avg || latestWeight?.weight || latestWeight?.value || 0)
 
         let status = "stable"
 
@@ -113,10 +100,14 @@ export default function AdminDashboard() {
           patientInfo: {
             patient: {
               first_name:
-                `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+                patient.full_name ||
                 patient.fullname ||
-                "Unknown",
+                patient.name ||
+                `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+                "Unknown Patient",
               last_name: "",
+              email: patient.email || "N/A",
+              created_at: patient.created_at,
             },
           },
           summaryData: {
@@ -139,7 +130,7 @@ export default function AdminDashboard() {
           alerts: [
             {
               id: "bp-alert",
-              level: status === "critical" ? "critical" : status === "warning" ? "warning" : "stable",
+              level: status,
               title:
                 status === "critical"
                   ? "High Blood Pressure"
@@ -156,11 +147,11 @@ export default function AdminDashboard() {
         }
       })
 
-      setUsers(patients || [])
+      setUsers(patientRows)
       setSummary(combined)
     } catch (e) {
       console.error("[AdminDashboard] Supabase fetch error", e)
-      setError(String(e))
+      setError(String(e.message || e))
     } finally {
       setLoading(false)
     }
@@ -178,7 +169,7 @@ export default function AdminDashboard() {
 
   const dashboardData = useMemo(() => {
     const totalPatients = users.length
-    const activePatients = summary.length
+    const activePatients = users.length
 
     let avgSpo2 = 0
     let avgHr = 0
