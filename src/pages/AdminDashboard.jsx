@@ -42,7 +42,7 @@ export default function AdminDashboard() {
       setError("")
 
       const { data: patients, error: patientsError } = await supabase
-        .from("profiles")
+        .from("patients")
         .select("*")
 
       const { data: bp, error: bpError } = await supabase
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
       }
 
       const combined = (patients || []).map((patient) => {
-        const patientId = patient.id
+        const patientId = patient.patient_id
 
         const latestBP = (bp || []).find(
           (x) =>
@@ -113,11 +113,10 @@ export default function AdminDashboard() {
           patientInfo: {
             patient: {
               first_name:
-                patient.full_name ||
-                patient.name ||
-                patient.first_name ||
+                `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+                patient.fullname ||
                 "Unknown",
-              last_name: patient.last_name || "",
+              last_name: "",
             },
           },
           summaryData: {
