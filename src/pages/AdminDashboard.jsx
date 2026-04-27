@@ -41,86 +41,126 @@ export default function AdminDashboard() {
       setLoading(true)
       setError("")
 
-       const { data: logs} = await supabase
-      .from("daily_health_logs")
-      .select("*")
+      const { data: patients, error: patientsError } = await supabase
+        .from("profiles")
+        .select("*")
+
+      const { data: bp, error: bpError } = await supabase
+        .from("bp_readings")
+        .select("*")
       .order("created_at", { ascending: false })
 
-      console.log("logs", logs)
 
-      const p = await fetch(`${API}/api/admin/patients`)
-      if (!p.ok) {
-        const t = await p.text()
-        throw new Error(`patients ${p.status} ${p.statusText} ${t}`)
+      const { data: weight, error: weightError } = await supabase
+        .from("weight_day")
+        .select("*")
+        .order("date", { ascending: false })
+
+      const { data: symptoms, error: symptomError } = await supabase
+        .from("symptom_log")
+        .select("*")
+
+      console.log("SUPABASE PATIENTS:", patients)
+      console.log("SUPABASE BP:", bp)
+      console.log("SUPABASE WEIGHT:", weight)
+      console.log("SUPABASE SYMPTOMS:", symptoms)
+
+      if (patientsError || bpError || weightError || symptomError) {
+        throw new Error(
+          patientsError?.message ||
+            bpError?.message ||
+            weightError?.message ||
+            symptomError?.message
+        )
       }
 
-      const pr = await p.json()
-      const patientRows = pr.patients || []
-      setUsers(patientRows)
+      const combined = (patients || []).map((patient) => {
+        const patientId = patient.id
 
-      const detailed = await Promise.all(
-        patientRows.map(async (patient, index) => {
-          const realPatientId = patient.patient_id
+        const latestBP = (bp || []).find(
+          (x) =>
+            x.patient_id === patientId
+        )
 
-          const demoPatientId =
-            DEMO_MODE && index === 0
-              ? "demo-critical"
-              : DEMO_MODE && index === 1
-              ? "demo-warning"
-              : realPatientId
+        const latestWeight = (weight || []).find(
+          (x) =>
+            x.patient_id === patientId
+        )
 
-          const [patientInfoRes, summaryRes, vitalsRes, weeklyStatusRes, waterSaltRes] =
-            await Promise.all([
-              fetch(`${API}/admin/patient-info?patientId=${realPatientId}`).then((r) =>
-                r.ok ? r.json() : null
-              ),
-              fetch(`${API}/patient/summary?patientId=${realPatientId}`).then((r) =>
-                r.ok ? r.json() : null
-              ),
-              fetch(`${API}/patient/vitals?patientId=${realPatientId}&period=weekly`).then((r) =>
-                r.ok ? r.json() : null
-              ),
-              fetch(`${API}/patient/weekly-status?patientId=${realPatientId}`).then((r) =>
-                r.ok ? r.json() : null
-              ),
-              supabase
-                .from("water_salt_logs")
-                .select("*")
-                .eq("patient_id", realPatientId)
-                .order("entry_date", { ascending: false })
-                .limit(1)
-                .then(({ data, error }) => (error ? null : data?.[0] || null)),
-            ])
+        const latestSymptom = (symptoms || []).find(
+          (x) =>
+            x.patient_id === patientId ||
+            x.user_id === patientId ||
+            x.profile_id === patientId
+        )
 
-          const alerts = buildAlerts({
-            patientId: demoPatientId,
-            summaryData: summaryRes,
-            vitalsData: vitalsRes,
-            weeklyStatus: weeklyStatusRes,
-            demoMode: DEMO_MODE,
-          })
+        const systolic = Number(latestBP?.systolic || 0)
+        const diastolic = Number(latestBP?.diastolic || 0)
+        const heartRate = Number(latestBP?.pulse || 0)
 
-          return {
-            patientId: realPatientId,
-            patientInfo: patientInfoRes,
-            summaryData: summaryRes,
-            vitalsData: vitalsRes,
-            weeklyStatus: weeklyStatusRes,
-            waterSaltLog: waterSaltRes,
-            alerts,
-            status: pickWorstStatus(alerts),
-          }
-        })
-      )
+        const weightValue = Number(latestWeight?.kg_avg || 0)
 
-      detailed.sort((a, b) => {
-        const rank = { critical: 0, warning: 1, stable: 2 }
-        return rank[a.status] - rank[b.status]
+        let status = "stable"
+
+        if (systolic >= 140 || diastolic >= 90) {
+          status = "critical"
+        } else if (systolic >= 121 || diastolic >= 80) {
+          status = "warning"
+        }
+
+        return {
+          patientId,
+          patientInfo: {
+            patient: {
+              first_name:
+                patient.full_name ||
+                patient.name ||
+                patient.first_name ||
+                "Unknown",
+              last_name: patient.last_name || "",
+            },
+          },
+          summaryData: {
+            summary: {
+              heartRate,
+              bpSystolic: systolic,
+              bpDiastolic: diastolic,
+              bpPulse: heartRate,
+              weight: weightValue,
+            },
+          },
+          vitalsData: {
+            vitals: {
+              weight: latestWeight ? [{ value: weightValue }] : [],
+              spo2: [],
+            },
+          },
+          weeklyStatus: null,
+          waterSaltLog: null,
+          alerts: [
+            {
+              id: "bp-alert",
+              level: status === "critical" ? "critical" : status === "warning" ? "warning" : "stable",
+              title:
+                status === "critical"
+                  ? "High Blood Pressure"
+                  : status === "warning"
+                  ? "Elevated Blood Pressure"
+                  : "Stable",
+              message:
+                systolic && diastolic
+                  ? `Latest BP is ${systolic}/${diastolic}.`
+                  : "No latest BP reading found.",
+            },
+          ],
+          status,
+        }
       })
 
-      setSummary(detailed)
+      setUsers(patients || [])
+      setSummary(combined)
     } catch (e) {
-      console.error("[AdminDashboard] fetchAll error", e)
+      console.error("[AdminDashboard] Supabase fetch error", e)
       setError(String(e))
     } finally {
       setLoading(false)
