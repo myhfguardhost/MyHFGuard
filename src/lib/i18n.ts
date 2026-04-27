@@ -1,6 +1,7 @@
 import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
 
+
 const resources = {
   en: {
     translation: {
@@ -18,6 +19,7 @@ const resources = {
         profile: "Profile",
         logout: "Logout"
       },
+
 
       common: {
         appName: "MyHFGuard",
@@ -40,6 +42,7 @@ const resources = {
         notes: "Notes",
       },
 
+
       dashboard: {
         title: "Dashboard",
         subtitle: "Overview of your heart failure self-care progress",
@@ -50,6 +53,7 @@ const resources = {
         healthOverview: "Health Overview",
       },
 
+
       selfCheck: {
         appName: "MyHFGuard",
         title: "Self Check Toolkits",
@@ -58,9 +62,11 @@ const resources = {
         missing: "Missing",
         completed: "Completed",
 
+
         weightTab: "Daily Weight",
         symptomsTab: "Symptoms Rating",
         vitalsTab: "Vitals Tracker",
+
 
         dailyWeightTitle: "Daily Weight (kg)",
         weightLabel: "Weight",
@@ -73,6 +79,7 @@ const resources = {
         enterWeightHint: "Please enter your weight above to enable submission.",
         weightLoggedMessage: "You have already logged weight for {{date}}.",
 
+
         symptomsTitle: "Symptoms Rating",
         symptomsGuide: "Rate each symptom: 0 = No symptom, 1 = Mild, 5 = Severe",
         logSymptoms: "Log Symptoms",
@@ -81,14 +88,17 @@ const resources = {
         mild: "Mild",
         severe: "Severe",
 
+
         symptoms: {
           cough: "Cough",
           breathlessness: "Shortness of breath when active",
           swelling: "Swelling of legs",
           weightGain: "Sudden weight gain > 2kg in 3 days",
           abdomen: "Discomfort/swelling in abdomen",
-          sleeping: "Breathless when sleeping"
+          sleeping: "Breathless when sleeping",
+          currentLevel: "Current level",
         },
+
 
         scanMonitor: "Scan Monitor",
         manualEntry: "Manual Entry",
@@ -107,17 +117,21 @@ const resources = {
         diastolic: "Diastolic (mmHg)",
         pulse: "Pulse (bpm)",
 
+
         recentReadings: "Recent Readings",
         noReadings: "No readings recorded yet.",
+
 
         invalidWeightTitle: "Invalid Weight",
         invalidWeightDesc: "Please enter a valid weight of at least 20kg.",
         confirmWeight: "Are you sure you want to submit this weight reading for {{date}}?",
         confirmSymptoms: "Are you sure you want to submit these symptom ratings for {{date}}?",
 
+
         cancel: "Cancel",
         confirm: "Confirm",
         ok: "OK",
+
 
         pictureGuideTitle: "How to Take a Good Picture",
         pictureGuideDesc:
@@ -127,6 +141,7 @@ const resources = {
         correctDesc: "Monitor is straight and clearly visible",
         incorrectDesc: "Monitor is tilted or off-center",
         gotIt: "Got It / Continue",
+
 
         toast: {
           weightSaved: "Weight saved",
@@ -142,8 +157,31 @@ const resources = {
           cameraDenied: "Camera permission denied. Please allow camera access in your browser settings.",
           cameraNotFound: "No camera found on this device. Please upload an image instead.",
           cameraFailed: "Failed to access camera. Please check permissions or upload an image instead."
-        }
+        },
+
+
+        weightScanner: {
+          title: "Weight Scanner",
+          description:
+            "Upload or capture a photo of the weight machine display. The detected value will fill in the weight field automatically.",
+          uploadPhoto: "Upload weight machine photo",
+          useCamera: "Use Camera",
+          capturePhoto: "Capture Weight Photo",
+          scanPhoto: "Scan Weight from Photo",
+          removePhoto: "Remove Photo",
+          detectedWeight: "Detected weight",
+          notDetected: "Not detected",
+          editDetectedWeight: "You can edit the detected value below before saving.",
+          selectPhotoFirst: "Please select a weight machine photo first.",
+          detectedToast: "Weight detected: {{weight}} kg",
+          notDetectedToast:
+            "Weight not detected clearly. Please retake the photo in a bright place and keep the display straight.",
+          scanFailedToast: "Failed to scan weight image.",
+          previewAlt: "Weight Preview",
+          ocrResultAlt: "Weight OCR Result",
+        },
       },
+
 
       schedule: {
         title: "Schedule",
@@ -159,6 +197,7 @@ const resources = {
         noSchedule: "No schedule available",
       },
 
+
       vitals: {
         title: "Vitals Tracker",
         subtitle: "Track your important vital signs",
@@ -172,272 +211,326 @@ const resources = {
         history: "History",
       },
 
-      education: {
-        pageTitle: "Educational Resources",
-        pageDescription:
-          "Learn about heart failure management through structured modules and submodules with in-app reading content.",
-        searchPlaceholder: "Search modules or submodules",
-        searchAria: "Search educational modules",
-        moduleLabel: "Module",
-        closeContent: "Close content",
-        learningContent: "Learning Content",
-        viewSource: "View Source",
-        showSubmodules: "Show Submodules",
-        hideSubmodules: "Hide Submodules",
-        readContent: "Read Content",
-        featuresTitle: "Educational Content Features",
-        featuresFooter: "Educational content adapted for in-app learning display.",
-        features: {
-          guides: "Written guides and summarized learning content",
-          structured: "Structured modules with submodules",
-          warning: "Quick access to warning signs and self-care information"
-        },
 
-        modules: {
-          A: {
-            title: "Understanding Heart Failure",
-            description:
-              "Learn the basics about heart failure, how it affects your body, and what it means for daily life.",
-            submodules: {
-              introduction: {
-                title: "Introduction",
-                description: "Overview of heart failure and why understanding it matters.",
-                content:
-                  "Heart failure does not mean that the heart has stopped working. It means the heart is not pumping blood as effectively as it should. This can make it harder for the body to get enough oxygen and nutrients. Understanding heart failure helps patients and caregivers recognize symptoms early, follow treatment plans, and make daily lifestyle adjustments that support better health."
-              },
-              whatIsHF: {
-                title: "What heart failure is",
-                description: "What heart failure means and how it can affect everyday life.",
-                content:
-                  "Heart failure is a long-term condition in which the heart cannot pump enough blood to meet the body’s needs. It may affect breathing, energy levels, physical activity, sleep, and daily routines. Some people experience it gradually, while others may notice sudden worsening of symptoms."
-              },
-              symptoms: {
-                title: "Heart failure symptoms",
-                description: "Early signs, symptoms, and what to do next.",
-                content:
-                  "Common symptoms of heart failure include shortness of breath, tiredness, swollen ankles or legs, rapid weight gain, coughing at night, and difficulty doing normal daily activities. If symptoms get worse suddenly, it is important to contact a healthcare professional as soon as possible."
-              },
-              normalHeart: {
-                title: "How the normal heart works",
-                description: "Simple explanation of how the heart pumps blood.",
-                content:
-                  "The heart is a muscular pump with four chambers. Its job is to move oxygen-rich blood around the body and return oxygen-poor blood to the lungs. When the heart works normally, it contracts and relaxes in a regular rhythm to keep blood flowing efficiently."
-              },
-              types: {
-                title: "Types of heart failure",
-                description: "Understand the different forms and classifications of heart failure.",
-                content:
-                  "Heart failure can be described in different ways, such as left-sided or right-sided heart failure, acute or chronic heart failure, and heart failure with reduced or preserved ejection fraction. These terms help doctors understand how the heart is affected and decide on the most suitable treatment."
-              }
-            }
+        education: {
+          pageTitle: "Education",
+          pageDescription:
+            "Learn important heart failure self-care knowledge through reading materials and videos.",
+          searchPlaceholder: "Search education content...",
+          searchAria: "Search education content",
+          moduleLabel: "Module",
+          closeContent: "Close content",
+          learningContent: "Learning Content",
+          viewSource: "View Source",
+          hideSubmodules: "Hide Topics",
+          showSubmodules: "Show Topics",
+          readContent: "Read Content",
+          collectPointAndPlay: "Collect Point & Play Video",
+
+
+          featuresTitle: "Education Features",
+          featuresFooter:
+            "This education section helps patients understand heart failure and improve daily self-care.",
+          features: {
+            guides: "Simple heart failure guides",
+            structured: "Structured learning modules",
+            warning: "Warning signs and self-care tips",
           },
 
-          B: {
-            title: "Heart Failure Causes & Other Conditions",
-            description:
-              "Explore common causes of heart failure and other medical conditions that may be related.",
-            submodules: {
-              introduction: {
-                title: "Introduction",
-                description: "Overview of causes and associated medical conditions.",
-                content:
-                  "Heart failure can develop because of different heart and health problems. In many patients, it is linked to more than one underlying cause. Learning about these causes can help patients better understand their condition and support prevention or early treatment."
-              },
-              commonHeartConditions: {
-                title: "Common heart conditions",
-                description: "Heart conditions that may lead to heart failure.",
-                content:
-                  "Some heart conditions that may lead to heart failure include coronary artery disease, previous heart attack, high blood pressure, heart valve disease, and cardiomyopathy. These conditions can weaken the heart or make it work harder over time."
-              },
-              otherMedicalConditions: {
-                title: "Other common medical conditions",
-                description: "Other illnesses and conditions linked with heart failure.",
-                content:
-                  "Other conditions such as diabetes, kidney disease, obesity, lung disease, thyroid disorders, and anemia may also affect heart failure. Managing these related conditions is an important part of improving overall health and reducing complications."
-              }
-            }
-          },
 
-          C: {
-            title: "What You Can Do",
-            description:
-              "Practical steps and lifestyle changes you can make to manage heart failure effectively.",
-            submodules: {
-              introduction: {
-                title: "Introduction",
-                description: "Overview of self-care and daily management.",
-                content:
-                  "Managing heart failure involves daily self-care. Patients can improve their quality of life by monitoring symptoms, taking medicines correctly, staying active within safe limits, eating a balanced diet, and attending regular medical reviews."
-              },
-              bloodPressurePulse: {
-                title: "Check blood pressure and pulse",
-                description: "How to measure blood pressure and pulse accurately at home.",
-                content:
-                  "Checking blood pressure and pulse at home helps patients monitor changes in their condition. Measurements should be taken at about the same time each day, in a seated and relaxed position. Keeping a record can help doctors adjust treatment if necessary."
-              },
-              lifestyleChanges: {
-                title: "Lifestyle changes",
-                description: "Healthy habits to improve control and wellbeing.",
-                content:
-                  "Helpful lifestyle changes include reducing salt intake, stopping smoking, limiting alcohol, staying physically active as advised, maintaining a healthy weight, and getting enough rest. Small daily habits can make a big difference in symptom control."
-              },
-              managingMedicines: {
-                title: "Managing medicines",
-                description: "Medicine routines, reviews, and side effects.",
-                content:
-                  "Heart failure medicines should be taken exactly as prescribed. Patients should know the purpose of each medicine, possible side effects, and what to do if a dose is missed. Regular medication reviews are important to make sure treatment remains effective."
-              },
-              supportGroups: {
-                title: "Support groups",
-                description: "Find communities and support resources.",
-                content:
-                  "Support groups can help patients and families feel less isolated. They offer practical advice, emotional support, and shared experiences from others living with similar conditions. Support may be available through hospitals, charities, or community organizations."
-              }
-            }
-          },
+          videoSectionTitle: "Earn Coins by Watching Education Videos",
+          videoSectionDescription:
+            "Watch a video for at least {{seconds}} seconds to claim {{coins}} coins. Each video can only be claimed once.",
+          reward: "Reward: {{coins}} coins",
+          startWatching: "Start Watching for Coins",
+          watchingProgress: "Watching progress",
+          continueWatching: "Continue Watching",
+          addingCoins: "Adding Coins...",
+          claimCoins: "Claim {{coins}} Coins",
+          coinsAlreadyClaimed: "Coins already claimed",
+          coinsAdded: "{{coins}} coins added successfully!",
+          failedAddCoins: "Failed to add coins. Please try again.",
+          seconds: "seconds",
 
-          D: {
-            title: "Living with Heart Failure",
-            description:
-              "Tips and strategies for maintaining quality of life while managing heart failure.",
-            submodules: {
-              introduction: {
-                title: "Introduction",
-                description: "Daily life with heart failure and practical coping strategies.",
-                content:
-                  "Living with heart failure means learning how to manage symptoms while continuing daily life as safely and comfortably as possible. Good planning, family support, and regular follow-up can help patients stay active and independent for longer."
-              },
-              travel: {
-                title: "Travel",
-                description: "What to plan before travelling.",
-                content:
-                  "Before travelling, patients should make sure they have enough medicines, copies of prescriptions, and information about their condition. It is also important to avoid overexertion, stay hydrated as advised, and plan rest breaks during the journey."
-              },
-              vaccines: {
-                title: "Vaccines",
-                description: "Recommended vaccines and why they matter.",
-                content:
-                  "Vaccinations may help reduce the risk of infections that could worsen heart failure. Patients are often advised to discuss flu and pneumonia vaccines with their healthcare providers, especially if they are older or have other health problems."
-              },
-              workAdjustments: {
-                title: "Work and adjustments",
-                description: "Returning to work and making suitable adjustments.",
-                content:
-                  "Some patients are able to continue working with suitable adjustments, such as reduced hours, lighter physical tasks, or more flexible schedules. Employers and healthcare professionals may work together to support safe return-to-work planning."
-              },
-              emotions: {
-                title: "Emotions and relationships",
-                description: "Support for emotions, family life, and relationships.",
-                content:
-                  "Heart failure can affect emotions, confidence, and relationships. Patients may feel worried, frustrated, or low at times. Talking openly with family, friends, or healthcare professionals can help, and emotional support is an important part of care."
-              }
+
+          videos: {
+            heartFailureBasic: {
+              title: "Understanding Heart Failure",
+              description:
+                "Learn the basic meaning of heart failure, common symptoms, and why daily monitoring is important.",
             },
-            
+            lowSaltDiet: {
+              title: "Low Salt Diet Guide",
+              description:
+                "Learn why reducing salt intake is important for heart failure patients.",
+            },
+            fluidManagement: {
+              title: "Fluid Intake Management",
+              description:
+                "Learn why heart failure patients may need to control daily water and fluid intake.",
+            },
           },
 
-          E: {
-            title: "For Caregivers",
-            description:
-              "Essential information and support resources for family members and caregivers.",
-            submodules: {
-              introduction: {
-                title: "Introduction",
-                description: "Starting point for families and caregivers.",
-                content:
-                  "Caregivers play an important role in helping patients manage heart failure. They may assist with medicines, appointments, emotional support, symptom monitoring, and daily routines. Having the right information can help caregivers feel more prepared and confident."
-              },
-              howToHelp: {
-                title: "How you can help",
-                description: "Simple checklist of ways caregivers can help.",
-                content:
-                  "Caregivers can help by encouraging medicine adherence, supporting healthy lifestyle choices, attending appointments, watching for warning signs, and helping the patient keep records of symptoms and weight changes. Good communication is key."
-              },
-              caringStress: {
-                title: "Caring stress",
-                description: "Recognising stress and looking after yourself.",
-                content:
-                  "Providing care can be physically and emotionally demanding. Caregivers should also look after their own wellbeing by getting enough rest, asking for help when needed, and speaking to support services if they feel overwhelmed."
-              },
-              financialConcerns: {
-                title: "Financial concerns",
-                description: "Benefits, support, and practical steps.",
-                content:
-                  "Financial concerns may arise because of healthcare costs, transport needs, changes in work, or caregiving responsibilities. Families may benefit from seeking advice about support schemes, financial planning, and community assistance."
-              },
-              supportServices: {
-                title: "Support services",
-                description: "People and services that can help caregivers.",
-                content:
-                  "Support may come from nurses, doctors, social workers, charities, community groups, and family networks. Caregivers should know that asking for support is part of good care, not a sign of weakness."
-              }
-            }
-          },
 
-          H: {
-            title: "Warning Signs",
-            description:
-              "Learn to recognize important warning signs and when to seek immediate medical attention.",
-            submodules: {
-              introduction: {
-                title: "Introduction",
-                description: "Overview of warning signs that should not be ignored.",
-                content:
-                  "Patients with heart failure should know the warning signs that may suggest their condition is worsening. Early recognition can help prevent serious complications and support faster treatment."
+          modules: {
+            A: {
+              title: "Understanding Heart Failure",
+              description:
+                "Learn what heart failure means, how it happens, and common symptoms.",
+              submodules: {
+                introduction: {
+                  title: "Introduction",
+                  description: "Basic introduction to heart failure.",
+                  content:
+                    "Heart failure means the heart cannot pump blood as well as the body needs. It does not mean the heart has stopped, but it means the heart needs support and careful daily monitoring.",
+                },
+                whatIsHF: {
+                  title: "What is Heart Failure?",
+                  description: "Understand the meaning of heart failure.",
+                  content:
+                    "Heart failure happens when the heart muscle becomes weak or stiff. This can cause tiredness, shortness of breath, swelling, and difficulty doing daily activities.",
+                },
+                symptoms: {
+                  title: "Symptoms",
+                  description: "Common symptoms of heart failure.",
+                  content:
+                    "Common symptoms include shortness of breath, swollen legs or ankles, sudden weight gain, tiredness, fast heartbeat, and difficulty sleeping flat.",
+                },
+                normalHeart: {
+                  title: "How the Heart Works",
+                  description: "Learn how a normal heart pumps blood.",
+                  content:
+                    "A healthy heart pumps blood to the lungs and the rest of the body. Blood carries oxygen and nutrients that the body needs to function.",
+                },
+                types: {
+                  title: "Types of Heart Failure",
+                  description: "Different terms used in heart failure.",
+                  content:
+                    "Heart failure can be described in different ways depending on how the heart pumps or fills with blood. Doctors may explain this using ejection fraction and other test results.",
+                },
               },
-              shortnessOfBreath: {
-                title: "Shortness of breath",
-                description: "When breathlessness means you should get help.",
-                content:
-                  "Breathlessness that becomes more severe, happens suddenly, or occurs even at rest may be a sign that heart failure is worsening. If this happens, patients should seek medical advice quickly, especially if symptoms are new or much worse than usual."
+            },
+
+
+            B: {
+              title: "Causes and Related Conditions",
+              description:
+                "Learn about heart conditions and other illnesses that may cause heart failure.",
+              submodules: {
+                introduction: {
+                  title: "Introduction",
+                  description: "Overview of causes of heart failure.",
+                  content:
+                    "Heart failure may be caused by several heart-related or body-related conditions. Understanding the cause helps patients manage their health better.",
+                },
+                commonHeartConditions: {
+                  title: "Common Heart Conditions",
+                  description: "Heart problems that may lead to heart failure.",
+                  content:
+                    "High blood pressure, coronary artery disease, heart attack, valve disease, and abnormal heart rhythm may increase the risk of heart failure.",
+                },
+                otherMedicalConditions: {
+                  title: "Other Medical Conditions",
+                  description: "Other illnesses related to heart failure.",
+                  content:
+                    "Diabetes, kidney disease, obesity, lung disease, and thyroid problems can affect the heart and worsen heart failure symptoms.",
+                },
               },
-              chestPain: {
-                title: "Chest pain",
-                description: "When chest pain needs urgent medical attention.",
-                content:
-                  "Chest pain should never be ignored. It may be a sign of a serious heart problem and can require urgent medical attention. Patients should seek emergency help if chest pain is severe, sudden, or associated with other alarming symptoms."
+            },
+
+
+            C: {
+              title: "Self-Care and Monitoring",
+              description:
+                "Learn how to monitor your body and manage heart failure daily.",
+              submodules: {
+                introduction: {
+                  title: "Introduction",
+                  description: "Why daily self-care is important.",
+                  content:
+                    "Daily self-care helps patients notice changes early. Patients should monitor weight, blood pressure, pulse, symptoms, water intake, salt intake, and medication use.",
+                },
+                bloodPressurePulse: {
+                  title: "Blood Pressure and Pulse",
+                  description: "How to monitor blood pressure and pulse.",
+                  content:
+                    "Check blood pressure and pulse regularly. Very high, very low, or unusual readings should be recorded and reported to healthcare providers.",
+                },
+                lifestyleChanges: {
+                  title: "Lifestyle Changes",
+                  description: "Healthy habits for heart failure.",
+                  content:
+                    "Healthy habits include reducing salt, controlling fluid intake, doing suitable exercise, stopping smoking, limiting alcohol, and following medical advice.",
+                },
+                managingMedicines: {
+                  title: "Managing Medicines",
+                  description: "Take medicine correctly.",
+                  content:
+                    "Take medication as prescribed by the doctor. Do not stop or change medicine without asking a healthcare provider.",
+                },
+                supportGroups: {
+                  title: "Support Groups",
+                  description: "Getting support from others.",
+                  content:
+                    "Support from family, friends, healthcare professionals, and patient groups can help patients manage heart failure better.",
+                },
               },
-              rapidWeightGain: {
-                title: "Rapid weight gain",
-                description: "A key sign of fluid retention.",
-                content:
-                  "Rapid weight gain over a short period may suggest fluid retention. Monitoring daily weight can help detect changes early. Patients should report unusual increases in weight to their healthcare provider."
+            },
+
+
+            D: {
+              title: "Living with Heart Failure",
+              description:
+                "Practical tips for daily life, travel, vaccines, and work.",
+              submodules: {
+                introduction: {
+                  title: "Introduction",
+                  description: "Living safely with heart failure.",
+                  content:
+                    "Patients with heart failure can still live a meaningful life by planning daily activities, following treatment, and recognizing warning signs early.",
+                },
+                travel: {
+                  title: "Travel",
+                  description: "Travel tips for heart failure patients.",
+                  content:
+                    "Before travelling, prepare enough medicine, check medical documents, avoid overexertion, and discuss with a doctor if symptoms are unstable.",
+                },
+                vaccines: {
+                  title: "Vaccinations",
+                  description: "Why vaccines may be important.",
+                  content:
+                    "Vaccinations may reduce the risk of infections that can worsen heart failure. Patients should ask their doctor which vaccines are suitable.",
+                },
+                workAdjustments: {
+                  title: "Work Adjustments",
+                  description: "Managing work and daily responsibilities.",
+                  content:
+                    "Some patients may need rest periods, lighter duties, or flexible schedules depending on their symptoms and doctor’s advice.",
+                },
+                emotions: {
+                  title: "Your Emotions",
+                  description: "Managing feelings and emotional changes.",
+                  content:
+                    "Living with heart failure may cause stress, worry, sadness, or fear. Talking to family, friends, support groups, or healthcare professionals can help.",
+                },
               },
-              swellingLegs: {
-                title: "Swelling in legs or ankles",
-                description: "Possible sign of fluid build-up.",
-                content:
-                  "Swelling in the legs, ankles, or feet may be caused by fluid build-up. If swelling becomes worse, appears suddenly, or is associated with other worsening symptoms, medical advice should be sought."
-              }
-            }
-          }
-        }
-      },
+            },
+
+
+            E: {
+              title: "For Caregivers",
+              description:
+                "Information for family members and caregivers who support heart failure patients.",
+              submodules: {
+                introduction: {
+                  title: "Introduction",
+                  description: "Understanding the caregiver role.",
+                  content:
+                    "Caregivers play an important role in supporting heart failure patients with medication, appointments, daily monitoring, and emotional support.",
+                },
+                howToHelp: {
+                  title: "How to Help",
+                  description: "Ways caregivers can support patients.",
+                  content:
+                    "Caregivers can help by reminding patients to take medication, monitor symptoms, attend appointments, follow diet advice, and seek medical help when warning signs appear.",
+                },
+                caringStress: {
+                  title: "Caring Can Be Hard",
+                  description: "Managing caregiver stress.",
+                  content:
+                    "Caring for someone can be tiring and stressful. Caregivers should also rest, ask for help, and look after their own health.",
+                },
+                financialConcerns: {
+                  title: "Financial Concerns",
+                  description: "Managing cost-related worries.",
+                  content:
+                    "Medical costs, travel, medication, and care needs may create financial pressure. Families can discuss available support with healthcare workers or community services.",
+                },
+                supportServices: {
+                  title: "Support Services",
+                  description: "Finding useful support.",
+                  content:
+                    "Support services may include healthcare teams, patient groups, counselling, social workers, and community organisations.",
+                },
+              },
+            },
+
+
+            H: {
+              title: "Warning Signs",
+              description:
+                "Learn warning signs that may need medical attention.",
+              submodules: {
+                introduction: {
+                  title: "Introduction",
+                  description: "Recognising warning signs early.",
+                  content:
+                    "Heart failure symptoms can worsen quickly. Patients should know the warning signs and seek medical advice when symptoms become serious.",
+                },
+                shortnessOfBreath: {
+                  title: "Shortness of Breath",
+                  description: "Breathing difficulty as a warning sign.",
+                  content:
+                    "Shortness of breath during rest, while lying down, or suddenly at night may be a warning sign that heart failure is worsening.",
+                },
+                chestPain: {
+                  title: "Chest Pain",
+                  description: "Chest pain should not be ignored.",
+                  content:
+                    "Chest pain, tightness, or pressure may be serious. Patients should seek urgent medical help if chest pain occurs.",
+                },
+                rapidWeightGain: {
+                  title: "Rapid Weight Gain",
+                  description: "Sudden weight gain may mean fluid retention.",
+                  content:
+                    "A sudden increase in weight may show that the body is retaining fluid. Patients should record weight daily and report unusual changes.",
+                },
+                swellingLegs: {
+                  title: "Swelling in Legs or Ankles",
+                  description: "Swelling may show fluid build-up.",
+                  content:
+                    "Swelling in the legs, ankles, feet, or abdomen may be caused by fluid build-up and should be monitored carefully.",
+                },
+              },
+            },
+          },
+        },
+       
+
 
       helpSupport: {
         title: "Help & Support",
         subtitle: "Get support, emergency guidance and help for using MyHFGuard.",
 
+
         aboutTitle: "About MyHFGuard",
         aboutBody: "MyHFGuard helps heart failure patients monitor symptoms, manage reminders, record daily health data and learn self-care more easily.",
+
 
         contactUs: "Contact Us",
         needHelp: "Choose the most suitable support option below.",
 
+
         emergencyContact: "Emergency Contact",
         emergencyBody: "If you have severe shortness of breath, chest pain, fainting or any urgent medical condition, please contact emergency services immediately. Do not rely on this app for urgent treatment.",
+
 
         supportTitle: "Email Support",
         supportBody: "For technical issues or general system support, contact the MyHFGuard support team by email.",
 
+
         whatsappTitle: "WhatsApp Support",
         whatsappBody: "For quick communication, you may also contact support through WhatsApp.",
+
 
         callButton: "Call Emergency (999)",
         emailButton: "Email Support",
         whatsappButton: "Open WhatsApp",
 
+
         disclaimer: "This app is for self-management support only and does not replace professional medical advice, diagnosis or treatment."
       },
+
 
       medication: {
         title: "Medication",
@@ -449,6 +542,7 @@ const resources = {
         addMedication: "Add Medication",
       },
 
+
       aiAssistant: {
         title: "AI Assistant",
         subtitle: "Ask questions about your symptoms and heart failure care",
@@ -456,9 +550,11 @@ const resources = {
         send: "Send",
       },
 
+
       waterDiet: {
         title: "My Water and Low Salt Diet",
         subtitle: "Please submit daily or at least 3 times per week.",
+
 
         toast: {
           unableSession: "Unable to load session",
@@ -467,6 +563,7 @@ const resources = {
           saved: "Water and low salt diet saved successfully",
           failed: "Failed to save record",
         },
+
 
         weekly: {
           title: "Weekly Tracking Status",
@@ -478,6 +575,7 @@ const resources = {
           needMore: "Need More Entries",
         },
 
+
         waterCard: {
           title: "My Water Intake",
           limitLabel: "Doctor Water Restriction (ml)",
@@ -487,16 +585,19 @@ const resources = {
           limitText: "Limit",
         },
 
+
         waterStatus: {
           green: "Within Range",
           orange: "Slightly Above Range",
           red: "Exceeded Restriction",
         },
 
+
         saltCard: {
           title: "My Low Salt Diet",
           dailyScore: "Daily Salt Score",
         },
+
 
         saltOptions: {
           natural: "Natural / Low Salt",
@@ -504,11 +605,13 @@ const resources = {
           high: "High Salt",
         },
 
+
         saltStatus: {
           green: "Low Salt",
           orange: "Moderate Salt",
           red: "High Salt",
         },
+
 
         meals: {
           breakfast: "Breakfast",
@@ -516,10 +619,12 @@ const resources = {
           dinner: "Dinner",
         },
 
+
         buttons: {
           saving: "Saving...",
           save: "Save Today Entry",
         },
+
 
         summary: {
           title: "Latest Summary",
@@ -529,6 +634,7 @@ const resources = {
           saltStatus: "Salt Status",
         },
 
+
         charts: {
           waterGraph: "Water Intake Graph",
           saltGraph: "Low Salt Diet Graph",
@@ -537,14 +643,63 @@ const resources = {
           saltBar: "Salt Score",
         },
 
+
         error: {
           loadTitle: "Failed to load water and salt data.",
           loadDesc: "Please make sure the table water_salt_logs exists in Supabase and RLS policies are added.",
         },
       },
+      profile: {
+      myProfile: "My Profile",
+      profileDesc: "Manage your personal, health and app preference information.",
+      baselineLocked: "Baseline Locked",
+      baselineNotice:
+        "Your baseline health data has been locked. You can still update your medication and language preference.",
+      personalInformation: "Personal Information",
+      fullName: "Full Name",
+      enterFullName: "Enter full name",
+      age: "Age",
+      enterAge: "Enter age",
+      icNumber: "IC Number",
+      enterIcNumber: "Enter IC number",
+      preferences: "Preferences",
+      language: "Language",
+      useTopLanguageButton: "use the top language button to switch the whole app.",
+      baselineHealthData: "Baseline Health Data",
+      bloodPressureSystolic: "Blood Pressure Systolic",
+      bloodPressureDiastolic: "Blood Pressure Diastolic",
+      heartRate: "Heart Rate",
+      dryWeight: "Dry Weight",
+      height: "Height",
+      bmi: "BMI",
+      currentMedication: "Current Medication",
+      enterCurrentMedication: "Enter current medication",
+      saveProfile: "Save Profile",
+      saving: "Saving...",
+      loadingProfile: "Loading profile...",
+      autoCalculated: "Auto calculated",
+      systolicPlaceholder: "e.g. 120",
+      diastolicPlaceholder: "e.g. 80",
+      heartRatePlaceholder: "e.g. 72",
+      dryWeightPlaceholder: "e.g. 60",
+      heightPlaceholder: "e.g. 160",
+      userSessionNotFound: "User session not found. Please log in again.",
+      failedToSaveProfile: "Failed to save profile.",
+      profileSavedSuccessfully: "Profile saved successfully!",
+      somethingWentWrongSaving: "Something went wrong while saving profile.",
+    },
 
+
+    coin: {
+      coinCollection: "Coin Collection",
+      coinsEarnedFromEducationVideos: "Coins earned from education videos",
+      refreshCoins: "Refresh Coins",
+      refreshing: "Refreshing...",
+      failedToRefreshCoins: "Failed to refresh coins.",
+    },
     },
   },
+
 
   ms: {
     translation: {
@@ -562,6 +717,7 @@ const resources = {
         quickAccess: "Akses pantas",
         logout: "Log Keluar"
       },
+
 
       common: {
         appName: "MyHFGuard",
@@ -584,6 +740,7 @@ const resources = {
         notes: "Catatan",
       },
 
+
       dashboard: {
         title: "Papan Pemuka",
         subtitle: "Gambaran keseluruhan kemajuan penjagaan kendiri kegagalan jantung anda",
@@ -594,6 +751,7 @@ const resources = {
         healthOverview: "Gambaran Kesihatan",
       },
 
+
       selfCheck: {
         appName: "MyHFGuard",
         title: "Alat Pemeriksaan Kendiri",
@@ -602,9 +760,11 @@ const resources = {
         missing: "Belum lengkap",
         completed: "Selesai",
 
+
         weightTab: "Berat Harian",
         symptomsTab: "Penilaian Simptom",
         vitalsTab: "Penjejak Vital",
+
 
         dailyWeightTitle: "Berat Harian (kg)",
         weightLabel: "Berat",
@@ -617,6 +777,7 @@ const resources = {
         enterWeightHint: "Sila masukkan berat anda di atas untuk membolehkan penghantaran.",
         weightLoggedMessage: "Anda telah mencatat berat untuk {{date}}.",
 
+
         symptomsTitle: "Penilaian Simptom",
         symptomsGuide: "Nilai setiap simptom: 0 = Tiada simptom, 1 = Ringan, 5 = Teruk",
         logSymptoms: "Catat Simptom",
@@ -625,14 +786,17 @@ const resources = {
         mild: "Ringan",
         severe: "Teruk",
 
+
         symptoms: {
           cough: "Batuk",
           breathlessness: "Sesak nafas semasa aktif",
           swelling: "Bengkak kaki",
           weightGain: "Kenaikan berat badan mendadak > 2kg dalam 3 hari",
           abdomen: "Ketidakselesaan/bengkak pada abdomen",
-          sleeping: "Sesak nafas ketika tidur"
+          sleeping: "Sesak nafas ketika tidur",
+          currentLevel: "Tahap semasa",
         },
+
 
         scanMonitor: "Imbas Monitor",
         manualEntry: "Masukan Manual",
@@ -651,17 +815,21 @@ const resources = {
         diastolic: "Diastolik (mmHg)",
         pulse: "Nadi (bpm)",
 
+
         recentReadings: "Bacaan Terkini",
         noReadings: "Belum ada bacaan direkodkan.",
+
 
         invalidWeightTitle: "Berat Tidak Sah",
         invalidWeightDesc: "Sila masukkan berat yang sah sekurang-kurangnya 20kg.",
         confirmWeight: "Adakah anda pasti mahu menghantar bacaan berat ini untuk {{date}}?",
         confirmSymptoms: "Adakah anda pasti mahu menghantar penilaian simptom ini untuk {{date}}?",
 
+
         cancel: "Batal",
         confirm: "Sahkan",
         ok: "OK",
+
 
         pictureGuideTitle: "Cara Mengambil Gambar Yang Baik",
         pictureGuideDesc:
@@ -671,6 +839,7 @@ const resources = {
         correctDesc: "Monitor lurus dan jelas kelihatan",
         incorrectDesc: "Monitor senget atau tidak berada di tengah",
         gotIt: "Faham / Teruskan",
+
 
         toast: {
           weightSaved: "Berat berjaya disimpan",
@@ -686,8 +855,31 @@ const resources = {
           cameraDenied: "Kebenaran kamera ditolak. Sila benarkan akses kamera dalam tetapan pelayar anda.",
           cameraNotFound: "Tiada kamera ditemui pada peranti ini. Sila muat naik gambar.",
           cameraFailed: "Gagal mengakses kamera. Sila semak kebenaran atau muat naik gambar."
-        }
+        },
+
+
+        weightScanner: {
+          title: "Pengimbas Berat",
+          description:
+            "Muat naik atau ambil gambar paparan mesin penimbang. Nilai yang dikesan akan diisi secara automatik dalam ruangan berat.",
+          uploadPhoto: "Muat naik gambar mesin penimbang",
+          useCamera: "Guna Kamera",
+          capturePhoto: "Ambil Gambar Berat",
+          scanPhoto: "Imbas Berat daripada Gambar",
+          removePhoto: "Buang Gambar",
+          detectedWeight: "Berat yang dikesan",
+          notDetected: "Tidak dikesan",
+          editDetectedWeight: "Anda boleh mengubah nilai yang dikesan di bawah sebelum menyimpan.",
+          selectPhotoFirst: "Sila pilih gambar mesin penimbang terlebih dahulu.",
+          detectedToast: "Berat dikesan: {{weight}} kg",
+          notDetectedToast:
+            "Berat tidak dapat dikesan dengan jelas. Sila ambil semula gambar di tempat yang terang dan pastikan paparan lurus.",
+          scanFailedToast: "Gagal mengimbas gambar berat.",
+          previewAlt: "Pratonton Berat",
+          ocrResultAlt: "Keputusan OCR Berat",
+        },
       },
+
 
       schedule: {
         title: "Jadual",
@@ -703,6 +895,7 @@ const resources = {
         noSchedule: "Tiada jadual tersedia",
       },
 
+
       vitals: {
         title: "Penjejak Vital",
         subtitle: "Jejaki tanda vital penting anda",
@@ -716,271 +909,325 @@ const resources = {
         history: "Sejarah",
       },
 
+
       education: {
-        pageTitle: "Sumber Pendidikan",
+        pageTitle: "Pendidikan",
         pageDescription:
-          "Pelajari pengurusan kegagalan jantung melalui modul dan submodul berstruktur dengan kandungan bacaan dalam aplikasi.",
-        searchPlaceholder: "Cari modul atau submodul",
-        searchAria: "Cari modul pendidikan",
+          "Pelajari pengetahuan penjagaan kendiri kegagalan jantung melalui bahan bacaan dan video.",
+        searchPlaceholder: "Cari kandungan pendidikan...",
+        searchAria: "Cari kandungan pendidikan",
         moduleLabel: "Modul",
         closeContent: "Tutup kandungan",
         learningContent: "Kandungan Pembelajaran",
         viewSource: "Lihat Sumber",
-        showSubmodules: "Tunjuk Submodul",
-        hideSubmodules: "Sembunyikan Submodul",
+        hideSubmodules: "Sembunyikan Topik",
+        showSubmodules: "Tunjukkan Topik",
         readContent: "Baca Kandungan",
-        featuresTitle: "Ciri Kandungan Pendidikan",
-        featuresFooter: "Kandungan pendidikan disesuaikan untuk paparan pembelajaran dalam aplikasi.",
+        collectPointAndPlay: "Kumpul Mata & Mainkan Video",
+
+
+        featuresTitle: "Ciri Pendidikan",
+        featuresFooter:
+          "Bahagian pendidikan ini membantu pesakit memahami kegagalan jantung dan meningkatkan penjagaan kendiri harian.",
         features: {
-          guides: "Panduan bertulis dan kandungan pembelajaran yang diringkaskan",
-          structured: "Modul berstruktur dengan submodul",
-          warning: "Akses pantas kepada tanda amaran dan maklumat penjagaan kendiri"
+          guides: "Panduan kegagalan jantung yang mudah",
+          structured: "Modul pembelajaran yang tersusun",
+          warning: "Tanda amaran dan tips penjagaan kendiri",
         },
+
+
+        videoSectionTitle: "Kumpul Syiling dengan Menonton Video Pendidikan",
+        videoSectionDescription:
+          "Tonton video sekurang-kurangnya {{seconds}} saat untuk menuntut {{coins}} syiling. Setiap video hanya boleh dituntut sekali.",
+        reward: "Ganjaran: {{coins}} syiling",
+        startWatching: "Mula Menonton untuk Syiling",
+        watchingProgress: "Kemajuan tontonan",
+        continueWatching: "Teruskan Menonton",
+        addingCoins: "Sedang Menambah Syiling...",
+        claimCoins: "Tuntut {{coins}} Syiling",
+        coinsAlreadyClaimed: "Syiling telah dituntut",
+        coinsAdded: "{{coins}} syiling berjaya ditambah!",
+        failedAddCoins: "Gagal menambah syiling. Sila cuba lagi.",
+        seconds: "saat",
+
+
+        videos: {
+          heartFailureBasic: {
+            title: "Memahami Kegagalan Jantung",
+            description:
+              "Pelajari maksud asas kegagalan jantung, simptom biasa, dan kepentingan pemantauan harian.",
+          },
+          lowSaltDiet: {
+            title: "Panduan Diet Rendah Garam",
+            description:
+              "Pelajari mengapa mengurangkan pengambilan garam penting untuk pesakit kegagalan jantung.",
+          },
+          fluidManagement: {
+            title: "Pengurusan Pengambilan Cecair",
+            description:
+              "Pelajari mengapa pesakit kegagalan jantung mungkin perlu mengawal pengambilan air dan cecair harian.",
+          },
+        },
+
 
         modules: {
           A: {
             title: "Memahami Kegagalan Jantung",
             description:
-              "Pelajari asas tentang kegagalan jantung, bagaimana ia mempengaruhi badan anda, dan maksudnya dalam kehidupan harian.",
+              "Pelajari maksud kegagalan jantung, bagaimana ia berlaku, dan simptom biasa.",
             submodules: {
               introduction: {
                 title: "Pengenalan",
-                description: "Gambaran keseluruhan tentang kegagalan jantung dan mengapa memahaminya penting.",
+                description: "Pengenalan asas tentang kegagalan jantung.",
                 content:
-                  "Kegagalan jantung tidak bermaksud jantung telah berhenti berfungsi. Ia bermaksud jantung tidak mengepam darah seefektif yang sepatutnya. Ini boleh menyukarkan badan mendapat oksigen dan nutrien yang mencukupi. Memahami kegagalan jantung membantu pesakit dan penjaga mengenali simptom awal, mengikuti pelan rawatan, dan membuat perubahan gaya hidup harian yang menyokong kesihatan yang lebih baik."
+                  "Kegagalan jantung bermaksud jantung tidak dapat mengepam darah sebaik yang diperlukan oleh badan. Ia tidak bermaksud jantung telah berhenti, tetapi jantung memerlukan sokongan dan pemantauan harian yang teliti.",
               },
               whatIsHF: {
-                title: "Apakah itu kegagalan jantung",
-                description: "Maksud kegagalan jantung dan bagaimana ia mempengaruhi kehidupan harian.",
+                title: "Apakah Kegagalan Jantung?",
+                description: "Fahami maksud kegagalan jantung.",
                 content:
-                  "Kegagalan jantung ialah keadaan jangka panjang di mana jantung tidak dapat mengepam darah yang mencukupi untuk memenuhi keperluan badan. Ia boleh menjejaskan pernafasan, tahap tenaga, aktiviti fizikal, tidur, dan rutin harian. Sesetengah orang mengalaminya secara beransur-ansur, manakala yang lain mungkin mengalami simptom yang menjadi semakin teruk secara tiba-tiba."
+                  "Kegagalan jantung berlaku apabila otot jantung menjadi lemah atau kaku. Ini boleh menyebabkan keletihan, sesak nafas, bengkak, dan kesukaran melakukan aktiviti harian.",
               },
               symptoms: {
-                title: "Simptom kegagalan jantung",
-                description: "Tanda awal, simptom, dan apa yang perlu dilakukan seterusnya.",
+                title: "Simptom",
+                description: "Simptom biasa kegagalan jantung.",
                 content:
-                  "Simptom biasa kegagalan jantung termasuk sesak nafas, keletihan, bengkak pada buku lali atau kaki, pertambahan berat badan yang cepat, batuk pada waktu malam, dan kesukaran melakukan aktiviti harian biasa. Jika simptom menjadi lebih teruk secara tiba-tiba, adalah penting untuk menghubungi profesional kesihatan secepat mungkin."
+                  "Simptom biasa termasuk sesak nafas, kaki atau buku lali bengkak, kenaikan berat badan secara mendadak, keletihan, degupan jantung laju, dan sukar tidur dalam posisi baring.",
               },
               normalHeart: {
-                title: "Bagaimana jantung normal berfungsi",
-                description: "Penjelasan ringkas tentang cara jantung mengepam darah.",
+                title: "Bagaimana Jantung Berfungsi",
+                description: "Pelajari bagaimana jantung normal mengepam darah.",
                 content:
-                  "Jantung ialah pam berotot dengan empat ruang. Tugasnya ialah mengedarkan darah kaya oksigen ke seluruh badan dan membawa darah kurang oksigen kembali ke paru-paru. Apabila jantung berfungsi secara normal, ia mengecut dan mengendur dalam ritma yang tetap untuk memastikan aliran darah berjalan dengan cekap."
+                  "Jantung yang sihat mengepam darah ke paru-paru dan seluruh badan. Darah membawa oksigen dan nutrien yang diperlukan oleh badan.",
               },
               types: {
-                title: "Jenis kegagalan jantung",
-                description: "Fahami bentuk dan klasifikasi kegagalan jantung yang berbeza.",
+                title: "Jenis Kegagalan Jantung",
+                description: "Istilah berbeza dalam kegagalan jantung.",
                 content:
-                  "Kegagalan jantung boleh diterangkan dalam pelbagai cara, seperti kegagalan jantung sebelah kiri atau kanan, kegagalan jantung akut atau kronik, dan kegagalan jantung dengan pecahan ejeksi berkurang atau terpelihara. Istilah-istilah ini membantu doktor memahami bagaimana jantung terjejas dan menentukan rawatan yang paling sesuai."
-              }
-            }
+                  "Kegagalan jantung boleh diterangkan dalam beberapa cara bergantung kepada cara jantung mengepam atau mengisi darah. Doktor mungkin menerangkannya menggunakan pecahan ejeksi dan keputusan ujian lain.",
+              },
+            },
           },
+
 
           B: {
-            title: "Punca Kegagalan Jantung & Keadaan Lain",
+            title: "Punca dan Keadaan Berkaitan",
             description:
-              "Terokai punca biasa kegagalan jantung dan keadaan perubatan lain yang mungkin berkaitan.",
+              "Pelajari keadaan jantung dan penyakit lain yang boleh menyebabkan kegagalan jantung.",
             submodules: {
               introduction: {
                 title: "Pengenalan",
-                description: "Gambaran keseluruhan punca dan keadaan perubatan berkaitan.",
+                description: "Gambaran keseluruhan punca kegagalan jantung.",
                 content:
-                  "Kegagalan jantung boleh berlaku disebabkan pelbagai masalah jantung dan kesihatan. Bagi ramai pesakit, ia berkait dengan lebih daripada satu punca asas. Mempelajari punca-punca ini dapat membantu pesakit memahami keadaan mereka dengan lebih baik serta menyokong pencegahan atau rawatan awal."
+                  "Kegagalan jantung boleh disebabkan oleh beberapa keadaan berkaitan jantung atau badan. Memahami puncanya membantu pesakit mengurus kesihatan dengan lebih baik.",
               },
               commonHeartConditions: {
-                title: "Keadaan jantung biasa",
-                description: "Keadaan jantung yang boleh menyebabkan kegagalan jantung.",
+                title: "Keadaan Jantung Biasa",
+                description: "Masalah jantung yang boleh menyebabkan kegagalan jantung.",
                 content:
-                  "Beberapa keadaan jantung yang boleh membawa kepada kegagalan jantung termasuk penyakit arteri koronari, serangan jantung terdahulu, tekanan darah tinggi, penyakit injap jantung, dan kardiomiopati. Keadaan-keadaan ini boleh melemahkan jantung atau memaksanya bekerja lebih keras dari semasa ke semasa."
+                  "Tekanan darah tinggi, penyakit arteri koronari, serangan jantung, penyakit injap jantung, dan ritma jantung tidak normal boleh meningkatkan risiko kegagalan jantung.",
               },
               otherMedicalConditions: {
-                title: "Keadaan perubatan biasa yang lain",
-                description: "Penyakit dan keadaan lain yang berkaitan dengan kegagalan jantung.",
+                title: "Keadaan Perubatan Lain",
+                description: "Penyakit lain yang berkaitan dengan kegagalan jantung.",
                 content:
-                  "Keadaan lain seperti diabetes, penyakit buah pinggang, obesiti, penyakit paru-paru, gangguan tiroid, dan anemia juga boleh mempengaruhi kegagalan jantung. Mengurus keadaan berkaitan ini ialah bahagian penting untuk meningkatkan kesihatan keseluruhan dan mengurangkan komplikasi."
-              }
-            }
+                  "Diabetes, penyakit buah pinggang, obesiti, penyakit paru-paru, dan masalah tiroid boleh menjejaskan jantung dan memburukkan simptom kegagalan jantung.",
+              },
+            },
           },
 
+
           C: {
-            title: "Apa Yang Anda Boleh Lakukan",
+            title: "Penjagaan Kendiri dan Pemantauan",
             description:
-              "Langkah praktikal dan perubahan gaya hidup yang boleh anda lakukan untuk mengurus kegagalan jantung dengan berkesan.",
+              "Pelajari cara memantau badan dan mengurus kegagalan jantung setiap hari.",
             submodules: {
               introduction: {
                 title: "Pengenalan",
-                description: "Gambaran keseluruhan penjagaan kendiri dan pengurusan harian.",
+                description: "Mengapa penjagaan kendiri harian penting.",
                 content:
-                  "Mengurus kegagalan jantung melibatkan penjagaan kendiri setiap hari. Pesakit boleh meningkatkan kualiti hidup dengan memantau simptom, mengambil ubat dengan betul, kekal aktif dalam had yang selamat, makan secara seimbang, dan menghadiri pemeriksaan perubatan secara berkala."
+                  "Penjagaan kendiri harian membantu pesakit mengenal pasti perubahan lebih awal. Pesakit perlu memantau berat badan, tekanan darah, nadi, simptom, pengambilan air, pengambilan garam, dan penggunaan ubat.",
               },
               bloodPressurePulse: {
-                title: "Periksa tekanan darah dan nadi",
-                description: "Cara mengukur tekanan darah dan nadi dengan tepat di rumah.",
+                title: "Tekanan Darah dan Nadi",
+                description: "Cara memantau tekanan darah dan nadi.",
                 content:
-                  "Memeriksa tekanan darah dan nadi di rumah membantu pesakit memantau perubahan dalam keadaan mereka. Bacaan hendaklah diambil pada waktu yang lebih kurang sama setiap hari, dalam keadaan duduk dan santai. Menyimpan rekod boleh membantu doktor menyesuaikan rawatan jika perlu."
+                  "Periksa tekanan darah dan nadi secara berkala. Bacaan yang terlalu tinggi, terlalu rendah, atau luar biasa perlu direkodkan dan dimaklumkan kepada penyedia penjagaan kesihatan.",
               },
               lifestyleChanges: {
-                title: "Perubahan gaya hidup",
-                description: "Amalan sihat untuk meningkatkan kawalan dan kesejahteraan.",
+                title: "Perubahan Gaya Hidup",
+                description: "Tabiat sihat untuk kegagalan jantung.",
                 content:
-                  "Perubahan gaya hidup yang membantu termasuk mengurangkan pengambilan garam, berhenti merokok, mengehadkan alkohol, kekal aktif secara fizikal mengikut nasihat, mengekalkan berat badan sihat, dan mendapatkan rehat yang mencukupi. Amalan kecil setiap hari boleh memberi perubahan besar dalam kawalan simptom."
+                  "Tabiat sihat termasuk mengurangkan garam, mengawal pengambilan cecair, melakukan senaman yang sesuai, berhenti merokok, mengehadkan alkohol, dan mengikuti nasihat perubatan.",
               },
               managingMedicines: {
-                title: "Mengurus ubat",
-                description: "Rutin ubat, semakan, dan kesan sampingan.",
+                title: "Pengurusan Ubat",
+                description: "Ambil ubat dengan betul.",
                 content:
-                  "Ubat kegagalan jantung hendaklah diambil tepat seperti yang ditetapkan. Pesakit perlu mengetahui tujuan setiap ubat, kemungkinan kesan sampingan, dan apa yang perlu dilakukan jika terlepas dos. Semakan ubat secara berkala penting untuk memastikan rawatan kekal berkesan."
+                  "Ambil ubat seperti yang diarahkan oleh doktor. Jangan berhenti atau menukar ubat tanpa bertanya kepada penyedia penjagaan kesihatan.",
               },
               supportGroups: {
-                title: "Kumpulan sokongan",
-                description: "Cari komuniti dan sumber sokongan.",
+                title: "Kumpulan Sokongan",
+                description: "Mendapat sokongan daripada orang lain.",
                 content:
-                  "Kumpulan sokongan boleh membantu pesakit dan keluarga berasa kurang terasing. Ia menawarkan nasihat praktikal, sokongan emosi, dan pengalaman dikongsi daripada orang lain yang hidup dengan keadaan yang sama. Sokongan mungkin tersedia melalui hospital, badan amal, atau organisasi komuniti."
-              }
-            }
+                  "Sokongan daripada keluarga, rakan, profesional kesihatan, dan kumpulan pesakit boleh membantu pesakit mengurus kegagalan jantung dengan lebih baik.",
+              },
+            },
           },
+
 
           D: {
             title: "Hidup dengan Kegagalan Jantung",
             description:
-              "Petua dan strategi untuk mengekalkan kualiti hidup semasa mengurus kegagalan jantung.",
+              "Tips praktikal untuk kehidupan harian, perjalanan, vaksin, dan kerja.",
             submodules: {
               introduction: {
                 title: "Pengenalan",
-                description: "Kehidupan harian dengan kegagalan jantung dan strategi menangani secara praktikal.",
+                description: "Hidup dengan selamat bersama kegagalan jantung.",
                 content:
-                  "Hidup dengan kegagalan jantung bermaksud belajar mengurus simptom sambil meneruskan kehidupan harian dengan selamat dan selesa. Perancangan yang baik, sokongan keluarga, dan susulan berkala boleh membantu pesakit kekal aktif dan berdikari lebih lama."
+                  "Pesakit kegagalan jantung masih boleh menjalani kehidupan yang bermakna dengan merancang aktiviti harian, mengikuti rawatan, dan mengenal pasti tanda amaran lebih awal.",
               },
               travel: {
                 title: "Perjalanan",
-                description: "Apa yang perlu dirancang sebelum melancong.",
+                description: "Tips perjalanan untuk pesakit kegagalan jantung.",
                 content:
-                  "Sebelum melancong, pesakit perlu memastikan mereka mempunyai ubat yang mencukupi, salinan preskripsi, dan maklumat tentang keadaan mereka. Ia juga penting untuk mengelakkan keletihan berlebihan, kekal terhidrat mengikut nasihat, dan merancang waktu rehat semasa perjalanan."
+                  "Sebelum melancong, sediakan ubat yang mencukupi, semak dokumen perubatan, elakkan terlalu penat, dan berbincang dengan doktor jika simptom tidak stabil.",
               },
               vaccines: {
-                title: "Vaksin",
-                description: "Vaksin yang disyorkan dan mengapa ia penting.",
+                title: "Vaksinasi",
+                description: "Mengapa vaksin mungkin penting.",
                 content:
-                  "Vaksinasi boleh membantu mengurangkan risiko jangkitan yang boleh memburukkan kegagalan jantung. Pesakit sering dinasihatkan untuk berbincang tentang vaksin selesema dan pneumonia dengan penyedia penjagaan kesihatan mereka, terutamanya jika mereka lebih berumur atau mempunyai masalah kesihatan lain."
+                  "Vaksinasi boleh mengurangkan risiko jangkitan yang boleh memburukkan kegagalan jantung. Pesakit perlu bertanya kepada doktor vaksin yang sesuai.",
               },
               workAdjustments: {
-                title: "Kerja dan penyesuaian",
-                description: "Kembali bekerja dan membuat penyesuaian yang sesuai.",
+                title: "Penyesuaian Kerja",
+                description: "Mengurus kerja dan tanggungjawab harian.",
                 content:
-                  "Sesetengah pesakit dapat terus bekerja dengan penyesuaian yang sesuai, seperti pengurangan jam kerja, tugas fizikal yang lebih ringan, atau jadual yang lebih fleksibel. Majikan dan profesional kesihatan boleh bekerjasama untuk menyokong perancangan kembali bekerja dengan selamat."
+                  "Sesetengah pesakit mungkin memerlukan waktu rehat, tugas yang lebih ringan, atau jadual fleksibel bergantung kepada simptom dan nasihat doktor.",
               },
               emotions: {
-                title: "Emosi dan hubungan",
-                description: "Sokongan untuk emosi, kehidupan keluarga, dan hubungan.",
+                title: "Emosi Anda",
+                description: "Mengurus perasaan dan perubahan emosi.",
                 content:
-                  "Kegagalan jantung boleh menjejaskan emosi, keyakinan diri, dan hubungan. Pesakit mungkin berasa risau, kecewa, atau sedih pada masa-masa tertentu. Bercakap secara terbuka dengan keluarga, rakan, atau profesional kesihatan boleh membantu, dan sokongan emosi ialah bahagian penting dalam penjagaan."
-              }
-            }
+                  "Hidup dengan kegagalan jantung boleh menyebabkan tekanan, kebimbangan, kesedihan, atau ketakutan. Bercakap dengan keluarga, rakan, kumpulan sokongan, atau profesional kesihatan boleh membantu.",
+              },
+            },
           },
+
 
           E: {
             title: "Untuk Penjaga",
             description:
-              "Maklumat penting dan sumber sokongan untuk ahli keluarga dan penjaga.",
+              "Maklumat untuk ahli keluarga dan penjaga yang menyokong pesakit kegagalan jantung.",
             submodules: {
               introduction: {
                 title: "Pengenalan",
-                description: "Titik permulaan untuk keluarga dan penjaga.",
+                description: "Memahami peranan penjaga.",
                 content:
-                  "Penjaga memainkan peranan penting dalam membantu pesakit mengurus kegagalan jantung. Mereka boleh membantu dengan ubat-ubatan, janji temu, sokongan emosi, pemantauan simptom, dan rutin harian. Mempunyai maklumat yang betul boleh membantu penjaga berasa lebih bersedia dan yakin."
+                  "Penjaga memainkan peranan penting dalam menyokong pesakit kegagalan jantung dari segi ubat-ubatan, janji temu, pemantauan harian, dan sokongan emosi.",
               },
               howToHelp: {
-                title: "Bagaimana anda boleh membantu",
-                description: "Senarai ringkas cara penjaga boleh membantu.",
+                title: "Cara Membantu",
+                description: "Cara penjaga boleh menyokong pesakit.",
                 content:
-                  "Penjaga boleh membantu dengan menggalakkan pematuhan ubat, menyokong pilihan gaya hidup sihat, menghadiri janji temu, memerhati tanda amaran, dan membantu pesakit menyimpan rekod simptom serta perubahan berat badan. Komunikasi yang baik amat penting."
+                  "Penjaga boleh membantu dengan mengingatkan pesakit mengambil ubat, memantau simptom, menghadiri janji temu, mengikuti nasihat diet, dan mendapatkan bantuan perubatan apabila tanda amaran muncul.",
               },
               caringStress: {
-                title: "Tekanan penjagaan",
-                description: "Mengenali tekanan dan menjaga diri sendiri.",
+                title: "Menjaga Pesakit Boleh Mencabar",
+                description: "Mengurus tekanan sebagai penjaga.",
                 content:
-                  "Memberi penjagaan boleh meletihkan dari segi fizikal dan emosi. Penjaga juga perlu menjaga kesejahteraan diri dengan mendapatkan rehat yang cukup, meminta bantuan apabila diperlukan, dan berbincang dengan perkhidmatan sokongan jika berasa terbeban."
+                  "Menjaga seseorang boleh memenatkan dan memberi tekanan. Penjaga juga perlu berehat, meminta bantuan, dan menjaga kesihatan sendiri.",
               },
               financialConcerns: {
-                title: "Kebimbangan kewangan",
-                description: "Faedah, sokongan, dan langkah praktikal.",
+                title: "Kebimbangan Kewangan",
+                description: "Mengurus kebimbangan berkaitan kos.",
                 content:
-                  "Kebimbangan kewangan mungkin timbul disebabkan kos penjagaan kesihatan, keperluan pengangkutan, perubahan dalam pekerjaan, atau tanggungjawab penjagaan. Keluarga boleh mendapat manfaat dengan mendapatkan nasihat tentang skim sokongan, perancangan kewangan, dan bantuan komuniti."
+                  "Kos perubatan, perjalanan, ubat-ubatan, dan keperluan penjagaan boleh memberi tekanan kewangan. Keluarga boleh berbincang tentang sokongan yang tersedia dengan petugas kesihatan atau perkhidmatan komuniti.",
               },
               supportServices: {
-                title: "Perkhidmatan sokongan",
-                description: "Orang dan perkhidmatan yang boleh membantu penjaga.",
+                title: "Perkhidmatan Sokongan",
+                description: "Mencari sokongan yang berguna.",
                 content:
-                  "Sokongan boleh datang daripada jururawat, doktor, pekerja sosial, badan amal, kumpulan komuniti, dan rangkaian keluarga. Penjaga perlu tahu bahawa meminta sokongan adalah sebahagian daripada penjagaan yang baik, bukan tanda kelemahan."
-              }
-            }
+                  "Perkhidmatan sokongan boleh merangkumi pasukan kesihatan, kumpulan pesakit, kaunseling, pekerja sosial, dan organisasi komuniti.",
+              },
+            },
           },
+
 
           H: {
             title: "Tanda Amaran",
             description:
-              "Belajar mengenali tanda amaran penting dan bila perlu mendapatkan rawatan perubatan segera.",
+              "Pelajari tanda amaran yang mungkin memerlukan perhatian perubatan.",
             submodules: {
               introduction: {
                 title: "Pengenalan",
-                description: "Gambaran keseluruhan tanda amaran yang tidak boleh diabaikan.",
+                description: "Mengenal pasti tanda amaran lebih awal.",
                 content:
-                  "Pesakit dengan kegagalan jantung perlu mengetahui tanda amaran yang mungkin menunjukkan keadaan mereka semakin teruk. Pengesanan awal boleh membantu mencegah komplikasi serius dan menyokong rawatan yang lebih cepat."
+                  "Simptom kegagalan jantung boleh menjadi teruk dengan cepat. Pesakit perlu mengetahui tanda amaran dan mendapatkan nasihat perubatan apabila simptom menjadi serius.",
               },
               shortnessOfBreath: {
-                title: "Sesak nafas",
-                description: "Bila sesak nafas bermaksud anda perlu mendapatkan bantuan.",
+                title: "Sesak Nafas",
+                description: "Kesukaran bernafas sebagai tanda amaran.",
                 content:
-                  "Sesak nafas yang menjadi lebih teruk, berlaku secara tiba-tiba, atau berlaku walaupun ketika berehat mungkin merupakan tanda bahawa kegagalan jantung semakin teruk. Jika ini berlaku, pesakit perlu mendapatkan nasihat perubatan dengan cepat, terutamanya jika simptom itu baru atau jauh lebih teruk daripada biasa."
+                  "Sesak nafas ketika berehat, semasa baring, atau secara tiba-tiba pada waktu malam mungkin menjadi tanda bahawa kegagalan jantung semakin teruk.",
               },
               chestPain: {
-                title: "Sakit dada",
-                description: "Bila sakit dada memerlukan perhatian perubatan segera.",
+                title: "Sakit Dada",
+                description: "Sakit dada tidak boleh diabaikan.",
                 content:
-                  "Sakit dada tidak boleh diabaikan. Ia mungkin petanda masalah jantung yang serius dan memerlukan perhatian perubatan segera. Pesakit perlu mendapatkan bantuan kecemasan jika sakit dada teruk, berlaku secara tiba-tiba, atau disertai simptom membimbangkan yang lain."
+                  "Sakit dada, rasa ketat, atau tekanan pada dada mungkin serius. Pesakit perlu mendapatkan bantuan perubatan segera jika sakit dada berlaku.",
               },
               rapidWeightGain: {
-                title: "Pertambahan berat badan yang cepat",
-                description: "Tanda utama pengekalan cecair.",
+                title: "Kenaikan Berat Badan Mendadak",
+                description: "Kenaikan berat badan mendadak mungkin menunjukkan penahanan cecair.",
                 content:
-                  "Pertambahan berat badan yang cepat dalam tempoh singkat mungkin menunjukkan pengekalan cecair. Pemantauan berat badan harian boleh membantu mengesan perubahan awal. Pesakit perlu melaporkan peningkatan berat badan yang luar biasa kepada penyedia penjagaan kesihatan mereka."
+                  "Kenaikan berat badan secara tiba-tiba mungkin menunjukkan badan menyimpan cecair. Pesakit perlu merekod berat badan setiap hari dan melaporkan perubahan yang luar biasa.",
               },
               swellingLegs: {
-                title: "Bengkak pada kaki atau buku lali",
-                description: "Kemungkinan tanda pengumpulan cecair.",
+                title: "Bengkak pada Kaki atau Buku Lali",
+                description: "Bengkak mungkin menunjukkan pengumpulan cecair.",
                 content:
-                  "Bengkak pada kaki, buku lali, atau tapak kaki mungkin disebabkan oleh pengumpulan cecair. Jika bengkak menjadi lebih teruk, muncul secara tiba-tiba, atau dikaitkan dengan simptom lain yang semakin teruk, nasihat perubatan perlu diperoleh."
-              }
-            }
-          }
-        }
+                  "Bengkak pada kaki, buku lali, tapak kaki, atau abdomen mungkin disebabkan oleh pengumpulan cecair dan perlu dipantau dengan teliti.",
+              },
+            },
+          },
+        },
       },
+
 
       helpSupport: {
         title: "Bantuan & Sokongan",
         subtitle: "Dapatkan bantuan, panduan kecemasan dan sokongan penggunaan MyHFGuard.",
 
+
         aboutTitle: "Tentang MyHFGuard",
         aboutBody: "MyHFGuard membantu pesakit kegagalan jantung memantau simptom, mengurus peringatan, merekod data kesihatan harian dan mempelajari penjagaan diri dengan lebih mudah.",
+
 
         contactUs: "Hubungi Kami",
         needHelp: "Pilih kaedah bantuan yang sesuai di bawah.",
 
+
         emergencyContact: "Hubungan Kecemasan",
         emergencyBody: "Jika anda mengalami sesak nafas teruk, sakit dada, pengsan atau keadaan kecemasan lain, sila hubungi perkhidmatan kecemasan dengan segera. Jangan bergantung pada aplikasi ini untuk rawatan segera.",
+
 
         supportTitle: "Sokongan Emel",
         supportBody: "Untuk masalah teknikal atau sokongan sistem, sila hubungi pasukan sokongan MyHFGuard melalui emel.",
 
+
         whatsappTitle: "Sokongan WhatsApp",
         whatsappBody: "Untuk komunikasi pantas, anda juga boleh menghubungi sokongan melalui WhatsApp.",
+
 
         callButton: "Hubungi Kecemasan (999)",
         emailButton: "Emel Sokongan",
         whatsappButton: "Buka WhatsApp",
 
+
         disclaimer: "Aplikasi ini hanya untuk sokongan penjagaan diri dan tidak menggantikan nasihat, diagnosis atau rawatan perubatan profesional."
       },
+
 
       medication: {
         title: "Ubat",
@@ -992,6 +1239,7 @@ const resources = {
         addMedication: "Tambah Ubat",
       },
 
+
       aiAssistant: {
         title: "Pembantu AI",
         subtitle: "Tanya soalan tentang simptom anda dan penjagaan kegagalan jantung",
@@ -999,9 +1247,11 @@ const resources = {
         send: "Hantar",
       },
 
+
       waterDiet: {
           title: "Air & Diet Garam Rendah Saya",
           subtitle: "Sila hantar setiap hari atau sekurang-kurangnya 3 kali seminggu.",
+
 
           toast: {
             unableSession: "Tidak dapat memuatkan sesi",
@@ -1010,6 +1260,7 @@ const resources = {
             saved: "Air dan diet garam rendah berjaya disimpan",
             failed: "Gagal menyimpan rekod",
           },
+
 
           weekly: {
             title: "Status Penjejakan Mingguan",
@@ -1021,6 +1272,7 @@ const resources = {
             needMore: "Perlukan Lebih Entri",
           },
 
+
           waterCard: {
             title: "Pengambilan Air Saya",
             limitLabel: "Had Air Doktor (ml)",
@@ -1030,16 +1282,19 @@ const resources = {
             limitText: "Had",
           },
 
+
           waterStatus: {
             green: "Dalam Julat",
             orange: "Sedikit Melebihi Julat",
             red: "Melebihi Had",
           },
 
+
           saltCard: {
             title: "Diet Garam Rendah Saya",
             dailyScore: "Skor Garam Harian",
           },
+
 
           saltOptions: {
             natural: "Semula Jadi / Garam Rendah",
@@ -1047,11 +1302,13 @@ const resources = {
             high: "Garam Tinggi",
           },
 
+
           saltStatus: {
             green: "Garam Rendah",
             orange: "Garam Sederhana",
             red: "Garam Tinggi",
           },
+
 
           meals: {
             breakfast: "Sarapan",
@@ -1059,10 +1316,12 @@ const resources = {
             dinner: "Makan Malam",
           },
 
+
           buttons: {
             saving: "Menyimpan...",
             save: "Simpan Entri Hari Ini",
           },
+
 
           summary: {
             title: "Ringkasan Terkini",
@@ -1072,6 +1331,7 @@ const resources = {
             saltStatus: "Status Garam",
           },
 
+
           charts: {
             waterGraph: "Graf Pengambilan Air",
             saltGraph: "Graf Diet Garam Rendah",
@@ -1080,14 +1340,69 @@ const resources = {
             saltBar: "Skor Garam",
           },
 
+
           error: {
             loadTitle: "Gagal memuatkan data air dan garam.",
             loadDesc: "Sila pastikan jadual water_salt_logs wujud dalam Supabase dan polisi RLS telah ditambah.",
           },
         },
+
+
+      profile: {
+        myProfile: "Profil Saya",
+        profileDesc: "Urus maklumat peribadi, kesihatan dan pilihan aplikasi anda.",
+        baselineLocked: "Data Asas Dikunci",
+        baselineNotice:
+          "Data asas kesihatan anda telah dikunci. Anda masih boleh mengemas kini ubat-ubatan dan pilihan bahasa.",
+        personalInformation: "Maklumat Peribadi",
+        fullName: "Nama Penuh",
+        enterFullName: "Masukkan nama penuh",
+        age: "Umur",
+        enterAge: "Masukkan umur",
+        icNumber: "Nombor IC",
+        enterIcNumber: "Masukkan nombor IC",
+        preferences: "Pilihan",
+        language: "Bahasa",
+        useTopLanguageButton:
+          "gunakan butang bahasa di bahagian atas untuk menukar bahasa seluruh aplikasi.",
+        baselineHealthData: "Data Kesihatan Asas",
+        bloodPressureSystolic: "Tekanan Darah Sistolik",
+        bloodPressureDiastolic: "Tekanan Darah Diastolik",
+        heartRate: "Kadar Denyutan Jantung",
+        dryWeight: "Berat Kering",
+        height: "Tinggi",
+        bmi: "BMI",
+        currentMedication: "Ubat Semasa",
+        enterCurrentMedication: "Masukkan ubat semasa",
+        saveProfile: "Simpan Profil",
+        saving: "Sedang menyimpan...",
+        loadingProfile: "Sedang memuatkan profil...",
+        autoCalculated: "Dikira secara automatik",
+        systolicPlaceholder: "cth. 120",
+        diastolicPlaceholder: "cth. 80",
+        heartRatePlaceholder: "cth. 72",
+        dryWeightPlaceholder: "cth. 60",
+        heightPlaceholder: "cth. 160",
+        userSessionNotFound: "Sesi pengguna tidak dijumpai. Sila log masuk semula.",
+        failedToSaveProfile: "Gagal menyimpan profil.",
+        profileSavedSuccessfully: "Profil berjaya disimpan!",
+        somethingWentWrongSaving: "Sesuatu berlaku semasa menyimpan profil.",
+      },
+
+
+    coin: {
+      coinCollection: "Koleksi Syiling",
+      coinsEarnedFromEducationVideos: "Syiling diperoleh daripada video pendidikan",
+      refreshCoins: "Segar Semula Syiling",
+      refreshing: "Sedang menyegar semula...",
+      failedToRefreshCoins: "Gagal menyegar semula syiling.",
     },
+    },
+
+
   },
 }
+
 
 i18n.use(initReactI18next).init({
   resources,
@@ -1098,4 +1413,6 @@ i18n.use(initReactI18next).init({
   },
 })
 
+
 export default i18n
+
