@@ -213,13 +213,20 @@ export default function VitalsTracker() {
       }
     }
   }
-
+  
   useEffect(() => {
     return () => {
       stopCamera()
     }
   }, [])
 
+  const formatMalaysiaTime = (time?: string) => {
+    if (!time) return "-"
+    return new Date(time).toLocaleString("en-MY", {
+      timeZone: "Asia/Kuala_Lumpur",
+    })
+  }
+  
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
       <div className="flex items-center justify-between mb-6">
@@ -328,7 +335,7 @@ export default function VitalsTracker() {
                       <div>
                         <h3 className="font-semibold">Verify & Edit Values</h3>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Recorded: {new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}
+                            Recording at: {formatMalaysiaTime(new Date().toISOString())}
                         </p>
                       </div>
 
@@ -374,7 +381,7 @@ export default function VitalsTracker() {
                 <form onSubmit={handleManualSubmit} className="space-y-4">
                   <div>
                     <p className="text-xs text-muted-foreground">
-                      Recording at: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
+                        Recording at: {formatMalaysiaTime(new Date().toISOString())}
                     </p>
                   </div>
 

@@ -58,7 +58,11 @@ const RecentReadings: React.FC<Props> = ({ patientId }) => {
             >
               <div className="flex items-center justify-between">
                 {getIcon(r.type)}
-                <span className="text-xs text-muted-foreground">{formatTimeHM(r.time)}</span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(r.time).toLocaleString("en-MY", {
+                    timeZone: "Asia/Kuala_Lumpur",
+                  })}
+                </span>
               </div>
               <div>
                 <div className="text-lg font-bold">{r.value}</div>
