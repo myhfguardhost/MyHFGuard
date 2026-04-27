@@ -448,8 +448,10 @@ export default function VitalsTracker() {
                     <div className="flex justify-between items-start mb-1">
                       <span className="font-medium capitalize">{event.type.replace("_", " ")}</span>
                       <div className="text-xs text-muted-foreground text-right">
-                        <div>{new Date(event.created_at).toLocaleDateString()}</div>
-                        <div>{new Date(event.created_at).toLocaleTimeString()}</div>
+                        <div>{new Date(event.created_at).toLocaleString("en-MY", {
+                          timeZone: "Asia/Kuala_Lumpur",
+                          hour12: true,})}
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-sm">
