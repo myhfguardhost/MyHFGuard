@@ -52,7 +52,13 @@ export default function SymptomChecker() {
       const userId = data?.session?.user?.id
       if (!userId) return
 
-      setPatientId(userId)
+      const { data: patientData } = await supabase
+        .from("patients")
+        .select("patient_id")
+        .eq("user_id", userId)
+        .maybeSingle()
+
+      setPatientId(patientData?.patient_id || userId)
 
       const { data: profileData } = await supabase
         .from("profiles")
@@ -160,12 +166,13 @@ export default function SymptomChecker() {
       setMessages((prev) => [...prev, assistantMessage])
     } catch (err: any) {
       console.error("[My Chat] AI failed:", err)
-      toast.error(err?.message || getText("aiResponseFailed", "Failed to get response. Please try again."))
+      toast.error("AI is currently busy. Please try again shortly.")
 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `AI error: ${err?.message || "Unknown error"}`,
+        content:
+          "AI is currently busy. Please try again shortly.\n\nIf you have chest pain, severe shortness of breath, fainting or stroke symptoms, please seek emergency help immediately.",
         timestamp: new Date().toISOString(),
       }
 
