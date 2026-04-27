@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ChangeEvent } from "react"
 import { useNavigate } from "react-router-dom"
-import { useLanguage } from "@/contexts/LanguageContext"
 import {
   User,
   HeartPulse,
@@ -10,8 +9,10 @@ import {
   Lock,
   RefreshCw,
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
+
 import { supabase } from "@/lib/supabase"
-import { getUserCoins } from "../lib/coinService"
+import { getUserCoins } from "@/lib/coinService"
 
 type ProfileForm = {
   fullName: string
@@ -27,11 +28,13 @@ type ProfileForm = {
   coins: number
 }
 
-
 const Profile = () => {
   const navigate = useNavigate()
-  const { setLanguage, t } = useLanguage()
+  const { t, i18n } = useTranslation()
 
+  const getCurrentProfileLanguage = (): "BM" | "BI" => {
+    return i18n.language === "ms" ? "BM" : "BI"
+  }
 
   const [form, setForm] = useState<ProfileForm>({
     fullName: "",
@@ -43,7 +46,7 @@ const Profile = () => {
     dryWeight: "",
     height: "",
     currentMedication: "",
-    language: "BI",
+    language: getCurrentProfileLanguage(),
     coins: 0,
   })
 
@@ -72,7 +75,17 @@ const Profile = () => {
 
   useEffect(() => {
     loadProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      language: getCurrentProfileLanguage(),
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language])
 
 
   const loadProfile = async () => {
@@ -115,7 +128,7 @@ const Profile = () => {
           dryWeight: data.dry_weight?.toString() || "",
           height: data.height?.toString() || "",
           currentMedication: data.current_medication || "",
-          language: data.language === "BM" ? "BM" : "BI",
+          language: getCurrentProfileLanguage(),
           coins: data.coins || 0,
         })
 
@@ -147,7 +160,7 @@ const Profile = () => {
       }))
     } catch (error) {
       console.error("Refresh coins error:", error)
-      alert("Failed to refresh coins.")
+      alert(t("coin.failedToRefreshCoins"))
     } finally {
       setRefreshingCoins(false)
     }
@@ -155,9 +168,7 @@ const Profile = () => {
 
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
 
@@ -179,12 +190,13 @@ const Profile = () => {
 
 
       if (!user) {
-        alert("User session not found. Please log in again.")
+        alert(t("profile.userSessionNotFound"))
         return
       }
 
 
       const latestCoins = await getUserCoins().catch(() => form.coins)
+      const currentLanguage = getCurrentProfileLanguage()
 
 
       const profileData = {
@@ -199,7 +211,7 @@ const Profile = () => {
         height: form.height ? Number(form.height) : null,
         bmi: bmi ? Number(bmi) : null,
         current_medication: form.currentMedication,
-        language: form.language,
+        language: currentLanguage,
         coins: latestCoins,
         profile_completed: true,
         baseline_locked: true,
@@ -214,7 +226,7 @@ const Profile = () => {
 
       if (error) {
         console.error("Save profile error:", error)
-        alert("Failed to save profile.")
+        alert(t("profile.failedToSaveProfile"))
         return
       }
 
@@ -222,19 +234,19 @@ const Profile = () => {
       setForm((prev) => ({
         ...prev,
         coins: latestCoins,
+        language: currentLanguage,
       }))
 
 
       localStorage.setItem("profileCompleted", "true")
-      setLanguage(form.language)
       setIsLocked(true)
 
 
-      alert("Profile saved successfully!")
+      alert(t("profile.profileSavedSuccessfully"))
       navigate("/")
     } catch (err) {
       console.error("Unexpected profile save error:", err)
-      alert("Something went wrong while saving profile.")
+      alert(t("profile.somethingWentWrongSaving"))
     } finally {
       setSaving(false)
     }
@@ -248,7 +260,7 @@ const Profile = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground px-6 py-8 flex items-center justify-center">
-        <div className="text-lg font-medium">Loading profile...</div>
+        <div className="text-lg font-medium">{t("profile.loadingProfile")}</div>
       </div>
     )
   }
@@ -259,15 +271,17 @@ const Profile = () => {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-bold">{t("myProfile")}</h1>
-            <p className="text-muted-foreground mt-2">{t("profileDesc")}</p>
+            <h1 className="text-4xl font-bold">{t("profile.myProfile")}</h1>
+            <p className="text-muted-foreground mt-2">
+              {t("profile.profileDesc")}
+            </p>
           </div>
 
 
           {isLocked && (
             <div className="inline-flex items-center gap-2 rounded-xl bg-cyan-500/10 border border-cyan-400/20 px-4 py-2 text-cyan-600 dark:text-cyan-300">
               <Lock className="w-4 h-4" />
-              {t("baselineLocked")}
+              {t("profile.baselineLocked")}
             </div>
           )}
         </div>
@@ -275,8 +289,7 @@ const Profile = () => {
 
         {isLocked && (
           <div className="mb-6 rounded-2xl bg-yellow-500/10 border border-yellow-400/20 px-5 py-4 text-yellow-700 dark:text-yellow-200">
-            {t("baselineNotice")} You can still update your medication and
-            language preference.
+            {t("profile.baselineNotice")}
           </div>
         )}
 
@@ -287,7 +300,7 @@ const Profile = () => {
             <div className="flex items-center gap-3 mb-5">
               <User className="w-6 h-6 text-cyan-500" />
               <h2 className="text-2xl font-semibold">
-                {t("personalInformation")}
+                {t("profile.personalInformation")}
               </h2>
             </div>
 
@@ -295,7 +308,7 @@ const Profile = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("fullName")}
+                  {t("profile.fullName")}
                 </label>
                 <input
                   type="text"
@@ -303,7 +316,7 @@ const Profile = () => {
                   value={form.fullName}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder={t("enterFullName")}
+                  placeholder={t("profile.enterFullName")}
                   className={baselineInputClass}
                 />
               </div>
@@ -311,7 +324,7 @@ const Profile = () => {
 
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("age")}
+                  {t("profile.age")}
                 </label>
                 <input
                   type="number"
@@ -319,7 +332,7 @@ const Profile = () => {
                   value={form.age}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder={t("enterAge")}
+                  placeholder={t("profile.enterAge")}
                   className={baselineInputClass}
                 />
               </div>
@@ -327,7 +340,7 @@ const Profile = () => {
 
               <div className="md:col-span-2">
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("icNumber")}
+                  {t("profile.icNumber")}
                 </label>
                 <input
                   type="text"
@@ -335,7 +348,7 @@ const Profile = () => {
                   value={form.ic}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder={t("enterIcNumber")}
+                  placeholder={t("profile.enterIcNumber")}
                   className={baselineInputClass}
                 />
               </div>
@@ -347,20 +360,23 @@ const Profile = () => {
           <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
               <Coins className="w-6 h-6 text-yellow-500" />
-              <h2 className="text-2xl font-semibold">{t("preferences")}</h2>
+              <h2 className="text-2xl font-semibold">
+                {t("profile.preferences")}
+              </h2>
             </div>
 
 
             <div className="space-y-4">
               <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                {t("language")} {form.language === "BM" ? "BM" : "EN"} — use
-                the top language button to switch the whole app.
+                {t("profile.language")}{" "}
+                {i18n.language === "ms" ? "BM" : "EN"} —{" "}
+                {t("profile.useTopLanguageButton")}
               </div>
 
 
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("coinCollection")}
+                  {t("coin.coinCollection")}
                 </label>
 
 
@@ -370,8 +386,10 @@ const Profile = () => {
                       <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-300">
                         {form.coins}
                       </div>
+
+
                       <div className="text-sm text-muted-foreground">
-                        Coins earned from education videos
+                        {t("coin.coinsEarnedFromEducationVideos")}
                       </div>
                     </div>
 
@@ -387,7 +405,9 @@ const Profile = () => {
                     className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-yellow-400/30 bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    {refreshingCoins ? "Refreshing..." : "Refresh Coins"}
+                    {refreshingCoins
+                      ? t("coin.refreshing")
+                      : t("coin.refreshCoins")}
                   </button>
                 </div>
               </div>
@@ -400,7 +420,7 @@ const Profile = () => {
             <div className="flex items-center gap-3 mb-5">
               <HeartPulse className="w-6 h-6 text-red-500" />
               <h2 className="text-2xl font-semibold">
-                {t("baselineHealthData")}
+                {t("profile.baselineHealthData")}
               </h2>
             </div>
 
@@ -408,7 +428,7 @@ const Profile = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("bloodPressureSystolic")}
+                  {t("profile.bloodPressureSystolic")}
                 </label>
                 <input
                   type="number"
@@ -416,7 +436,7 @@ const Profile = () => {
                   value={form.systolicBP}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder="e.g. 120"
+                  placeholder={t("profile.systolicPlaceholder")}
                   className={baselineInputClass}
                 />
               </div>
@@ -424,7 +444,7 @@ const Profile = () => {
 
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("bloodPressureDiastolic")}
+                  {t("profile.bloodPressureDiastolic")}
                 </label>
                 <input
                   type="number"
@@ -432,7 +452,7 @@ const Profile = () => {
                   value={form.diastolicBP}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder="e.g. 80"
+                  placeholder={t("profile.diastolicPlaceholder")}
                   className={baselineInputClass}
                 />
               </div>
@@ -440,7 +460,7 @@ const Profile = () => {
 
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("heartRate")}
+                  {t("profile.heartRate")}
                 </label>
                 <input
                   type="number"
@@ -448,7 +468,7 @@ const Profile = () => {
                   value={form.heartRate}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder="e.g. 72"
+                  placeholder={t("profile.heartRatePlaceholder")}
                   className={baselineInputClass}
                 />
               </div>
@@ -456,7 +476,7 @@ const Profile = () => {
 
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("dryWeight")}
+                  {t("profile.dryWeight")}
                 </label>
                 <input
                   type="number"
@@ -465,7 +485,7 @@ const Profile = () => {
                   value={form.dryWeight}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder="e.g. 60"
+                  placeholder={t("profile.dryWeightPlaceholder")}
                   className={baselineInputClass}
                 />
               </div>
@@ -473,7 +493,7 @@ const Profile = () => {
 
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("height")}
+                  {t("profile.height")}
                 </label>
                 <input
                   type="number"
@@ -482,7 +502,7 @@ const Profile = () => {
                   value={form.height}
                   onChange={handleChange}
                   disabled={isLocked}
-                  placeholder="e.g. 160"
+                  placeholder={t("profile.heightPlaceholder")}
                   className={baselineInputClass}
                 />
               </div>
@@ -490,10 +510,10 @@ const Profile = () => {
 
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
-                  {t("bmi")}
+                  {t("profile.bmi")}
                 </label>
                 <div className="rounded-xl bg-cyan-500/10 border border-cyan-400/20 px-4 py-3 text-cyan-600 dark:text-cyan-300 font-semibold">
-                  {bmi || "Auto calculated"}
+                  {bmi || t("profile.autoCalculated")}
                 </div>
               </div>
             </div>
@@ -505,7 +525,7 @@ const Profile = () => {
             <div className="flex items-center gap-3 mb-5">
               <Pill className="w-6 h-6 text-green-500" />
               <h2 className="text-2xl font-semibold">
-                {t("currentMedication")}
+                {t("profile.currentMedication")}
               </h2>
             </div>
 
@@ -515,7 +535,7 @@ const Profile = () => {
               value={form.currentMedication}
               onChange={handleChange}
               rows={10}
-              placeholder={t("enterCurrentMedication")}
+              placeholder={t("profile.enterCurrentMedication")}
               className="w-full rounded-xl bg-background border border-border px-4 py-3 text-foreground outline-none focus:border-cyan-400 resize-none"
             />
           </div>
@@ -529,7 +549,7 @@ const Profile = () => {
             className="inline-flex items-center gap-2 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed text-[#02142f] font-semibold px-6 py-3 rounded-xl transition"
           >
             <Save className="w-5 h-5" />
-            {saving ? "Saving..." : t("saveProfile")}
+            {saving ? t("profile.saving") : t("profile.saveProfile")}
           </button>
         </div>
       </div>
@@ -537,6 +557,4 @@ const Profile = () => {
   )
 }
 
-
 export default Profile
-

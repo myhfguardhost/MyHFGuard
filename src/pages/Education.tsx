@@ -19,7 +19,7 @@ import {
   rewardUserForVideo,
   hasVideoReward,
   VIDEO_REWARD_COINS,
-} from "../lib/coinService"
+} from "@/lib/coinService"
 
 
 type Submodule = {
@@ -42,8 +42,8 @@ type ModuleType = {
 
 type EducationVideo = {
   id: string
-  title: string
-  description: string
+  titleKey: string
+  descriptionKey: string
   videoUrl: string
 }
 
@@ -51,23 +51,20 @@ type EducationVideo = {
 const educationVideos: EducationVideo[] = [
   {
     id: "heart-failure-basic",
-    title: "Understanding Heart Failure",
-    description:
-      "Learn the basic meaning of heart failure, common symptoms, and why daily monitoring is important.",
+    titleKey: "education.videos.heartFailureBasic.title",
+    descriptionKey: "education.videos.heartFailureBasic.description",
     videoUrl: "https://www.youtube.com/embed/9fxm85Fy4sQ",
   },
   {
     id: "low-salt-diet",
-    title: "Low Salt Diet Guide",
-    description:
-      "Learn why reducing salt intake is important for heart failure patients.",
+    titleKey: "education.videos.lowSaltDiet.title",
+    descriptionKey: "education.videos.lowSaltDiet.description",
     videoUrl: "https://www.youtube.com/embed/3gD2aJgNnuk",
   },
   {
     id: "fluid-management",
-    title: "Fluid Intake Management",
-    description:
-      "Learn why heart failure patients may need to control daily water and fluid intake.",
+    titleKey: "education.videos.fluidManagement.title",
+    descriptionKey: "education.videos.fluidManagement.description",
     videoUrl: "https://www.youtube.com/embed/qJq5hA4pnOk",
   },
 ]
@@ -85,7 +82,8 @@ const modules: ModuleType[] = [
         titleKey: "education.modules.A.submodules.introduction.title",
         descriptionKey: "education.modules.A.submodules.introduction.description",
         contentKey: "education.modules.A.submodules.introduction.content",
-        sourceUrl: "https://www.heartfailurematters.org/understanding-heart-failure/",
+        sourceUrl:
+          "https://www.heartfailurematters.org/understanding-heart-failure/",
       },
       {
         titleKey: "education.modules.A.submodules.whatIsHF.title",
@@ -133,15 +131,18 @@ const modules: ModuleType[] = [
       },
       {
         titleKey: "education.modules.B.submodules.commonHeartConditions.title",
-        descriptionKey: "education.modules.B.submodules.commonHeartConditions.description",
+        descriptionKey:
+          "education.modules.B.submodules.commonHeartConditions.description",
         contentKey: "education.modules.B.submodules.commonHeartConditions.content",
         sourceUrl:
           "https://www.heartfailurematters.org/heart-failure-causes-and-other-common-medical-conditions/common-heart-conditions-that-may-cause-heart-failure/",
       },
       {
         titleKey: "education.modules.B.submodules.otherMedicalConditions.title",
-        descriptionKey: "education.modules.B.submodules.otherMedicalConditions.description",
-        contentKey: "education.modules.B.submodules.otherMedicalConditions.content",
+        descriptionKey:
+          "education.modules.B.submodules.otherMedicalConditions.description",
+        contentKey:
+          "education.modules.B.submodules.otherMedicalConditions.content",
         sourceUrl:
           "https://www.heartfailurematters.org/heart-failure-causes-and-other-common-medical-conditions/other-common-medical-conditions-and-heart-failure/",
       },
@@ -162,28 +163,32 @@ const modules: ModuleType[] = [
       },
       {
         titleKey: "education.modules.C.submodules.bloodPressurePulse.title",
-        descriptionKey: "education.modules.C.submodules.bloodPressurePulse.description",
+        descriptionKey:
+          "education.modules.C.submodules.bloodPressurePulse.description",
         contentKey: "education.modules.C.submodules.bloodPressurePulse.content",
         sourceUrl:
           "https://www.heartfailurematters.org/what-you-can-do/how-to-measure-your-blood-pressure-and-heart-rate/",
       },
       {
         titleKey: "education.modules.C.submodules.lifestyleChanges.title",
-        descriptionKey: "education.modules.C.submodules.lifestyleChanges.description",
+        descriptionKey:
+          "education.modules.C.submodules.lifestyleChanges.description",
         contentKey: "education.modules.C.submodules.lifestyleChanges.content",
         sourceUrl:
           "https://www.heartfailurematters.org/what-you-can-do/lifestyle-changes/",
       },
       {
         titleKey: "education.modules.C.submodules.managingMedicines.title",
-        descriptionKey: "education.modules.C.submodules.managingMedicines.description",
+        descriptionKey:
+          "education.modules.C.submodules.managingMedicines.description",
         contentKey: "education.modules.C.submodules.managingMedicines.content",
         sourceUrl:
           "https://www.heartfailurematters.org/what-you-can-do/taking-your-medication/",
       },
       {
         titleKey: "education.modules.C.submodules.supportGroups.title",
-        descriptionKey: "education.modules.C.submodules.supportGroups.description",
+        descriptionKey:
+          "education.modules.C.submodules.supportGroups.description",
         contentKey: "education.modules.C.submodules.supportGroups.content",
         sourceUrl:
           "https://www.heartfailurematters.org/what-you-can-do/finding-support-groups-and-other-useful-organisations/",
@@ -201,7 +206,8 @@ const modules: ModuleType[] = [
         titleKey: "education.modules.D.submodules.introduction.title",
         descriptionKey: "education.modules.D.submodules.introduction.description",
         contentKey: "education.modules.D.submodules.introduction.content",
-        sourceUrl: "https://www.heartfailurematters.org/living-with-heart-failure/",
+        sourceUrl:
+          "https://www.heartfailurematters.org/living-with-heart-failure/",
       },
       {
         titleKey: "education.modules.D.submodules.travel.title",
@@ -219,7 +225,8 @@ const modules: ModuleType[] = [
       },
       {
         titleKey: "education.modules.D.submodules.workAdjustments.title",
-        descriptionKey: "education.modules.D.submodules.workAdjustments.description",
+        descriptionKey:
+          "education.modules.D.submodules.workAdjustments.description",
         contentKey: "education.modules.D.submodules.workAdjustments.content",
         sourceUrl:
           "https://www.heartfailurematters.org/living-with-heart-failure/working/",
@@ -262,14 +269,16 @@ const modules: ModuleType[] = [
       },
       {
         titleKey: "education.modules.E.submodules.financialConcerns.title",
-        descriptionKey: "education.modules.E.submodules.financialConcerns.description",
+        descriptionKey:
+          "education.modules.E.submodules.financialConcerns.description",
         contentKey: "education.modules.E.submodules.financialConcerns.content",
         sourceUrl:
           "https://www.heartfailurematters.org/for-caregivers/financial-concerns/",
       },
       {
         titleKey: "education.modules.E.submodules.supportServices.title",
-        descriptionKey: "education.modules.E.submodules.supportServices.description",
+        descriptionKey:
+          "education.modules.E.submodules.supportServices.description",
         contentKey: "education.modules.E.submodules.supportServices.content",
         sourceUrl:
           "https://www.heartfailurematters.org/for-caregivers/finding-support/",
@@ -291,7 +300,8 @@ const modules: ModuleType[] = [
       },
       {
         titleKey: "education.modules.H.submodules.shortnessOfBreath.title",
-        descriptionKey: "education.modules.H.submodules.shortnessOfBreath.description",
+        descriptionKey:
+          "education.modules.H.submodules.shortnessOfBreath.description",
         contentKey: "education.modules.H.submodules.shortnessOfBreath.content",
         sourceUrl:
           "https://www.heartfailurematters.org/warning-signs/shortness-of-breath/",
@@ -305,14 +315,16 @@ const modules: ModuleType[] = [
       },
       {
         titleKey: "education.modules.H.submodules.rapidWeightGain.title",
-        descriptionKey: "education.modules.H.submodules.rapidWeightGain.description",
+        descriptionKey:
+          "education.modules.H.submodules.rapidWeightGain.description",
         contentKey: "education.modules.H.submodules.rapidWeightGain.content",
         sourceUrl:
           "https://www.heartfailurematters.org/warning-signs/rapid-weight-gain/",
       },
       {
         titleKey: "education.modules.H.submodules.swellingLegs.title",
-        descriptionKey: "education.modules.H.submodules.swellingLegs.description",
+        descriptionKey:
+          "education.modules.H.submodules.swellingLegs.description",
         contentKey: "education.modules.H.submodules.swellingLegs.content",
         sourceUrl:
           "https://www.heartfailurematters.org/warning-signs/swelling-in-legs-or-ankles/",
@@ -334,20 +346,37 @@ type SelectedContent = {
 
 export default function Education() {
   const { t } = useTranslation()
+
+
   const [query, setQuery] = React.useState("")
   const [openModule, setOpenModule] = React.useState<string | null>(null)
   const [selectedContent, setSelectedContent] =
     React.useState<SelectedContent | null>(null)
 
 
-  const [selectedVideoId, setSelectedVideoId] = React.useState<string | null>(null)
+  const [selectedVideoId, setSelectedVideoId] = React.useState<string | null>(
+    null
+  )
   const [watchSeconds, setWatchSeconds] = React.useState(0)
-  const [rewardedVideos, setRewardedVideos] = React.useState<Record<string, boolean>>({})
-  const [claimingVideoId, setClaimingVideoId] = React.useState<string | null>(null)
+  const [rewardedVideos, setRewardedVideos] = React.useState<
+    Record<string, boolean>
+  >({})
+  const [claimingVideoId, setClaimingVideoId] = React.useState<string | null>(
+    null
+  )
   const [coinMessage, setCoinMessage] = React.useState("")
 
 
   const requiredWatchSeconds = 60
+
+
+  function getVideoSrc(videoUrl: string, shouldPlay: boolean) {
+    if (!shouldPlay) return videoUrl
+
+
+    const separator = videoUrl.includes("?") ? "&" : "?"
+    return `${videoUrl}${separator}autoplay=1&mute=1`
+  }
 
 
   React.useEffect(() => {
@@ -380,6 +409,17 @@ export default function Education() {
   }, [selectedVideoId])
 
 
+  React.useEffect(() => {
+    if (!selectedVideoId) return
+    if (watchSeconds < requiredWatchSeconds) return
+    if (rewardedVideos[selectedVideoId]) return
+    if (claimingVideoId === selectedVideoId) return
+
+
+    handleClaimReward(selectedVideoId)
+  }, [watchSeconds, selectedVideoId, rewardedVideos, claimingVideoId])
+
+
   async function loadRewardStatus() {
     const result: Record<string, boolean> = {}
 
@@ -407,18 +447,29 @@ export default function Education() {
       const result = await rewardUserForVideo(videoId)
 
 
-      setCoinMessage(result.message)
-
-
       if (result.success) {
+        setCoinMessage(
+          t("education.coinsAdded", {
+            coins: VIDEO_REWARD_COINS,
+            defaultValue: `${VIDEO_REWARD_COINS} coins added successfully!`,
+          })
+        )
+
+
         setRewardedVideos((prev) => ({
           ...prev,
           [videoId]: true,
         }))
+      } else {
+        setCoinMessage(result.message)
       }
     } catch (error) {
       console.error(error)
-      setCoinMessage("Failed to add coins. Please try again.")
+      setCoinMessage(
+        t("education.failedAddCoins", {
+          defaultValue: "Failed to add coins. Please try again.",
+        })
+      )
     } finally {
       setClaimingVideoId(null)
     }
@@ -465,6 +516,8 @@ export default function Education() {
           <h1 className="text-3xl font-bold text-foreground mb-2">
             {t("education.pageTitle")}
           </h1>
+
+
           <p className="text-muted-foreground">
             {t("education.pageDescription")}
           </p>
@@ -490,9 +543,13 @@ export default function Education() {
                   {t("education.moduleLabel")} {selectedContent.moduleId} ·{" "}
                   {selectedContent.moduleTitle}
                 </div>
+
+
                 <h2 className="text-2xl font-bold text-foreground mb-2">
                   {selectedContent.title}
                 </h2>
+
+
                 <p className="text-muted-foreground">
                   {selectedContent.description}
                 </p>
@@ -513,6 +570,8 @@ export default function Education() {
               <h3 className="font-semibold text-foreground mb-3">
                 {t("education.learningContent")}
               </h3>
+
+
               <p className="text-sm text-muted-foreground leading-7 whitespace-pre-line">
                 {selectedContent.content}
               </p>
@@ -554,34 +613,34 @@ export default function Education() {
                       <div className="text-xs font-semibold text-muted-foreground mb-1">
                         {t("education.moduleLabel")} {module.id}
                       </div>
+
+
                       <h3 className="font-bold text-xl text-foreground mb-2">
                         {moduleTitle}
                       </h3>
+
+
                       <p className="text-sm text-muted-foreground mb-4">
                         {moduleDescription}
                       </p>
 
 
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          onClick={() =>
-                            setOpenModule(isOpen ? null : module.id)
-                          }
-                          className="px-4 py-2 rounded-md border border-border text-sm font-medium flex items-center gap-2"
-                        >
-                          {isOpen ? (
-                            <>
-                              {t("education.hideSubmodules")}{" "}
-                              <ChevronUp className="w-4 h-4" />
-                            </>
-                          ) : (
-                            <>
-                              {t("education.showSubmodules")}{" "}
-                              <ChevronDown className="w-4 h-4" />
-                            </>
-                          )}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => setOpenModule(isOpen ? null : module.id)}
+                        className="px-4 py-2 rounded-md border border-border text-sm font-medium flex items-center gap-2"
+                      >
+                        {isOpen ? (
+                          <>
+                            {t("education.hideSubmodules")}
+                            <ChevronUp className="w-4 h-4" />
+                          </>
+                        ) : (
+                          <>
+                            {t("education.showSubmodules")}
+                            <ChevronDown className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -600,28 +659,28 @@ export default function Education() {
                           <h4 className="font-semibold text-foreground mb-2">
                             {subTitle}
                           </h4>
+
+
                           <p className="text-sm text-muted-foreground mb-4">
                             {subDescription}
                           </p>
 
 
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() =>
-                                setSelectedContent({
-                                  moduleId: module.id,
-                                  moduleTitle,
-                                  title: subTitle,
-                                  description: subDescription,
-                                  content: subContent,
-                                  sourceUrl: sub.sourceUrl,
-                                })
-                              }
-                              className="px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm"
-                            >
-                              {t("education.readContent")}
-                            </button>
-                          </div>
+                          <button
+                            onClick={() =>
+                              setSelectedContent({
+                                moduleId: module.id,
+                                moduleTitle,
+                                title: subTitle,
+                                description: subDescription,
+                                content: subContent,
+                                sourceUrl: sub.sourceUrl,
+                              })
+                            }
+                            className="px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm"
+                          >
+                            {t("education.readContent")}
+                          </button>
                         </Card>
                       )
                     })}
@@ -638,24 +697,34 @@ export default function Education() {
             <div className="p-3 bg-primary/10 rounded-lg">
               <BookOpen className="w-6 h-6 text-primary" />
             </div>
+
+
             <div className="flex-1">
               <h3 className="font-bold text-lg text-foreground mb-2">
                 {t("education.featuresTitle")}
               </h3>
+
+
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-center gap-2">
                   <BookOpen className="w-4 h-4 text-primary" />
                   {t("education.features.guides")}
                 </li>
+
+
                 <li className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-primary" />
                   {t("education.features.structured")}
                 </li>
+
+
                 <li className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-primary" />
                   {t("education.features.warning")}
                 </li>
               </ul>
+
+
               <p className="text-xs text-muted-foreground mt-4">
                 {t("education.featuresFooter")}
               </p>
@@ -664,20 +733,24 @@ export default function Education() {
         </Card>
 
 
-        {/* New video coin reward section */}
         <Card className="mt-8 p-6 border-yellow-200 bg-yellow-50/60">
           <div className="flex items-start gap-4 mb-6">
             <div className="p-3 bg-yellow-100 rounded-lg">
               <Coins className="w-6 h-6 text-yellow-600" />
             </div>
+
+
             <div>
               <h3 className="font-bold text-lg text-foreground mb-1">
-                Earn Coins by Watching Education Videos
+                {t("education.videoSectionTitle")}
               </h3>
+
+
               <p className="text-sm text-muted-foreground">
-                Watch a video for at least {requiredWatchSeconds} seconds to
-                claim {VIDEO_REWARD_COINS} coins. Each video can only be claimed
-                once.
+                {t("education.videoSectionDescription", {
+                  seconds: requiredWatchSeconds,
+                  coins: VIDEO_REWARD_COINS,
+                })}
               </p>
             </div>
           </div>
@@ -689,8 +762,11 @@ export default function Education() {
                 <div className="aspect-video w-full bg-black">
                   <iframe
                     className="w-full h-full"
-                    src={video.videoUrl}
-                    title={video.title}
+                    src={getVideoSrc(
+                      video.videoUrl,
+                      selectedVideoId === video.id
+                    )}
+                    title={t(video.titleKey)}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
@@ -700,12 +776,12 @@ export default function Education() {
                 <div className="p-4">
                   <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
                     <PlayCircle className="w-5 h-5 text-primary" />
-                    {video.title}
+                    {t(video.titleKey)}
                   </h4>
 
 
                   <p className="text-sm text-muted-foreground mb-4">
-                    {video.description}
+                    {t(video.descriptionKey)}
                   </p>
 
 
@@ -717,7 +793,6 @@ export default function Education() {
                     requiredWatchSeconds={requiredWatchSeconds}
                     rewardedVideos={rewardedVideos}
                     claiming={claimingVideoId === video.id}
-                    handleClaimReward={handleClaimReward}
                   />
                 </div>
               </Card>
@@ -747,7 +822,6 @@ type VideoCoinRewardProps = {
   requiredWatchSeconds: number
   rewardedVideos: Record<string, boolean>
   claiming: boolean
-  handleClaimReward: (videoId: string) => void
 }
 
 
@@ -759,8 +833,10 @@ function VideoCoinReward({
   requiredWatchSeconds,
   rewardedVideos,
   claiming,
-  handleClaimReward,
 }: VideoCoinRewardProps) {
+  const { t } = useTranslation()
+
+
   const isSelected = selectedVideoId === videoId
   const isRewarded = rewardedVideos[videoId]
 
@@ -770,24 +846,27 @@ function VideoCoinReward({
     : 0
 
 
-  const canClaim =
-    isSelected && watchSeconds >= requiredWatchSeconds && !isRewarded
-
-
   return (
     <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 space-y-3">
       <div className="flex items-center gap-2 text-sm font-medium">
         <Coins className="w-4 h-4 text-yellow-600" />
-        <span>Reward: {VIDEO_REWARD_COINS} coins</span>
+        <span>
+          {t("education.reward", {
+            coins: VIDEO_REWARD_COINS,
+          })}
+        </span>
       </div>
 
 
       {!isSelected && !isRewarded && (
         <button
           onClick={() => setSelectedVideoId(videoId)}
-          className="w-full px-4 py-2 rounded-md border border-border bg-card text-sm font-medium hover:bg-muted"
+          className="w-full px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 flex items-center justify-center gap-2"
         >
-          Start Watching for Coins
+          <PlayCircle className="w-4 h-4" />
+          {t("education.collectPointAndPlay", {
+            defaultValue: "Collect Point & Play Video",
+          })}
         </button>
       )}
 
@@ -795,10 +874,10 @@ function VideoCoinReward({
       {isSelected && !isRewarded && (
         <>
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Watching progress</span>
+            <span>{t("education.watchingProgress")}</span>
             <span>
               {Math.min(watchSeconds, requiredWatchSeconds)} /{" "}
-              {requiredWatchSeconds} seconds
+              {requiredWatchSeconds} {t("education.seconds")}
             </span>
           </div>
 
@@ -811,25 +890,21 @@ function VideoCoinReward({
           </div>
 
 
-          <button
-            disabled={!canClaim || claiming}
-            onClick={() => handleClaimReward(videoId)}
-            className="w-full px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {!canClaim ? (
-              <>
-                <Lock className="w-4 h-4" />
-                Continue Watching
-              </>
-            ) : claiming ? (
-              "Adding Coins..."
-            ) : (
+          <div className="w-full px-4 py-2 rounded-md border border-yellow-300 bg-yellow-100 text-yellow-800 text-sm font-medium flex items-center justify-center gap-2">
+            {claiming ? (
+              t("education.addingCoins")
+            ) : watchSeconds >= requiredWatchSeconds ? (
               <>
                 <Coins className="w-4 h-4" />
-                Claim {VIDEO_REWARD_COINS} Coins
+                {t("education.addingCoins")}
+              </>
+            ) : (
+              <>
+                <Lock className="w-4 h-4" />
+                {t("education.continueWatching")}
               </>
             )}
-          </button>
+          </div>
         </>
       )}
 
@@ -837,9 +912,10 @@ function VideoCoinReward({
       {isRewarded && (
         <div className="flex items-center justify-center gap-2 text-green-700 font-medium text-sm">
           <CheckCircle className="w-4 h-4" />
-          Coins already claimed
+          {t("education.coinsAlreadyClaimed")}
         </div>
       )}
     </div>
   )
 }
+
