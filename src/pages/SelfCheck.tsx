@@ -163,26 +163,10 @@ const SelfCheck = () => {
 
     async function init() {
       if (patientId) return
-
       const { data } = await supabase.auth.getSession()
-      const userId = data?.session?.user?.id
-
-      if (!userId) return
-
-      const { data: patient, error } = await supabase
-        .from("patients")
-        .select("patient_id")
-        .eq("user_id", userId)
-        .single()
-
-      if (error) {
-        console.error(error)
-        toast.error("Patient record not found")
-        return
-      }
-
+      const id = data?.session?.user?.id || undefined
       if (mounted) {
-        setPatientId(patient.patient_id)
+        setPatientId(id)
       }
     }
 
@@ -210,37 +194,20 @@ const SelfCheck = () => {
     else setActiveTab("weight")
   }, [])
 
-  async function loadStatus() {
-    if (!patientId) return
-
-    const dateStr = format(selectedDate, "yyyy-MM-dd")
-
-    const [{ data: weight }, { data: bp }, { data: symptomsData }] = await Promise.all([
-      supabase.from("weight_day").select("*").eq("patient_id", patientId).eq("date", dateStr),
-      supabase.from("bp_readings").select("*").eq("patient_id", patientId).eq("reading_date", dateStr),
-      supabase.from("symptom_log").select("*").eq("patient_id", patientId).eq("log_date", dateStr),
-    ])
-
-    setDailyStatus({
-      has_weight: (weight || []).length > 0,
-      has_bp: (bp || []).length > 0,
-      has_symptoms: (symptomsData || []).length > 0,
-    })
-  }
 
   useEffect(() => {
     if (!patientId) return
 
 
     const dateStr = format(selectedDate, "yyyy-MM-dd")
-    loadStatus()
+    getDailyStatus(patientId, dateStr).then(setDailyStatus)
+    getWeeklyStatus(patientId, format(new Date(), "yyyy-MM-dd")).then(setWeeklyStatus)
   }, [patientId, selectedDate, submitting])
 
 
   useEffect(() => {
     if (!patientId) return
     fetchEvents()
-    setDailyStatus((prev) => ({ ...prev, has_bp: true }))
   }, [patientId])
 
 
@@ -277,25 +244,8 @@ const SelfCheck = () => {
   async function fetchEvents() {
     try {
       if (!patientId) return
-
-      const { data, error } = await supabase
-        .from("bp_readings")
-        .select("*")
-        .eq("patient_id", patientId)
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
-
-      const mapped = (data || []).map((row) => ({
-        id: row.id,
-        type: "blood_pressure",
-        value_1: row.systolic,
-        value_2: row.diastolic,
-        value_3: row.pulse,
-        created_at: row.created_at,
-      }))
-
-      setEvents(mapped)
+      const dataEvents = await getHealthEvents(patientId)
+      setEvents(dataEvents || [])
     } catch (err) {
       console.error(err)
     }
@@ -323,24 +273,17 @@ const SelfCheck = () => {
     setConfirmDialog((prev) => ({ ...prev, open: false }))
     setSubmitting(true)
 
+
     try {
       const kg = parseFloat(weightKg)
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
+      const timeTs = isToday(selectedDate)
+        ? new Date().toISOString()
+        : new Date(format(selectedDate, "yyyy-MM-dd") + "T12:00:00").toISOString()
 
-      const { error } = await supabase.from("weight_day").upsert(
-        {
-          patient_id: patientId!,
-          date: dateStr,
-          kg_min: kg,
-          kg_max: kg,
-          kg_avg: kg,
-        },
-        {
-          onConflict: "patient_id,date",
-        }
-      )
 
-      if (error) throw error
+      const res = await postWeightSample({ patientId: patientId!, kg, timeTs })
+      if ((res as any)?.error) throw new Error((res as any).error)
+
 
       toast.success(t("selfCheck.toast.weightSaved"))
       setWeightKg("")
@@ -348,7 +291,9 @@ const SelfCheck = () => {
       setWeightPreviewUrl(null)
       setWeightScanResult(null)
 
-      setDailyStatus((prev) => ({ ...prev, has_weight: true }))
+
+      const dateStr = format(selectedDate, "yyyy-MM-dd")
+      getDailyStatus(patientId!, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
       toast.error(e.message || t("selfCheck.toast.weightFailed"))
@@ -398,25 +343,29 @@ const SelfCheck = () => {
     setConfirmDialog((prev) => ({ ...prev, open: false }))
     setSubmitting(true)
 
-    try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd")
 
-      const { error } = await supabase.from("symptom_log").insert({
-        patient_id: patientId!,
-        log_date: dateStr,
-        cough: symptoms.cough,
-        breathlessness: symptoms.breathlessness,
-        swelling: symptoms.swelling,
-        weight_gain: symptoms.weightGain,
-        abdomen: symptoms.abdomen,
-        sleeping: symptoms.sleeping,
+    try {
+      const timeTs = isToday(selectedDate)
+        ? new Date().toISOString()
+        : new Date(format(selectedDate, "yyyy-MM-dd") + "T12:00:00").toISOString()
+
+
+      const res = await postSymptomLog({
+        patientId: patientId!,
+        ...symptoms,
         notes: JSON.stringify(symptoms),
+        timeTs,
       })
 
-      if (error) throw error
+
+      if ((res as any)?.error) throw new Error((res as any).error)
+
 
       toast.success(t("selfCheck.toast.symptomsSaved"))
-      setDailyStatus((prev) => ({ ...prev, has_symptoms: true }))
+
+
+      const dateStr = format(selectedDate, "yyyy-MM-dd")
+      getDailyStatus(patientId!, dateStr).then(setDailyStatus)
     } catch (e: any) {
       console.error(e)
       toast.error(e.message || t("selfCheck.toast.symptomsFailed"))
@@ -508,18 +457,15 @@ const SelfCheck = () => {
 
 
     try {
-      const now = new Date()
-
-      const { error } = await supabase.from("bp_readings").insert({
-        patient_id: patientId,
-        reading_date: format(selectedDate, "yyyy-MM-dd"),
-        reading_time: format(now, "HH:mm:ss"),
-        systolic: Number(manualForm.sys),
-        diastolic: Number(manualForm.dia),
-        pulse: Number(manualForm.pulse),
-      })
-
-      if (error) throw error
+      await addManualEvent(
+        {
+          type: "blood_pressure",
+          value1: manualForm.sys,
+          value2: manualForm.dia,
+          value3: manualForm.pulse,
+        },
+        patientId
+      )
 
 
       toast.success(t("selfCheck.toast.bpSaved"))
@@ -535,7 +481,6 @@ const SelfCheck = () => {
       setSelectedImage(null)
       setPreviewUrl(null)
       fetchEvents()
-      setDailyStatus((prev) => ({ ...prev, has_bp: true }))
 
 
       const dateStr = format(selectedDate, "yyyy-MM-dd")
