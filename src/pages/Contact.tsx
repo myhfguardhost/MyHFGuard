@@ -13,7 +13,7 @@ export default function Contact() {
 
   const handleEmailSupport = () => {
     window.location.href =
-      "mailto:myhfguard.host@gmail.com?subject=MyHFGuard Support Request&body=Hello,%0D%0A%0D%0AUser Issue:%0D%0A%0D%0ADevice:%0D%0AApp Version:%0D%0AProblem:%0D%0A"
+      "mailto:myhfguard.host@gmail.com?subject=MyHFGuard Support Request&body=Hello,%0D%0A%0D%0AUser Issue:%0D%0A%0D%0AProblem:%0D%0A"
   }
 
   const handleWhatsAppSupport = () => {
