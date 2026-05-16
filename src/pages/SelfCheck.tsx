@@ -587,39 +587,31 @@ const SelfCheck = () => {
     }
   }
 
-
-  const handleManualSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
-    if (e) e.preventDefault()
-
-
-    if (!patientId) {
-      toast.error(t("selfCheck.toast.identifyUser"))
-      return
-    }
-
-
+  async function submitVitalsLog() {
+    setConfirmDialog((prev) => ({ ...prev, open: false }))
     setLoadingVitals(true)
 
-
     try {
+      const timeTs = isToday(selectedDate)
+        ? new Date().toISOString()
+        : new Date(format(selectedDate, "yyyy-MM-dd") + "T12:00:00").toISOString()
+
       await addManualEvent(
         {
           type: "blood_pressure",
           value1: manualForm.sys,
           value2: manualForm.dia,
           value3: manualForm.pulse,
+          timeTs,
         },
-        patientId
+        patientId!
       )
 
-
       toast.success(t("selfCheck.toast.bpSaved"))
-
 
       try {
         queryClient.invalidateQueries({ queryKey: ["patient-vitals"] })
       } catch (_) {}
-
 
       setManualForm({ sys: "", dia: "", pulse: "" })
       setOcrResult(null)
@@ -627,14 +619,41 @@ const SelfCheck = () => {
       setPreviewUrl(null)
       fetchEvents()
 
-
       const dateStr = format(selectedDate, "yyyy-MM-dd")
-      getDailyStatus(patientId, dateStr).then(setDailyStatus)
+      getDailyStatus(patientId!, dateStr).then(setDailyStatus)
     } catch (err: any) {
       toast.error(err.message || t("selfCheck.toast.vitalsFailed"))
     } finally {
       setLoadingVitals(false)
     }
+  }
+
+  const handleManualSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault()
+
+    if (!patientId) {
+      toast.error(t("selfCheck.toast.identifyUser"))
+      return
+    }
+
+    const sys = Number(manualForm.sys)
+    const dia = Number(manualForm.dia)
+    const pulse = Number(manualForm.pulse)
+
+    if (!sys || !dia || !pulse) {
+      toast.error("Please enter systolic, diastolic and pulse.")
+      return
+    }
+
+    setConfirmDialog({
+      open: true,
+      title: t("selfCheck.appName"),
+      desc: `Are you sure you want to submit these vital readings for ${
+        isToday(selectedDate) ? t("selfCheck.today") : format(selectedDate, "MMM d")
+      }?`,
+      action: submitVitalsLog,
+      isAlert: false,
+    })
   }
 
 
@@ -1569,8 +1588,7 @@ const SelfCheck = () => {
                                 <div>
                                   <h3 className="font-semibold">{t("selfCheck.verifyEdit")}</h3>
                                   <p className="text-xs text-muted-foreground mt-1">
-                                    {t("selfCheck.recordedAt")}: {new Date().toLocaleDateString()}{" "}
-                                    {new Date().toLocaleTimeString()}
+                                    {t("selfCheck.recordedAt")}: {format(selectedDate, "MMM d, yyyy")}
                                   </p>
                                 </div>
 
