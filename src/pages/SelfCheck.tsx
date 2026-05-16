@@ -1628,13 +1628,23 @@ const SelfCheck = () => {
                                 </div>
 
 
-                                <Button onClick={(e) => handleManualSubmit(e)} disabled={loadingVitals} className="w-full">
+                                <Button
+                                  onClick={(e) => handleManualSubmit(e)}
+                                  disabled={loadingVitals || dailyStatus.has_bp}
+                                  className="w-full"
+                                >
                                   {loadingVitals ? (
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                   ) : (
                                     t("selfCheck.saveResult")
                                   )}
                                 </Button>
+                                {dailyStatus.has_bp && (
+                                  <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium mt-3">
+                                    <Activity className="w-4 h-4" />
+                                    You have already logged vitals for today.
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1685,15 +1695,25 @@ const SelfCheck = () => {
                                 />
                               </div>
                             </div>
-
-
-                            <Button type="submit" disabled={loadingVitals} className="w-full">
+ 
+                            <Button
+                              type="submit"
+                              disabled={loadingVitals || dailyStatus.has_bp}
+                              className="w-full"
+                            >
                               {loadingVitals ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                               ) : (
                                 t("selfCheck.saveReading")
                               )}
                             </Button>
+
+                            {dailyStatus.has_bp && (
+                              <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium mt-3">
+                                <Activity className="w-4 h-4" />
+                                Vitals already recorded for {format(selectedDate, "MMM d")}.
+                              </div>
+                            )}
                           </form>
                         </TabsContent>
                       </Tabs>
