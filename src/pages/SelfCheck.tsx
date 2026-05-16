@@ -93,6 +93,7 @@ const SelfCheck = () => {
       : "weight"
   )
 
+  const [dryWeight, setDryWeight] = useState<number | null>(null)
 
   const [weightKg, setWeightKg] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
@@ -116,6 +117,7 @@ const SelfCheck = () => {
       date: string
       day: string
       weight?: number
+      dryWeight?: number
       systolic?: number
       diastolic?: number
       pulse?: number
@@ -276,6 +278,23 @@ const SelfCheck = () => {
     const endDate = selectedDate
     const startDate = subDays(endDate, 6)
 
+    let profileDryWeight: number | null = dryWeight
+
+    if (profileDryWeight === null) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("dry_weight")
+        .eq("user_id", patientId)
+        .maybeSingle()
+
+      const value = Number(profile?.dry_weight)
+
+      if (!Number.isNaN(value) && value > 0) {
+        profileDryWeight = value
+        setDryWeight(value)
+      }
+    }
+
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = addDays(startDate, i)
       const key = format(d, "yyyy-MM-dd")
@@ -284,6 +303,7 @@ const SelfCheck = () => {
         date: key,
         day: format(d, "EEE"),
         weight: undefined as number | undefined,
+        dryWeight: profileDryWeight ?? undefined,
         systolic: undefined as number | undefined,
         diastolic: undefined as number | undefined,
         pulse: undefined as number | undefined,
@@ -1009,6 +1029,16 @@ const SelfCheck = () => {
                             name="Weight (kg)"
                             stroke="#2563eb"
                             strokeWidth={2}
+                            connectNulls
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="dryWeight"
+                            name="Original Dry Weight"
+                            stroke="#64748b"
+                            strokeWidth={2}
+                            strokeDasharray="6 6"
+                            dot={false}
                             connectNulls
                           />
                         </LineChart>
