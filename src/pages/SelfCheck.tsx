@@ -1643,8 +1643,7 @@ const SelfCheck = () => {
                           <form onSubmit={handleManualSubmit} className="space-y-4">
                             <div>
                               <p className="text-xs text-muted-foreground">
-                                {t("selfCheck.recordingAt")}: {new Date().toLocaleDateString()}{" "}
-                                {new Date().toLocaleTimeString()}
+                                {t("selfCheck.recordingAt")}: {selectedDate.toLocaleDateString("en-MY")}
                               </p>
                             </div>
 
@@ -1716,10 +1715,18 @@ const SelfCheck = () => {
                                 <span className="font-medium capitalize">{event.type.replace("_", " ")}</span>
                                 <div className="text-xs text-muted-foreground text-right">
                                   <div>
-                                    {format(new Date(event.created_at), "M/d/yyyy")}
+                                    {new Date(event.created_at).toLocaleDateString("en-MY", {
+                                      timeZone: "Asia/Kuala_Lumpur",
+                                    })}
                                   </div>
+
                                   <div>
-                                    {format(new Date(event.created_at), "h:mm a")}
+                                    {new Date(event.created_at).toLocaleTimeString("en-MY", {
+                                      timeZone: "Asia/Kuala_Lumpur",
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                      hour12: true,
+                                    })}
                                   </div>
                                 </div>
                               </div>
