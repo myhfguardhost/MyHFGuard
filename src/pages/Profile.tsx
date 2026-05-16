@@ -69,7 +69,7 @@ const Profile = () => {
     const result = weight / (heightM * heightM)
 
 
-    return result.toFixed(1)
+    return result.toFixed(2) // 2 decimal places
   }, [form.dryWeight, form.height])
 
 

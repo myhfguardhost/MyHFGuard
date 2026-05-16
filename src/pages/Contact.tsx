@@ -18,7 +18,7 @@ export default function Contact() {
 
   const handleWhatsAppSupport = () => {
     window.open(
-      "https://wa.me/601XXXXXXXXX?text=Hello%20MyHFGuard%20team,%20I%20need%20help%20with%20the%20app.",
+      "https://wa.me/60127432222?text=Hello%20MyHFGuard%20team,%20I%20need%20help%20with%20the%20app.",
       "_blank"
     )
   }
