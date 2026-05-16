@@ -152,7 +152,7 @@ export function evaluateSymptomAlerts(symptoms: SymptomEntry[]): HFAlert[] {
   if (!symptoms.length) return alerts;
 
   const worseningCount = (s: SymptomEntry) =>
-    [s.cough, s.breathlessness, s.swelling, s.weightGain, s.abdomen, s.sleeping]
+    [s.breathlessness, s.swelling, s.sleeping, s.cough, s.abdomen]
       .filter(v => v >= 3).length;
 
   const sorted = [...symptoms].sort(

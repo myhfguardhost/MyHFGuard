@@ -101,12 +101,11 @@ const SelfCheck = () => {
 
 
   const [symptoms, setSymptoms] = useState<Record<string, number>>({
-    cough: 0,
     breathlessness: 0,
     swelling: 0,
-    weightGain: 0,
-    abdomen: 0,
     sleeping: 0,
+    cough: 0,
+    abdomen: 0,
   })
 
 
@@ -762,12 +761,11 @@ const SelfCheck = () => {
 
 
   const symptomList = [
-    { id: "cough", label: t("selfCheck.symptoms.cough") },
     { id: "breathlessness", label: t("selfCheck.symptoms.breathlessness") },
     { id: "swelling", label: t("selfCheck.symptoms.swelling") },
-    { id: "weightGain", label: t("selfCheck.symptoms.weightGain") },
-    { id: "abdomen", label: t("selfCheck.symptoms.abdomen") },
     { id: "sleeping", label: t("selfCheck.symptoms.sleeping") },
+    { id: "cough", label: t("selfCheck.symptoms.cough") },
+    { id: "abdomen", label: t("selfCheck.symptoms.abdomen") },
   ]
 
 

@@ -209,7 +209,7 @@ export async function postSymptomLog(payload: { patientId: string; timeTs?: stri
     cough: payload.cough ?? 0,
     breathlessness: payload.breathlessness ?? 0,
     swelling: payload.swelling ?? 0,
-    weightGain: payload.weightGain ?? 0,
+    weightGain: 0,
     abdomen: payload.abdomen ?? 0,
     sleeping: payload.sleeping ?? 0,
     notes: payload.notes || '',

@@ -90,12 +90,11 @@ const resources = {
 
 
         symptoms: {
-          cough: "Cough",
-          breathlessness: "Shortness of breath when active",
-          swelling: "Swelling of legs",
-          weightGain: "Sudden weight gain > 2kg in 3 days",
-          abdomen: "Discomfort/swelling in abdomen",
-          sleeping: "Breathless when sleeping",
+          breathlessness: "More fatigued or breathless when active",
+          swelling: "More swollen feet",
+          sleeping: "Use more pillows or sit up when sleeping",
+          cough: "Have more cough",
+          abdomen: "More discomfort/swelling in the abdomen",
           currentLevel: "Current level",
         },
 
@@ -788,12 +787,11 @@ const resources = {
 
 
         symptoms: {
-          cough: "Batuk",
-          breathlessness: "Sesak nafas semasa aktif",
-          swelling: "Bengkak kaki",
-          weightGain: "Kenaikan berat badan mendadak > 2kg dalam 3 hari",
-          abdomen: "Ketidakselesaan/bengkak pada abdomen",
-          sleeping: "Sesak nafas ketika tidur",
+          breathlessness: "Lebih letih atau sesak nafas semasa aktiviti",
+          swelling: "Kaki lebih bengkak",
+          sleeping: "Guna lebih banyak bantal atau duduk semasa tidur",
+          cough: "Lebih banyak batuk",
+          abdomen: "Lebih tidak selesa/bengkak pada abdomen",
           currentLevel: "Tahap semasa",
         },
 
