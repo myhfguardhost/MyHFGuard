@@ -35,12 +35,13 @@ import {
   postSymptomLog,
   getDailyStatus,
   getWeeklyStatus,
+  getPatientVitals,
   processImage,
   processWeightImage,
   addManualEvent,
   getHealthEvents,
 } from "@/lib/api"
-import { format, addDays, isSameDay, isToday } from "date-fns"
+import { format, addDays, isSameDay, isToday, subDays } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
@@ -48,6 +49,16 @@ import { toast } from "sonner"
 import correctImage from "@/assets/correct_image.jpeg"
 import slantedImage from "@/assets/slanted_image.jpg"
 import { useTranslation } from "react-i18next"
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts"
 
 
 type SelfCheckTab = "weight" | "symptoms" | "vitals"
@@ -98,6 +109,19 @@ const SelfCheck = () => {
   const [weeklyStatus, setWeeklyStatus] = useState<Record<string, { has_weight: boolean; has_symptoms: boolean }>>(
     {}
   )
+
+
+  const [weeklyTrend, setWeeklyTrend] = useState<
+    Array<{
+      date: string
+      day: string
+      weight?: number
+      systolic?: number
+      diastolic?: number
+      pulse?: number
+      symptomScore?: number
+    }>
+  >([])
 
 
   const [symptoms, setSymptoms] = useState<Record<string, number>>({
@@ -211,6 +235,12 @@ const SelfCheck = () => {
 
 
   useEffect(() => {
+    if (!patientId) return
+    fetchWeeklyTrend()
+  }, [patientId, selectedDate, submitting])
+
+
+  useEffect(() => {
     if (cameraMode && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current
     }
@@ -238,6 +268,97 @@ const SelfCheck = () => {
       if (weightPreviewUrl) URL.revokeObjectURL(weightPreviewUrl)
     }
   }, [previewUrl, weightPreviewUrl])
+
+
+  async function fetchWeeklyTrend() {
+    if (!patientId) return
+
+    const endDate = selectedDate
+    const startDate = subDays(endDate, 6)
+
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = addDays(startDate, i)
+      const key = format(d, "yyyy-MM-dd")
+
+      return {
+        date: key,
+        day: format(d, "EEE"),
+        weight: undefined as number | undefined,
+        systolic: undefined as number | undefined,
+        diastolic: undefined as number | undefined,
+        pulse: undefined as number | undefined,
+        symptomScore: undefined as number | undefined,
+      }
+    })
+
+    const trendMap = new Map(days.map((d) => [d.date, d]))
+
+    try {
+      const vitalsRes = await getPatientVitals(
+        patientId,
+        "weekly",
+        format(endDate, "yyyy-MM-dd"),
+        0 - new Date().getTimezoneOffset()
+      )
+
+      const vitals = vitalsRes?.vitals || {}
+
+      vitals.weight?.forEach((item: any) => {
+        const key = format(new Date(item.time), "yyyy-MM-dd")
+        const row = trendMap.get(key)
+        if (row) row.weight = Number(item.kg)
+      })
+
+      vitals.bp?.forEach((item: any) => {
+        const key = format(new Date(item.time), "yyyy-MM-dd")
+        const row = trendMap.get(key)
+
+        if (row) {
+          row.systolic = Number(item.systolic)
+          row.diastolic = Number(item.diastolic)
+          row.pulse = Number(item.pulse)
+        }
+      })
+
+      const { data: symptomRows, error } = await supabase
+        .from("symptom_log")
+        .select("date, cough, sob_activity, leg_swelling, abd_discomfort, orthopnea")
+        .eq("patient_id", patientId)
+        .gte("date", format(startDate, "yyyy-MM-dd"))
+        .lte("date", format(endDate, "yyyy-MM-dd"))
+        .order("date", { ascending: true })
+
+      if (!error && symptomRows) {
+        const grouped: Record<string, { total: number; count: number }> = {}
+
+        symptomRows.forEach((row: any) => {
+          const total =
+            Number(row.sob_activity || 0) +
+            Number(row.leg_swelling || 0) +
+            Number(row.orthopnea || 0) +
+            Number(row.cough || 0) +
+            Number(row.abd_discomfort || 0)
+
+          if (!grouped[row.date]) {
+            grouped[row.date] = { total: 0, count: 0 }
+          }
+
+          grouped[row.date].total += total
+          grouped[row.date].count += 1
+        })
+
+        Object.entries(grouped).forEach(([date, value]) => {
+          const row = trendMap.get(date)
+          if (row) row.symptomScore = Number((value.total / value.count).toFixed(1))
+        })
+      }
+
+      setWeeklyTrend(days)
+    } catch (err) {
+      console.error("Failed to fetch weekly self-check trend:", err)
+      setWeeklyTrend(days)
+    }
+  }
 
 
   async function fetchEvents() {
@@ -852,6 +973,112 @@ const SelfCheck = () => {
                 </span>
               </p>
             </div>
+
+
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-primary" />
+                  Weekly Self-Check Trend
+                </CardTitle>
+                <CardDescription>
+                  Shows weekly trends for weight, blood pressure, pulse and symptom score.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="rounded-xl border p-4 bg-muted/20">
+                    <h3 className="mb-3 text-sm font-semibold">Weight Trend</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={weeklyTrend}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="day" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="weight"
+                            name="Weight (kg)"
+                            stroke="#2563eb"
+                            strokeWidth={2}
+                            connectNulls
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border p-4 bg-muted/20">
+                    <h3 className="mb-3 text-sm font-semibold">Blood Pressure & Pulse Trend</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={weeklyTrend}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="day" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="systolic"
+                            name="Systolic BP"
+                            stroke="#ef4444"
+                            strokeWidth={2}
+                            connectNulls
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="diastolic"
+                            name="Diastolic BP"
+                            stroke="#f97316"
+                            strokeWidth={2}
+                            connectNulls
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="pulse"
+                            name="Pulse"
+                            stroke="#22c55e"
+                            strokeWidth={2}
+                            connectNulls
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border p-4 bg-muted/20 lg:col-span-2">
+                    <h3 className="mb-3 text-sm font-semibold">Symptom Score Trend</h3>
+                    <p className="mb-3 text-xs text-muted-foreground">
+                      Total score is based on the 5 symptom modules. Higher score means more severe symptoms.
+                    </p>
+
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={weeklyTrend}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="day" />
+                          <YAxis domain={[0, 25]} />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="symptomScore"
+                            name="Symptom Score"
+                            stroke="#9333ea"
+                            strokeWidth={2}
+                            connectNulls
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SelfCheckTab)} className="space-y-6">
