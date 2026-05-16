@@ -99,10 +99,12 @@ export default function VitalsTracker() {
 
   const handleManualSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
     if (e) e.preventDefault()
+
     if (!patientId) {
       toast.error("Unable to identify user. Please log in again.")
       return
     }
+
     setLoading(true)
     setError(null)
     setSuccess(null)
@@ -132,10 +134,13 @@ export default function VitalsTracker() {
         },
         patientId
       )
+
       toast.success("Blood pressure reading saved successfully!")
+
       try {
         queryClient.invalidateQueries({ queryKey: ["patient-vitals"] })
       } catch (_) {}
+
       setManualForm({ sys: "", dia: "", pulse: "" })
       setOcrResult(null)
       setSelectedImage(null)
