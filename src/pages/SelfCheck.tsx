@@ -335,7 +335,18 @@ const SelfCheck = () => {
       })
 
       vitals.bp?.forEach((item: any) => {
-        const key = format(new Date(item.time), "yyyy-MM-dd")
+        const key =
+          item.reading_date ||
+          item.date ||
+          format(
+            new Date(
+              new Date(item.time).toLocaleString("en-US", {
+                timeZone: "Asia/Kuala_Lumpur",
+              })
+            ),
+            "yyyy-MM-dd"
+          )
+
         const row = trendMap.get(key)
 
         if (row) {
@@ -1627,23 +1638,27 @@ const SelfCheck = () => {
                                   </div>
                                 </div>
 
-
-                                <Button
-                                  onClick={(e) => handleManualSubmit(e)}
-                                  disabled={loadingVitals || dailyStatus.has_bp}
-                                  className="w-full"
-                                >
-                                  {loadingVitals ? (
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  ) : (
-                                    t("selfCheck.saveResult")
-                                  )}
-                                </Button>
-                                {dailyStatus.has_bp && (
-                                  <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium mt-3">
+                                {dailyStatus.has_bp ? (
+                                  <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium">
                                     <Activity className="w-4 h-4" />
-                                    You have already logged vitals for today.
+                                    Vitals already recorded for{" "}
+                                    {isToday(selectedDate)
+                                      ? t("selfCheck.today")
+                                      : format(selectedDate, "d MMM")}
+                                    .
                                   </div>
+                                ) : (
+                                  <Button
+                                    onClick={(e) => handleManualSubmit(e)}
+                                    disabled={loadingVitals}
+                                    className="w-full"
+                                  >
+                                    {loadingVitals ? (
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : (
+                                      t("selfCheck.saveResult")
+                                    )}
+                                  </Button>
                                 )}
                               </div>
                             </div>
@@ -1696,23 +1711,27 @@ const SelfCheck = () => {
                               </div>
                             </div>
  
-                            <Button
-                              type="submit"
-                              disabled={loadingVitals || dailyStatus.has_bp}
-                              className="w-full"
-                            >
-                              {loadingVitals ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                t("selfCheck.saveReading")
-                              )}
-                            </Button>
-
-                            {dailyStatus.has_bp && (
-                              <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium mt-3">
+                            {dailyStatus.has_bp ? (
+                              <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium">
                                 <Activity className="w-4 h-4" />
-                                Vitals already recorded for {format(selectedDate, "MMM d")}.
+                                Vitals already recorded for{" "}
+                                {isToday(selectedDate)
+                                  ? t("selfCheck.today")
+                                  : format(selectedDate, "d MMM")}
+                                .
                               </div>
+                            ) : (
+                              <Button
+                                type="submit"
+                                disabled={loadingVitals}
+                                className="w-full"
+                              >
+                                {loadingVitals ? (
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                  t("selfCheck.saveReading")
+                                )}
+                              </Button>
                             )}
                           </form>
                         </TabsContent>
