@@ -593,21 +593,22 @@ const SelfCheck = () => {
 
     try {
       const selectedDateStr = format(selectedDate, "yyyy-MM-dd")
+      const readingTime = isToday(selectedDate)
+        ? format(new Date(), "HH:mm:ss")
+        : "12:00:00"
 
-      const timeTs = isToday(selectedDate)
-        ? `${selectedDateStr}T${format(new Date(), "HH:mm:ss")}`
-        : `${selectedDateStr}T12:00:00`
-
-      await addManualEvent(
+      const { error } = await supabase.from("bp_readings").insert([
         {
-          type: "blood_pressure",
-          value1: manualForm.sys,
-          value2: manualForm.dia,
-          value3: manualForm.pulse,
-          timeTs,
+          patient_id: patientId!,
+          reading_date: selectedDateStr,
+          reading_time: readingTime,
+          systolic: Number(manualForm.sys),
+          diastolic: Number(manualForm.dia),
+          pulse: Number(manualForm.pulse),
         },
-        patientId!
-      )
+      ])
+
+      if (error) throw error
 
       toast.success(t("selfCheck.toast.bpSaved"))
 
@@ -620,6 +621,7 @@ const SelfCheck = () => {
       setSelectedImage(null)
       setPreviewUrl(null)
       fetchEvents()
+      fetchWeeklyTrend()
 
       const dateStr = format(selectedDate, "yyyy-MM-dd")
       getDailyStatus(patientId!, dateStr).then(setDailyStatus)
