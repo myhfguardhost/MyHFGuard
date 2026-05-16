@@ -108,12 +108,27 @@ export default function VitalsTracker() {
     setSuccess(null)
 
     try {
+      const now = new Date()
+      const malaysiaTimeTs = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "Asia/Kuala_Lumpur",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      })
+        .format(now)
+        .replace(" ", "T")
+
       await addManualEvent(
         {
           type: "blood_pressure",
           value1: manualForm.sys,
           value2: manualForm.dia,
           value3: manualForm.pulse,
+          timeTs: malaysiaTimeTs,
         },
         patientId
       )
@@ -448,10 +463,7 @@ export default function VitalsTracker() {
                     <div className="flex justify-between items-start mb-1">
                       <span className="font-medium capitalize">{event.type.replace("_", " ")}</span>
                       <div className="text-xs text-muted-foreground text-right">
-                        <div>{new Date(event.created_at).toLocaleString("en-MY", {
-                          timeZone: "Asia/Kuala_Lumpur",
-                          hour12: true,})}
-                        </div>
+                        <div>{event.reading_date} {event.reading_time}</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-sm">

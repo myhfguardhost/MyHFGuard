@@ -592,9 +592,11 @@ const SelfCheck = () => {
     setLoadingVitals(true)
 
     try {
+      const selectedDateStr = format(selectedDate, "yyyy-MM-dd")
+
       const timeTs = isToday(selectedDate)
-        ? new Date().toISOString()
-        : new Date(format(selectedDate, "yyyy-MM-dd") + "T12:00:00").toISOString()
+        ? `${selectedDateStr}T${format(new Date(), "HH:mm:ss")}`
+        : `${selectedDateStr}T12:00:00`
 
       await addManualEvent(
         {
@@ -1713,8 +1715,12 @@ const SelfCheck = () => {
                               <div className="flex justify-between items-start mb-1">
                                 <span className="font-medium capitalize">{event.type.replace("_", " ")}</span>
                                 <div className="text-xs text-muted-foreground text-right">
-                                  <div>{new Date(event.created_at).toLocaleDateString()}</div>
-                                  <div>{new Date(event.created_at).toLocaleTimeString()}</div>
+                                  <div>
+                                    {format(new Date(event.created_at), "M/d/yyyy")}
+                                  </div>
+                                  <div>
+                                    {format(new Date(event.created_at), "h:mm a")}
+                                  </div>
                                 </div>
                               </div>
                               <div className="grid grid-cols-3 gap-2 text-sm">
