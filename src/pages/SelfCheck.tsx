@@ -306,7 +306,12 @@ const SelfCheck = () => {
       vitals.weight?.forEach((item: any) => {
         const key = format(new Date(item.time), "yyyy-MM-dd")
         const row = trendMap.get(key)
-        if (row) row.weight = Number(item.kg)
+
+        const weightValue = Number(item.kg ?? item.value ?? item.kg_avg)
+
+        if (row && !Number.isNaN(weightValue)) {
+          row.weight = weightValue
+        }
       })
 
       vitals.bp?.forEach((item: any) => {
