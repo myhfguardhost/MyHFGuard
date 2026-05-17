@@ -88,10 +88,16 @@ const resources = {
         mild: "Mild",
         severe: "Severe",
 
+
         bloodPressure: "Blood Pressure",
         sys: "SYS",
         dia: "DIA",
         pulseShort: "PULSE",
+
+
+        symptomStable: "Stable",
+        symptomMonitor: "Monitor",
+        symptomHighRisk: "High Risk",
 
 
         symptoms: {
@@ -809,10 +815,16 @@ const resources = {
         mild: "Ringan",
         severe: "Teruk",
 
+        
         bloodPressure: "Tekanan Darah",
         sys: "SIS",
         dia: "DIA",
         pulseShort: "NADI",
+
+
+        symptomStable: "Stabil",
+        symptomMonitor: "Perlu Pantau",
+        symptomHighRisk: "Risiko Tinggi",
 
 
         symptoms: {

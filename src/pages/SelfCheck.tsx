@@ -1121,9 +1121,19 @@ const SelfCheck = () => {
 
                   <div className="rounded-xl border p-4 bg-muted/20 lg:col-span-2">
                     <h3 className="mb-3 text-sm font-semibold">{t("selfCheck.weeklyTrend.symptomTrend")}</h3>
-                    <p className="mb-3 text-xs text-muted-foreground">
-                      {t("selfCheck.weeklyTrend.symptomDescription")}
-                    </p>
+                    <div className="mb-3 flex flex-wrap gap-3 text-xs font-medium">
+                      <span className="text-green-600">
+                        0-5: {t("selfCheck.symptomStable")}
+                      </span>
+
+                      <span className="text-yellow-600">
+                        6-12: {t("selfCheck.symptomMonitor")}
+                      </span>
+
+                      <span className="text-red-600">
+                        13-25: {t("selfCheck.symptomHighRisk")}
+                      </span>
+                    </div>
 
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
