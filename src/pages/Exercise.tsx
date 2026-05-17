@@ -102,20 +102,25 @@ const Exercise = () => {
     return t("exerciseRecommendationSlow")
   }, [targetReached, toleratedWell, t])
 
-  const stepChartData = (vitals.steps || []).slice(-12).map((item) => ({
-    time: new Date(item.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    steps: item.count,
-  }))
+  const weeklyStepsData = [
+    { day: "Mon", steps: 0 },
+    { day: "Tue", steps: 0 },
+    { day: "Wed", steps: 0 },
+    { day: "Thu", steps: 0 },
+    { day: "Fri", steps: 0 },
+    { day: "Sat", steps: 0 },
+    { day: "Sun", steps: 0 },
+  ]
 
-  const hrChartData = (vitals.hr || []).slice(-12).map((item) => ({
-    time: new Date(item.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    hr: Math.round(item.avg || 0),
-  }))
+  ;(vitals.steps || []).forEach((item: any) => {
+    const day = format(new Date(item.time), "EEE")
 
-  const spo2ChartData = (vitals.spo2 || []).slice(-12).map((item) => ({
-    time: new Date(item.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    spo2: Math.round(item.avg || 0),
-  }))
+    const row = weeklyStepsData.find((d) => d.day === day)
+
+    if (row) {
+      row.steps += Number(item.count || item.steps || item.value || 0)
+    }
+  })
 
   const handleSaveGoal = () => {
     if (!patientId) {
@@ -290,47 +295,19 @@ const Exercise = () => {
           <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
             <h3 className="mb-4 font-semibold">{t("stepCount")}</h3>
             <div className="h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stepChartData}>
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={weeklyStepsData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
+                  <XAxis dataKey="day" />
                   <YAxis />
                   <Tooltip />
-                  <Legend />
-                  <Bar dataKey="steps" name={t("stepCount")} fill="#2563eb" />
+                  <Bar
+                    dataKey="steps"
+                    name="Steps"
+                    radius={[8, 8, 0, 0]}
+                    fill="#2563eb"
+                  />
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <h3 className="mb-4 font-semibold">{t("heartRate")}</h3>
-            <div className="h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={hrChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="hr" name={t("heartRate")} stroke="#dc2626" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <h3 className="mb-4 font-semibold">SpO₂</h3>
-            <div className="h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={spo2ChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" />
-                  <YAxis domain={[80, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="spo2" name="SpO₂" stroke="#059669" strokeWidth={2} />
-                </LineChart>
               </ResponsiveContainer>
             </div>
           </Card>
