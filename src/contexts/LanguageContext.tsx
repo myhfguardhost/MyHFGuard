@@ -112,6 +112,9 @@ const translations: Record<Language, Record<string, string>> = {
     exerciseRecommendationReached: "Great job. You reached today's target.",
     exerciseRecommendationGood: "You are doing well. Increase gradually.",
     exerciseRecommendationSlow: "Take it slow and stay consistent.",
+    weekOf: "Week of",
+    weeklyStepTrend: "Weekly Step Trend",
+    notSyncedYet: "not synced yet",
 
     // medication
     medicationReminderDesc: "Medication entered in profile will appear here automatically.",
@@ -308,6 +311,9 @@ const translations: Record<Language, Record<string, string>> = {
     updateReminder: "Kemas Kini Peringatan",
     edit: "Edit",
     delete: "Padam",
+    weekOf: "Minggu",
+    weeklyStepTrend: "Trend Langkah Mingguan",
+    notSyncedYet: "belum disegerakkan",
 
     //ai chat
     myChatTitle: "Sembang Saya",
