@@ -542,7 +542,7 @@ export default function WaterSalt() {
 
               <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
                 {CUP_OPTIONS.map((cup) => {
-                  const active = waterCups === cup
+                  const active = cup <= waterCups
                   return (
                     <button
                       key={cup}
