@@ -396,10 +396,16 @@ export default function WaterSalt() {
         <div className="flex justify-between gap-2 min-w-max px-1">
           {getLast7Days().map((d) => {
             const dateStr = format(d, "yyyy-MM-dd")
-            const st = weeklyStatus[dateStr] || {
-              has_water: false,
-              has_diet: false,
+
+            const logForDate = logsQuery.data?.find(
+              (log) => log.entry_date === dateStr
+            )
+
+            const st = {
+              has_water: !!logForDate,
+              has_diet: !!logForDate,
             }
+            
             const isSelected = isSameDay(d, selectedDate)
             const isDayToday = isToday(d)
 
@@ -518,86 +524,98 @@ export default function WaterSalt() {
           <CardHeader>
             <CardTitle>{t("waterDiet.waterCard.title", "My Water Intake")}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                {t("waterDiet.waterCard.limitLabel", "Doctor Water Restriction (ml)")}
-              </label>
-              <Input
-                type="number"
-                value={waterLimitMl}
-                onChange={(e) => setWaterLimitMl(e.target.value)}
-                placeholder={t("waterDiet.waterCard.placeholder", "Example: 800")}
-              />
-            </div>
 
-            <div>
-              <label className="mb-3 block text-sm font-medium">
-                {t("waterDiet.waterCard.selectLabel", "Select Today Water Intake")}
-              </label>
+          <CardContent>
+            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              {/* LEFT SIDE: selected water summary */}
+              <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {t("waterDiet.waterCard.selectedIntake", "Selected Intake")}
+                  </p>
+                  <p className="mt-2 text-4xl font-bold">{waterIntakeMl} ml</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {waterCups} {t("waterDiet.waterCard.cups", "cup(s)")} × {ML_PER_CUP} ml
+                  </p>
+                </div>
 
-              <p className="mb-3 text-sm text-muted-foreground">
-                {t("waterDiet.waterCard.cupSize", "1 cup = 200ml")}
-              </p>
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span>0 ml</span>
+                    <span className="font-medium text-red-600">
+                      {t("waterDiet.waterCard.limitText", "Limit")}: {waterLimitMl || 0} ml
+                    </span>
+                  </div>
 
-              <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
-                {CUP_OPTIONS.map((cup) => {
-                  const active = waterCups === cup
-                  return (
-                    <button
-                      key={cup}
-                      type="button"
-                      onClick={() => setWaterCups(cup)}
-                      className={`rounded-xl border p-3 text-center transition ${
-                        active
-                          ? "border-primary bg-primary/10 ring-2 ring-primary/20"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <div className="text-2xl">🥤</div>
-                      <div className="mt-1 text-sm font-medium">{cup}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {cup * ML_PER_CUP}ml
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
+                  <div className="h-4 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full ${waterStatusStyle.bar}`}
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Number(waterLimitMl) > 0
+                            ? (waterIntakeMl / Number(waterLimitMl)) * 100
+                            : 0
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
 
-            <div className="rounded-xl border p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {t("waterDiet.waterCard.selectedIntake", "Selected Intake")}
-                </span>
-                <span className="font-semibold">{waterIntakeMl} ml</span>
-              </div>
-
-              <div className="mb-2 h-4 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className={`h-full ${waterStatusStyle.bar}`}
-                  style={{
-                    width: `${Math.min(
-                      100,
-                      Number(waterLimitMl) > 0
-                        ? (waterIntakeMl / Number(waterLimitMl)) * 100
-                        : 0
-                    )}%`,
-                  }}
-                />
+                  className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${waterStatusStyle.badge}`}
+                >
+                  {getWaterStatusLabel(waterStatus)}
+                </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span>0 ml</span>
-                <span className="font-medium text-red-600">
-                  {t("waterDiet.waterCard.limitText", "Limit")}: {waterLimitMl || 0} ml
-                </span>
-              </div>
+              {/* RIGHT SIDE: input and cup selection */}
+              <div className="space-y-5">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    {t("waterDiet.waterCard.limitLabel", "Doctor Water Restriction (ml)")}
+                  </label>
+                  <Input
+                    type="number"
+                    value={waterLimitMl}
+                    onChange={(e) => setWaterLimitMl(e.target.value)}
+                    placeholder={t("waterDiet.waterCard.placeholder", "Example: 800")}
+                  />
+                </div>
 
-              <div
-                className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-medium ${waterStatusStyle.badge}`}
-              >
-                {getWaterStatusLabel(waterStatus)}
+                <div>
+                  <label className="mb-3 block text-sm font-medium">
+                    {t("waterDiet.waterCard.selectLabel", "Select Today Water Intake")}
+                  </label>
+
+                  <p className="mb-3 text-sm text-muted-foreground">
+                    {t("waterDiet.waterCard.cupSize", "1 cup = 200ml")}
+                  </p>
+
+                  <div className="grid grid-cols-4 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+                    {CUP_OPTIONS.map((cup) => {
+                      const active = waterCups === cup
+                      return (
+                        <button
+                          key={cup}
+                          type="button"
+                          onClick={() => setWaterCups(cup)}
+                          className={`rounded-xl border p-3 text-center transition ${
+                            active
+                              ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                              : "border-border hover:border-primary/40"
+                          }`}
+                        >
+                          <div className="text-2xl">🥤</div>
+                          <div className="mt-1 text-sm font-medium">{cup}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {cup * ML_PER_CUP}ml
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
