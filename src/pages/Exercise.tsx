@@ -34,7 +34,7 @@ const Exercise = () => {
   const [collecting, setCollecting] = useState(false)
 
   const currentWeekKey = getWeekKey()
-  const currentWeekLabel = `Week of ${format(new Date(currentWeekKey), "d MMM yyyy")}`
+  const currentWeekLabel = `${t("weekOf")} ${format(new Date(currentWeekKey), "d MMM yyyy")}`
 
   const weeklyGoals = [
     { key: "goalBetterSleep", label: t("goalBetterSleep") },
@@ -283,7 +283,7 @@ const Exercise = () => {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
-                Weekly Step Trend
+                {t("weeklyStepTrend")}
               </CardTitle>
             </CardHeader>
 
