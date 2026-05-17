@@ -6,6 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { format, addDays, isSameDay, isToday } from "date-fns"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { cn } from "@/lib/utils"
 import {
   ResponsiveContainer,
   LineChart,
@@ -123,7 +128,7 @@ export default function WaterSalt() {
   const { t, i18n } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [patientId, setPatientId] = useState("")
-
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
 
   const [waterLimitMl, setWaterLimitMl] = useState("800")
   const [waterCups, setWaterCups] = useState(0)
@@ -325,7 +330,7 @@ export default function WaterSalt() {
 
       const payload: WaterSaltLog = {
         patient_id: patientId,
-        entry_date: new Date().toISOString().split("T")[0],
+        entry_date: format(selectedDate, "yyyy-MM-dd"),
         water_limit_ml: Number(waterLimitMl),
         water_cups: waterCups,
         water_intake_ml: waterIntakeMl,
@@ -421,6 +426,57 @@ export default function WaterSalt() {
         <p className="text-muted-foreground">
           {t("waterDiet.subtitle", "Please submit daily or at least 3 times per week.")}
         </p>
+      </div>
+
+      <div className="mb-4 overflow-x-auto pb-2">
+        <div className="flex justify-between gap-2 min-w-max px-1">
+          {Array.from({ length: 7 }, (_, i) => {
+            const d = new Date()
+            d.setDate(d.getDate() - (6 - i))
+            const dateStr = format(d, "yyyy-MM-dd")
+            const isSelected = isSameDay(d, selectedDate)
+            const isDayToday = isToday(d)
+
+            return (
+              <div
+                key={dateStr}
+                onClick={() => setSelectedDate(d)}
+                className={cn(
+                  "flex min-w-[50px] cursor-pointer flex-col items-center justify-center rounded-lg border p-2 transition-all",
+                  isSelected
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-transparent bg-card shadow-sm hover:bg-accent",
+                  isDayToday && !isSelected ? "border-dashed border-primary/50" : ""
+                )}
+              >
+                <span className="text-[10px] uppercase font-bold opacity-70">
+                  {format(d, "EEE")}
+                </span>
+                <span className="text-lg font-bold leading-none my-1">
+                  {format(d, "d")}
+                </span>
+              </div>
+            )
+          })}
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" className="h-auto w-12 rounded-lg border-dashed">
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+
+            <PopoverContent className="w-auto p-2" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
 
 
@@ -613,7 +669,9 @@ export default function WaterSalt() {
             <Button onClick={submitToday} disabled={loading} className="w-full">
               {loading
                 ? t("waterDiet.buttons.saving", "Saving...")
-                : t("waterDiet.buttons.save", "Save Today Entry")}
+                : t("waterDiet.buttons.save", {
+                    date: isToday(selectedDate) ? t("waterDiet.today", "today") : format(selectedDate, "d MMM"),
+                  })}
             </Button>
           </CardContent>
         </Card>

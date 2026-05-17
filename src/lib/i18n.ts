@@ -583,6 +583,11 @@ const resources = {
       waterDiet: {
         title: "My Water and Low Salt Diet",
         subtitle: "Please submit daily or at least 3 times per week.",
+        today: "today",
+        buttons: {
+          saving: "Saving...",
+          save: "Save Entry for {{date}}",
+        },
 
 
         toast: {
@@ -815,7 +820,7 @@ const resources = {
         mild: "Ringan",
         severe: "Teruk",
 
-        
+
         bloodPressure: "Tekanan Darah",
         sys: "SIS",
         dia: "DIA",
@@ -1308,7 +1313,11 @@ const resources = {
       waterDiet: {
           title: "Air & Diet Garam Rendah Saya",
           subtitle: "Sila hantar setiap hari atau sekurang-kurangnya 3 kali seminggu.",
-
+          today: "hari ini",
+          buttons: {
+            saving: "Menyimpan...",
+            save: "Simpan Rekod untuk {{date}}",
+          },
 
           toast: {
             unableSession: "Tidak dapat memuatkan sesi",
