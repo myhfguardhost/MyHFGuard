@@ -656,16 +656,16 @@ const SelfCheck = () => {
     const pulse = Number(manualForm.pulse)
 
     if (!sys || !dia || !pulse) {
-      toast.error("Please enter systolic, diastolic and pulse.")
+      toast.error("t("selfCheck.toast.enterVitals")")
       return
     }
 
     setConfirmDialog({
       open: true,
       title: t("selfCheck.appName"),
-      desc: `Are you sure you want to submit these vital readings for ${
-        isToday(selectedDate) ? t("selfCheck.today") : format(selectedDate, "MMM d")
-      }?`,
+      desc: t("selfCheck.confirmVitals", {
+        date: isToday(selectedDate) ? t("selfCheck.today") : format(selectedDate, "MMM d"),
+      }),
       action: submitVitalsLog,
       isAlert: false,
     })
@@ -1038,17 +1038,17 @@ const SelfCheck = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Activity className="w-5 h-5 text-primary" />
-                  Weekly Self-Check Trend
+                  {t("selfCheck.weeklyTrend.title")}
                 </CardTitle>
                 <CardDescription>
-                  Shows weekly trends for weight, blood pressure, pulse and symptom score.
+                  {t("selfCheck.weeklyTrend.description")}
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div className="rounded-xl border p-4 bg-muted/20">
-                    <h3 className="mb-3 text-sm font-semibold">Weight Trend</h3>
+                    <h3 className="mb-3 text-sm font-semibold">{t("selfCheck.weeklyTrend.weightTrend")}</h3>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={weeklyTrend}>
@@ -1081,7 +1081,7 @@ const SelfCheck = () => {
                   </div>
 
                   <div className="rounded-xl border p-4 bg-muted/20">
-                    <h3 className="mb-3 text-sm font-semibold">Blood Pressure & Pulse Trend</h3>
+                    <h3 className="mb-3 text-sm font-semibold">{t("selfCheck.weeklyTrend.bpPulseTrend")}</h3>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={weeklyTrend}>
@@ -1120,9 +1120,9 @@ const SelfCheck = () => {
                   </div>
 
                   <div className="rounded-xl border p-4 bg-muted/20 lg:col-span-2">
-                    <h3 className="mb-3 text-sm font-semibold">Symptom Score Trend</h3>
+                    <h3 className="mb-3 text-sm font-semibold">{t("selfCheck.weeklyTrend.symptomTrend")}</h3>
                     <p className="mb-3 text-xs text-muted-foreground">
-                      Total score is based on the 5 symptom modules. Higher score means more severe symptoms.
+                      {t("selfCheck.weeklyTrend.symptomDescription")}
                     </p>
 
                     <div className="h-64">
@@ -1641,11 +1641,9 @@ const SelfCheck = () => {
                                 {dailyStatus.has_bp ? (
                                   <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium">
                                     <Activity className="w-4 h-4" />
-                                    Vitals already recorded for{" "}
-                                    {isToday(selectedDate)
-                                      ? t("selfCheck.today")
-                                      : format(selectedDate, "d MMM")}
-                                    .
+                                    {t("selfCheck.vitalsLoggedMessage", {
+                                      date: isToday(selectedDate) ? t("selfCheck.today") : format(selectedDate, "d MMM"),
+                                    })}
                                   </div>
                                 ) : (
                                   <Button
@@ -1714,11 +1712,9 @@ const SelfCheck = () => {
                             {dailyStatus.has_bp ? (
                               <div className="p-4 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 text-sm font-medium">
                                 <Activity className="w-4 h-4" />
-                                Vitals already recorded for{" "}
-                                {isToday(selectedDate)
-                                  ? t("selfCheck.today")
-                                  : format(selectedDate, "d MMM")}
-                                .
+                                {t("selfCheck.vitalsLoggedMessage", {
+                                  date: isToday(selectedDate) ? t("selfCheck.today") : format(selectedDate, "d MMM"),
+                                })}
                               </div>
                             ) : (
                               <Button

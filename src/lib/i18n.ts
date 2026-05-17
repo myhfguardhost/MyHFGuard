@@ -99,6 +99,18 @@ const resources = {
         },
 
 
+        weeklyTrend: {
+          title: "Weekly Self-Check Trend",
+          description: "Shows weekly trends for weight, blood pressure, pulse and symptom score.",
+          weightTrend: "Weight Trend",
+          bpPulseTrend: "Blood Pressure & Pulse Trend",
+          symptomTrend: "Symptom Score Trend",
+          symptomDescription: "Total score is based on the 5 symptom modules. Higher score means more severe symptoms.",
+        },
+        vitalsLoggedMessage: "Vitals already recorded for {{date}}.",
+        confirmVitals: "Are you sure you want to submit these vital readings for {{date}}?",
+
+
         scanMonitor: "Scan Monitor",
         manualEntry: "Manual Entry",
         uploadImage: "Click to upload image",
@@ -155,7 +167,8 @@ const resources = {
           cameraUnsupported: "Camera access is not supported in this browser. Please use a modern browser or upload an image instead.",
           cameraDenied: "Camera permission denied. Please allow camera access in your browser settings.",
           cameraNotFound: "No camera found on this device. Please upload an image instead.",
-          cameraFailed: "Failed to access camera. Please check permissions or upload an image instead."
+          cameraFailed: "Failed to access camera. Please check permissions or upload an image instead.",
+          enterVitals: "Please enter systolic, diastolic and pulse.",
         },
 
 
@@ -795,6 +808,17 @@ const resources = {
           currentLevel: "Tahap semasa",
         },
 
+        weeklyTrend: {
+          title: "Trend Pemeriksaan Kendiri Mingguan",
+          description: "Menunjukkan trend mingguan untuk berat badan, tekanan darah, nadi dan skor simptom.",
+          weightTrend: "Trend Berat Badan",
+          bpPulseTrend: "Trend Tekanan Darah & Nadi",
+          symptomTrend: "Trend Skor Simptom",
+          symptomDescription: "Jumlah skor adalah berdasarkan 5 modul simptom. Skor yang lebih tinggi menunjukkan simptom yang lebih serius.",
+        },
+        vitalsLoggedMessage: "Bacaan vital telah direkodkan untuk {{date}}.",
+        confirmVitals: "Adakah anda pasti mahu menghantar bacaan vital ini untuk {{date}}?",
+
 
         scanMonitor: "Imbas Monitor",
         manualEntry: "Masukan Manual",
@@ -853,6 +877,7 @@ const resources = {
           cameraDenied: "Kebenaran kamera ditolak. Sila benarkan akses kamera dalam tetapan pelayar anda.",
           cameraNotFound: "Tiada kamera ditemui pada peranti ini. Sila muat naik gambar.",
           cameraFailed: "Gagal mengakses kamera. Sila semak kebenaran atau muat naik gambar."
+          enterVitals: "Sila masukkan sistolik, diastolik dan nadi.",
         },
 
 
