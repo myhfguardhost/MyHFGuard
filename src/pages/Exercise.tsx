@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
   Footprints,
@@ -13,14 +13,13 @@ import {
   Smartphone,
   CalendarDays,
   Download,
-  HeartPulse,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { getPatientSummary, getPatientVitals } from "@/lib/api"
 import { format, formatDistanceToNow, startOfWeek } from "date-fns"
 import { toast } from "sonner"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend, BarChart, Bar } from "recharts"
+import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts"
 
 const getWeekKey = () => {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -280,27 +279,32 @@ const Exercise = () => {
             <div className="text-3xl font-bold">{exerciseMinutes} min</div>
             <p className="mt-2 text-muted-foreground">{t("exerciseTimeDesc")}</p>
           </Card>
-        </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <h3 className="mb-4 font-semibold">{t("stepCount")}</h3>
-            <div className="h-[260px]">
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={weeklyStepsData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="day" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar
-                    dataKey="steps"
-                    name="Steps"
-                    radius={[8, 8, 0, 0]}
-                    fill="#2563eb"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">
+                Weekly Step Trend
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent>
+              <div className="h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyStepsData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="day" fontSize={12} />
+                    <YAxis hide />
+                    <Tooltip />
+
+                    <Bar
+                      dataKey="steps"
+                      radius={[6, 6, 0, 0]}
+                      fill="#0ea5e9"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
           </Card>
         </div>
 
