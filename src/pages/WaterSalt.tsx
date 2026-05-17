@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase"
 import { Calendar as CalendarIcon } from "lucide-react"
-import { format, addDays, isSameDay, isToday } from "date-fns"
+import { format, isSameDay, isToday } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
@@ -25,7 +25,6 @@ import {
   Cell,
 } from "recharts"
 
-
 type WaterSaltLog = {
   id?: string
   patient_id: string
@@ -42,10 +41,8 @@ type WaterSaltLog = {
   created_at?: string
 }
 
-
 const CUP_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8]
 const ML_PER_CUP = 200
-
 
 function getWaterStatus(intakeMl: number, limitMl: number): "green" | "orange" | "red" {
   if (limitMl <= 0) return "green"
@@ -54,13 +51,11 @@ function getWaterStatus(intakeMl: number, limitMl: number): "green" | "orange" |
   return "red"
 }
 
-
 function getSaltStatus(score: number): "green" | "orange" | "red" {
   if (score <= 3) return "green"
   if (score <= 6) return "orange"
   return "red"
 }
-
 
 function getStatusClasses(status: "green" | "orange" | "red") {
   if (status === "green") {
@@ -71,7 +66,6 @@ function getStatusClasses(status: "green" | "orange" | "red") {
     }
   }
 
-
   if (status === "orange") {
     return {
       badge: "bg-orange-100 text-orange-700 border-orange-200",
@@ -80,7 +74,6 @@ function getStatusClasses(status: "green" | "orange" | "red") {
     }
   }
 
-
   return {
     badge: "bg-red-100 text-red-700 border-red-200",
     bar: "bg-red-500",
@@ -88,13 +81,11 @@ function getStatusClasses(status: "green" | "orange" | "red") {
   }
 }
 
-
 function getSaltNumeric(value: "natural" | "moderate" | "high") {
   if (value === "natural") return 1
   if (value === "moderate") return 2
   return 3
 }
-
 
 function getSaltColor(value: number) {
   if (value <= 3) return "#22c55e"
@@ -102,16 +93,13 @@ function getSaltColor(value: number) {
   return "#ef4444"
 }
 
-
 function getDateKey(date: Date) {
-  return date.toISOString().split("T")[0]
+  return format(date, "yyyy-MM-dd")
 }
 
-
 function getLast7Days() {
-  const days = []
+  const days: Date[] = []
   const today = new Date()
-
 
   for (let i = 6; i >= 0; i--) {
     const date = new Date(today)
@@ -119,10 +107,8 @@ function getLast7Days() {
     days.push(date)
   }
 
-
   return days
 }
-
 
 export default function WaterSalt() {
   const { t, i18n } = useTranslation()
@@ -133,11 +119,9 @@ export default function WaterSalt() {
   const [waterLimitMl, setWaterLimitMl] = useState("800")
   const [waterCups, setWaterCups] = useState(0)
 
-
   const [breakfastSalt, setBreakfastSalt] = useState<"natural" | "moderate" | "high">("natural")
   const [lunchSalt, setLunchSalt] = useState<"natural" | "moderate" | "high">("natural")
   const [dinnerSalt, setDinnerSalt] = useState<"natural" | "moderate" | "high">("natural")
-
 
   const saltOptions = [
     {
@@ -157,26 +141,21 @@ export default function WaterSalt() {
     },
   ] as const
 
-
   useEffect(() => {
     const loadSession = async () => {
       const { data, error } = await supabase.auth.getSession()
-
 
       if (error) {
         toast.error(t("waterDiet.toast.unableSession", "Unable to load session"))
         return
       }
 
-
       const uid = data?.session?.user?.id || ""
       setPatientId(uid)
     }
 
-
     loadSession()
   }, [t])
-
 
   const logsQuery = useQuery({
     queryKey: ["water-salt-logs", patientId],
@@ -190,50 +169,56 @@ export default function WaterSalt() {
         .order("entry_date", { ascending: false })
         .limit(30)
 
-
       if (error) throw error
       return (data || []) as WaterSaltLog[]
     },
   })
 
-
   const waterIntakeMl = waterCups * ML_PER_CUP
   const waterStatus = getWaterStatus(waterIntakeMl, Number(waterLimitMl || 0))
-
 
   const saltScore =
     getSaltNumeric(breakfastSalt) +
     getSaltNumeric(lunchSalt) +
     getSaltNumeric(dinnerSalt)
 
-
   const saltStatus = getSaltStatus(saltScore)
-
 
   const waterStatusStyle = getStatusClasses(waterStatus)
   const saltStatusStyle = getStatusClasses(saltStatus)
 
-
   const latestLog = useMemo(() => logsQuery.data?.[0] || null, [logsQuery.data])
-
 
   const currentLocale = i18n.language === "ms" ? "ms-MY" : "en-US"
 
+  const weeklyStatus = useMemo(() => {
+    const status: Record<string, { has_water: boolean; has_diet: boolean }> = {}
+
+    ;(logsQuery.data || []).forEach((log) => {
+      status[log.entry_date] = {
+        has_water: Number(log.water_intake_ml || 0) > 0,
+        has_diet:
+          !!log.breakfast_salt ||
+          !!log.lunch_salt ||
+          !!log.dinner_salt ||
+          Number(log.salt_score || 0) > 0,
+      }
+    })
+
+    return status
+  }, [logsQuery.data])
 
   const waterChartData = useMemo(() => {
     const logs = logsQuery.data || []
     const logsMap = new Map<string, WaterSaltLog>()
 
-
     logs.forEach((log) => {
       logsMap.set(log.entry_date, log)
     })
 
-
     return getLast7Days().map((date) => {
       const key = getDateKey(date)
       const log = logsMap.get(key)
-
 
       return {
         date: date.toLocaleDateString(currentLocale, {
@@ -249,22 +234,18 @@ export default function WaterSalt() {
     })
   }, [logsQuery.data, currentLocale, waterLimitMl])
 
-
   const saltChartData = useMemo(() => {
     const logs = logsQuery.data || []
     const logsMap = new Map<string, WaterSaltLog>()
-
 
     logs.forEach((log) => {
       logsMap.set(log.entry_date, log)
     })
 
-
     return getLast7Days().map((date) => {
       const key = getDateKey(date)
       const log = logsMap.get(key)
       const score = log ? Number(log.salt_score || 0) : 0
-
 
       return {
         date: date.toLocaleDateString(currentLocale, {
@@ -280,20 +261,14 @@ export default function WaterSalt() {
     })
   }, [logsQuery.data, currentLocale])
 
-
   const entriesThisWeek = useMemo(() => {
     const logs = logsQuery.data || []
-    const now = new Date()
-    const start = new Date(now)
-    start.setDate(now.getDate() - 6)
+    const today = new Date()
+    const startKey = format(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6), "yyyy-MM-dd")
+    const endKey = format(today, "yyyy-MM-dd")
 
-
-    return logs.filter((log) => {
-      const d = new Date(log.entry_date)
-      return d >= start && d <= now
-    }).length
+    return logs.filter((log) => log.entry_date >= startKey && log.entry_date <= endKey).length
   }, [logsQuery.data])
-
 
   const getWaterStatusLabel = (status: "green" | "orange" | "red") => {
     if (status === "green") return t("waterDiet.waterStatus.green", "Within Range")
@@ -301,20 +276,17 @@ export default function WaterSalt() {
     return t("waterDiet.waterStatus.red", "Exceeded Restriction")
   }
 
-
   const getSaltStatusLabel = (status: "green" | "orange" | "red") => {
     if (status === "green") return t("waterDiet.saltStatus.green", "Low Salt")
     if (status === "orange") return t("waterDiet.saltStatus.orange", "Moderate Salt")
     return t("waterDiet.saltStatus.red", "High Salt")
   }
 
-
   const submitToday = async () => {
     if (!patientId) {
       toast.error(t("waterDiet.toast.loginFirst", "Please log in first"))
       return
     }
-
 
     if (!waterLimitMl || waterCups <= 0) {
       toast.error(
@@ -323,10 +295,8 @@ export default function WaterSalt() {
       return
     }
 
-
     try {
       setLoading(true)
-
 
       const payload: WaterSaltLog = {
         patient_id: patientId,
@@ -342,14 +312,11 @@ export default function WaterSalt() {
         salt_status: saltStatus,
       }
 
-
       const { error } = await supabase
         .from("water_salt_logs")
         .upsert(payload, { onConflict: "patient_id,entry_date" })
 
-
       if (error) throw error
-
 
       toast.success(
         t("waterDiet.toast.saved", "Water and low salt diet saved successfully")
@@ -361,7 +328,6 @@ export default function WaterSalt() {
       setLoading(false)
     }
   }
-
 
   const renderSaltSelector = (
     label: string,
@@ -395,7 +361,6 @@ export default function WaterSalt() {
     )
   }
 
-
   if (logsQuery.isError) {
     return (
       <div className="p-4">
@@ -416,7 +381,6 @@ export default function WaterSalt() {
     )
   }
 
-
   return (
     <div className="space-y-6 p-4">
       <div>
@@ -430,14 +394,16 @@ export default function WaterSalt() {
 
       <div className="mb-4 overflow-x-auto pb-2">
         <div className="flex justify-between gap-2 min-w-max px-1">
-          {Array.from({ length: 7 }, (_, i) => {
-            const d = new Date()
-            d.setDate(d.getDate() - (6 - i))
+          {getLast7Days().map((d) => {
             const dateStr = format(d, "yyyy-MM-dd")
+            const st = weeklyStatus[dateStr] || {
+              has_water: false,
+              has_diet: false,
+            }
             const isSelected = isSameDay(d, selectedDate)
             const isDayToday = isToday(d)
 
-            return ( 
+            return (
               <div
                 key={dateStr}
                 onClick={() => setSelectedDate(d)}
@@ -462,7 +428,7 @@ export default function WaterSalt() {
                       "w-1.5 h-1.5 rounded-full",
                       st.has_water ? "bg-green-500" : "bg-red-300"
                     )}
-                    title="Water"
+                    title={t("waterDiet.calendar.water", "Water")}
                   />
 
                   <div
@@ -470,7 +436,7 @@ export default function WaterSalt() {
                       "w-1.5 h-1.5 rounded-full",
                       st.has_diet ? "bg-green-500" : "bg-red-300"
                     )}
-                    title="Diet"
+                    title={t("waterDiet.calendar.diet", "Diet")}
                   />
                 </div>
               </div>
@@ -495,20 +461,19 @@ export default function WaterSalt() {
             </PopoverContent>
           </Popover>
         </div>
+
+        <p className="text-xs text-muted-foreground text-center mt-2 flex justify-center gap-4">
+          <span className="flex items-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-300 mr-1" />
+            {t("waterDiet.calendar.missing", "Missing")}
+          </span>
+
+          <span className="flex items-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
+            {t("waterDiet.calendar.completed", "Completed")}
+          </span>
+        </p>
       </div>
-
-      <p className="text-xs text-muted-foreground text-center mt-2 flex justify-center gap-4">
-        <span className="flex items-center">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-300 mr-1" />
-          Missing
-        </span>
-
-        <span className="flex items-center">
-          <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
-          Completed
-        </span>
-      </p>
-
 
       <Card>
         <CardHeader>
@@ -522,7 +487,6 @@ export default function WaterSalt() {
             <p className="mt-2 text-3xl font-bold">{entriesThisWeek}</p>
           </div>
 
-
           <div className="rounded-xl border p-4">
             <p className="text-sm text-muted-foreground">
               {t("waterDiet.weekly.target", "Target")}
@@ -531,7 +495,6 @@ export default function WaterSalt() {
               {t("waterDiet.weekly.targetValue", "3 times")}
             </p>
           </div>
-
 
           <div className="rounded-xl border p-4">
             <p className="text-sm text-muted-foreground">
@@ -549,7 +512,6 @@ export default function WaterSalt() {
           </div>
         </CardContent>
       </Card>
-
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -569,17 +531,14 @@ export default function WaterSalt() {
               />
             </div>
 
-
             <div>
               <label className="mb-3 block text-sm font-medium">
                 {t("waterDiet.waterCard.selectLabel", "Select Today Water Intake")}
               </label>
 
-
               <p className="mb-3 text-sm text-muted-foreground">
                 {t("waterDiet.waterCard.cupSize", "1 cup = 200ml")}
               </p>
-
 
               <div className="grid grid-cols-4 gap-3 sm:grid-cols-8">
                 {CUP_OPTIONS.map((cup) => {
@@ -606,7 +565,6 @@ export default function WaterSalt() {
               </div>
             </div>
 
-
             <div className="rounded-xl border p-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
@@ -614,7 +572,6 @@ export default function WaterSalt() {
                 </span>
                 <span className="font-semibold">{waterIntakeMl} ml</span>
               </div>
-
 
               <div className="mb-2 h-4 w-full overflow-hidden rounded-full bg-muted">
                 <div
@@ -630,14 +587,12 @@ export default function WaterSalt() {
                 />
               </div>
 
-
               <div className="flex items-center justify-between text-sm">
                 <span>0 ml</span>
                 <span className="font-medium text-red-600">
                   {t("waterDiet.waterCard.limitText", "Limit")}: {waterLimitMl || 0} ml
                 </span>
               </div>
-
 
               <div
                 className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-medium ${waterStatusStyle.badge}`}
@@ -647,7 +602,6 @@ export default function WaterSalt() {
             </div>
           </CardContent>
         </Card>
-
 
         <Card>
           <CardHeader>
@@ -670,7 +624,6 @@ export default function WaterSalt() {
               setDinnerSalt
             )}
 
-
             <div className="rounded-xl border p-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
@@ -679,7 +632,6 @@ export default function WaterSalt() {
                 <span className="font-semibold">{saltScore} / 9</span>
               </div>
 
-
               <div className="h-4 w-full overflow-hidden rounded-full bg-muted">
                 <div
                   className={`h-full ${saltStatusStyle.bar}`}
@@ -687,14 +639,12 @@ export default function WaterSalt() {
                 />
               </div>
 
-
               <div
                 className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-medium ${saltStatusStyle.badge}`}
               >
                 {getSaltStatusLabel(saltStatus)}
               </div>
             </div>
-
 
             <Button onClick={submitToday} disabled={loading} className="w-full">
               {loading
@@ -706,7 +656,6 @@ export default function WaterSalt() {
           </CardContent>
         </Card>
       </div>
-
 
       <Card>
         <CardHeader>
@@ -720,14 +669,12 @@ export default function WaterSalt() {
             <p className="mt-2 text-2xl font-bold">{latestLog?.water_limit_ml ?? 0} ml</p>
           </div>
 
-
           <div className="rounded-xl border bg-muted/20 p-4">
             <p className="text-sm text-muted-foreground">
               {t("waterDiet.summary.todayWater", "Today Water Intake")}
             </p>
             <p className="mt-2 text-2xl font-bold">{latestLog?.water_intake_ml ?? 0} ml</p>
           </div>
-
 
           <div className="rounded-xl border bg-muted/20 p-4">
             <p className="text-sm text-muted-foreground">
@@ -743,7 +690,6 @@ export default function WaterSalt() {
                 : "-"}
             </p>
           </div>
-
 
           <div className="rounded-xl border bg-muted/20 p-4">
             <p className="text-sm text-muted-foreground">
@@ -761,7 +707,6 @@ export default function WaterSalt() {
           </div>
         </CardContent>
       </Card>
-
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -782,7 +727,6 @@ export default function WaterSalt() {
                   />
                   <Legend />
 
-
                   <Line
                     type="monotone"
                     dataKey="water"
@@ -791,7 +735,6 @@ export default function WaterSalt() {
                     strokeWidth={2}
                     activeDot={{ r: 6 }}
                   />
-
 
                   <Line
                     type="monotone"
@@ -807,7 +750,6 @@ export default function WaterSalt() {
             </div>
           </CardContent>
         </Card>
-
 
         <Card>
           <CardHeader>
