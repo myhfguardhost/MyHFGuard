@@ -569,6 +569,11 @@ const resources = {
         frequency: "Frequency",
         reminderTime: "Reminder Time",
         addMedication: "Add Medication",
+        
+        time: {
+          noonShort: "12:00 PM",
+          nightShort: "10:00 PM",
+        },
       },
 
 
@@ -1300,6 +1305,11 @@ const resources = {
         frequency: "Kekerapan",
         reminderTime: "Masa Peringatan",
         addMedication: "Tambah Ubat",
+
+        time: {
+          noonShort: "12:00 PM",
+          nightShort: "10:00 PM",
+        },
       },
 
 
