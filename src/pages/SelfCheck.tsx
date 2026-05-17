@@ -38,7 +38,6 @@ import {
   getPatientVitals,
   processImage,
   processWeightImage,
-  addManualEvent,
   getHealthEvents,
 } from "@/lib/api"
 import { format, addDays, isSameDay, isToday, subDays } from "date-fns"

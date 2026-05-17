@@ -437,7 +437,7 @@ export default function WaterSalt() {
             const isSelected = isSameDay(d, selectedDate)
             const isDayToday = isToday(d)
 
-            return (
+            return ( 
               <div
                 key={dateStr}
                 onClick={() => setSelectedDate(d)}
@@ -455,6 +455,24 @@ export default function WaterSalt() {
                 <span className="text-lg font-bold leading-none my-1">
                   {format(d, "d")}
                 </span>
+
+                <div className="flex gap-1">
+                  <div
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      st.has_water ? "bg-green-500" : "bg-red-300"
+                    )}
+                    title="Water"
+                  />
+
+                  <div
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      st.has_diet ? "bg-green-500" : "bg-red-300"
+                    )}
+                    title="Diet"
+                  />
+                </div>
               </div>
             )
           })}
@@ -478,6 +496,18 @@ export default function WaterSalt() {
           </Popover>
         </div>
       </div>
+
+      <p className="text-xs text-muted-foreground text-center mt-2 flex justify-center gap-4">
+        <span className="flex items-center">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-300 mr-1" />
+          Missing
+        </span>
+
+        <span className="flex items-center">
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1" />
+          Completed
+        </span>
+      </p>
 
 
       <Card>
