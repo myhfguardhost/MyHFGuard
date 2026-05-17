@@ -53,7 +53,7 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
   if (!raw) return []
 
   return raw
-    .split(/\n|;|,/)
+    .split(/\n|;/)
     .map((item) => item.trim())
     .filter(Boolean)
     .flatMap((line) => {
