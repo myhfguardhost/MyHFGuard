@@ -1749,7 +1749,11 @@ const SelfCheck = () => {
                           events.map((event: any) => (
                             <div key={event.id} className="p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                               <div className="flex justify-between items-start mb-1">
-                                <span className="font-medium capitalize">{event.type.replace("_", " ")}</span>
+                                <span className="font-medium">
+                                  {event.type === "blood_pressure"
+                                    ? t("selfCheck.bloodPressure")
+                                    : event.type.replace("_", " ")}
+                                </span>
                                 <div className="text-xs text-muted-foreground text-right">
                                   <div>
                                     {new Date(event.created_at).toLocaleDateString("en-MY", {
@@ -1769,15 +1773,15 @@ const SelfCheck = () => {
                               </div>
                               <div className="grid grid-cols-3 gap-2 text-sm">
                                 <div>
-                                  <span className="text-muted-foreground text-xs">SYS</span>
+                                  <span className="text-muted-foreground text-xs">{t("selfCheck.sys")}</span>
                                   <div className="font-semibold">{event.value_1}</div>
                                 </div>
                                 <div>
-                                  <span className="text-muted-foreground text-xs">DIA</span>
+                                  <span className="text-muted-foreground text-xs">{t("selfCheck.dia")}</span>
                                   <div className="font-semibold">{event.value_2}</div>
                                 </div>
                                 <div>
-                                  <span className="text-muted-foreground text-xs">PULSE</span>
+                                  <span className="text-muted-foreground text-xs">{t("selfCheck.pulseShort")}</span>
                                   <div className="font-semibold">{event.value_3}</div>
                                 </div>
                               </div>

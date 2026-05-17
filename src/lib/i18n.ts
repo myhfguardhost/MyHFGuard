@@ -88,6 +88,11 @@ const resources = {
         mild: "Mild",
         severe: "Severe",
 
+        bloodPressure: "Blood Pressure",
+        sys: "SYS",
+        dia: "DIA",
+        pulseShort: "PULSE",
+
 
         symptoms: {
           breathlessness: "More fatigued or breathless when active",
@@ -803,6 +808,11 @@ const resources = {
         noSymptom: "Tiada simptom",
         mild: "Ringan",
         severe: "Teruk",
+
+        bloodPressure: "Tekanan Darah",
+        sys: "SIS",
+        dia: "DIA",
+        pulseShort: "NADI",
 
 
         symptoms: {

@@ -466,7 +466,11 @@ export default function VitalsTracker() {
                 events.map((event: any) => (
                   <div key={event.id} className="p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-start mb-1">
-                      <span className="font-medium capitalize">{event.type.replace("_", " ")}</span>
+                      <span className="font-medium">
+                        {event.type === "blood_pressure"
+                          ? t("selfCheck.bloodPressure")
+                          : event.type.replace("_", " ")}
+                      </span>
                       <div className="text-xs text-muted-foreground text-right">
                         <div>{event.reading_date} {event.reading_time}</div>
                       </div>
