@@ -1060,7 +1060,7 @@ const SelfCheck = () => {
                           <Line
                             type="monotone"
                             dataKey="weight"
-                            name="Weight (kg)"
+                            name={t("selfCheck.weeklyTrend.weightKg")}
                             stroke="#2563eb"
                             strokeWidth={2}
                             connectNulls
@@ -1068,7 +1068,7 @@ const SelfCheck = () => {
                           <Line
                             type="monotone"
                             dataKey="dryWeight"
-                            name="Original Dry Weight"
+                            name={t("selfCheck.weeklyTrend.originalDryWeight")}
                             stroke="#64748b"
                             strokeWidth={2}
                             strokeDasharray="6 6"
@@ -1093,7 +1093,7 @@ const SelfCheck = () => {
                           <Line
                             type="monotone"
                             dataKey="systolic"
-                            name="Systolic BP"
+                            name={t("selfCheck.weeklyTrend.systolic")}
                             stroke="#ef4444"
                             strokeWidth={2}
                             connectNulls
@@ -1101,7 +1101,7 @@ const SelfCheck = () => {
                           <Line
                             type="monotone"
                             dataKey="diastolic"
-                            name="Diastolic BP"
+                            name={t("selfCheck.weeklyTrend.diastolic")}
                             stroke="#f97316"
                             strokeWidth={2}
                             connectNulls
@@ -1109,7 +1109,7 @@ const SelfCheck = () => {
                           <Line
                             type="monotone"
                             dataKey="pulse"
-                            name="Pulse"
+                            name={t("selfCheck.weeklyTrend.pulse")}
                             stroke="#22c55e"
                             strokeWidth={2}
                             connectNulls
@@ -1136,7 +1136,7 @@ const SelfCheck = () => {
                           <Line
                             type="monotone"
                             dataKey="symptomScore"
-                            name="Symptom Score"
+                            name={t("selfCheck.weeklyTrend.symptomScore")}
                             stroke="#9333ea"
                             strokeWidth={2}
                             connectNulls
