@@ -58,6 +58,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceArea,
 } from "recharts"
 
 
@@ -1143,6 +1144,11 @@ const SelfCheck = () => {
                           <YAxis domain={[0, 25]} />
                           <Tooltip />
                           <Legend />
+
+                          <ReferenceArea y1={0} y2={5} fill="#22c55e" fillOpacity={0.08} />
+                          <ReferenceArea y1={6} y2={12} fill="#eab308" fillOpacity={0.08} />
+                          <ReferenceArea y1={13} y2={25} fill="#ef4444" fillOpacity={0.08} />
+
                           <Line
                             type="monotone"
                             dataKey="symptomScore"
