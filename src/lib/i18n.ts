@@ -582,6 +582,7 @@ const resources = {
 
       waterDiet: {
         title: "My Water and Low Salt Diet",
+        description: "Track daily fluid intake and follow a heart-healthy diet.",
         subtitle: "Please submit daily or at least 3 times per week.",
         today: "today",
         buttons: {
@@ -707,7 +708,7 @@ const resources = {
       height: "Height",
       bmi: "BMI",
       currentMedication: "Current Medication",
-      enterCurrentMedication: "Enter current medication",
+      enterCurrentMedication: "Enter current medication: Aspirin(noon), Atorvastatin(night)",
       saveProfile: "Save Profile",
       saving: "Saving...",
       loadingProfile: "Loading profile...",
@@ -1312,6 +1313,7 @@ const resources = {
 
       waterDiet: {
           title: "Air & Diet Garam Rendah Saya",
+          description: "Pantau pengambilan cecair harian dan amalkan diet yang sihat untuk jantung.",
           subtitle: "Sila hantar setiap hari atau sekurang-kurangnya 3 kali seminggu.",
           today: "hari ini",
           buttons: {
@@ -1439,7 +1441,7 @@ const resources = {
         height: "Tinggi",
         bmi: "BMI",
         currentMedication: "Ubat Semasa",
-        enterCurrentMedication: "Masukkan ubat semasa",
+        enterCurrentMedication: "Masukkan ubat semasa: Aspirin(tengah hari), Atorvastatin(malam)",
         saveProfile: "Simpan Profil",
         saving: "Sedang menyimpan...",
         loadingProfile: "Sedang memuatkan profil...",
