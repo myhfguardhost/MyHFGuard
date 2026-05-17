@@ -656,7 +656,7 @@ const SelfCheck = () => {
     const pulse = Number(manualForm.pulse)
 
     if (!sys || !dia || !pulse) {
-      toast.error("t("selfCheck.toast.enterVitals")")
+      toast.error(t("selfCheck.toast.enterVitals"))
       return
     }
 
