@@ -1124,15 +1124,15 @@ const SelfCheck = () => {
                     <h3 className="mb-3 text-sm font-semibold">{t("selfCheck.weeklyTrend.symptomTrend")}</h3>
                     <div className="mb-3 flex flex-wrap gap-3 text-xs font-medium">
                       <span className="text-green-600">
-                        0-5: {t("selfCheck.symptomStable")}
+                        0-7: {t("selfCheck.symptomStable")}
                       </span>
 
                       <span className="text-yellow-600">
-                        6-12: {t("selfCheck.symptomMonitor")}
+                        8-14: {t("selfCheck.symptomMonitor")}
                       </span>
 
                       <span className="text-red-600">
-                        13-25: {t("selfCheck.symptomHighRisk")}
+                        15-25: {t("selfCheck.symptomHighRisk")}
                       </span>
                     </div>
 
