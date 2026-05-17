@@ -876,7 +876,7 @@ const resources = {
           cameraUnsupported: "Akses kamera tidak disokong dalam pelayar ini. Sila gunakan pelayar moden atau muat naik gambar.",
           cameraDenied: "Kebenaran kamera ditolak. Sila benarkan akses kamera dalam tetapan pelayar anda.",
           cameraNotFound: "Tiada kamera ditemui pada peranti ini. Sila muat naik gambar.",
-          cameraFailed: "Gagal mengakses kamera. Sila semak kebenaran atau muat naik gambar."
+          cameraFailed: "Gagal mengakses kamera. Sila semak kebenaran atau muat naik gambar.",
           enterVitals: "Sila masukkan sistolik, diastolik dan nadi.",
         },
 
