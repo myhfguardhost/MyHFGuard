@@ -280,15 +280,6 @@ const Exercise = () => {
             <div className="text-3xl font-bold">{exerciseMinutes} min</div>
             <p className="mt-2 text-muted-foreground">{t("exerciseTimeDesc")}</p>
           </Card>
-
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <HeartPulse className="text-rose-600 dark:text-rose-400" />
-              <h3 className="font-semibold">{t("heartRate")}</h3>
-            </div>
-            <div className="text-3xl font-bold">{hrChartData.length ? hrChartData[hrChartData.length - 1].hr : 0} bpm</div>
-            <p className="mt-2 text-muted-foreground">{t("latestReading")}</p>
-          </Card>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
