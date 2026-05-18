@@ -22,9 +22,11 @@ export function getStatusBadgeClass(status) {
   if (status === "critical") {
     return "bg-red-100 text-red-700 border border-red-200"
   }
+
   if (status === "warning") {
     return "bg-amber-100 text-amber-700 border border-amber-200"
   }
+
   return "bg-emerald-100 text-emerald-700 border border-emerald-200"
 }
 
@@ -32,16 +34,73 @@ export function getAlertCardClass(level) {
   if (level === "critical") {
     return "border-red-200 bg-red-50"
   }
+
   if (level === "warning") {
     return "border-amber-200 bg-amber-50"
   }
+
   return "border-emerald-200 bg-emerald-50"
 }
 
 export function pickWorstStatus(alerts) {
   if (alerts.some((a) => a.level === "critical")) return "critical"
   if (alerts.some((a) => a.level === "warning")) return "warning"
+
   return "stable"
+}
+
+/* =========================
+   Symptom helper functions
+========================= */
+
+function countSymptomsInRange(symptom, min, max) {
+  if (!symptom) return 0
+
+  const values = [
+    symptom.sob_activity,
+    symptom.leg_swelling,
+    symptom.orthopnea,
+    symptom.cough,
+    symptom.abd_discomfort,
+  ]
+
+  return values.filter(
+    (v) => Number(v) >= min && Number(v) <= max
+  ).length
+}
+
+function hasConsecutiveSymptomDays(
+  symptoms,
+  min,
+  max,
+  minCount,
+  daysRequired = 3
+) {
+  if (!Array.isArray(symptoms)) return false
+
+  const sorted = [...symptoms].sort(
+    (a, b) =>
+      new Date(a.date).getTime() -
+      new Date(b.date).getTime()
+  )
+
+  let streak = 0
+
+  for (const row of sorted) {
+    const count = countSymptomsInRange(row, min, max)
+
+    if (count >= minCount) {
+      streak += 1
+
+      if (streak >= daysRequired) {
+        return true
+      }
+    } else {
+      streak = 0
+    }
+  }
+
+  return false
 }
 
 export function buildAlerts({
@@ -49,19 +108,42 @@ export function buildAlerts({
   summaryData,
   vitalsData,
   weeklyStatus,
+  symptomLogs = [],
   demoMode = false,
 }) {
   const alerts = []
 
   const hr = formatNumber(summaryData?.summary?.heartRate, null)
-  const bpSystolic = formatNumber(summaryData?.summary?.bpSystolic, null)
-  const bpDiastolic = formatNumber(summaryData?.summary?.bpDiastolic, null)
-  const bpPulse = formatNumber(summaryData?.summary?.bpPulse, null)
-  const stepsToday = formatNumber(summaryData?.summary?.stepsToday, null)
+
+  const bpSystolic = formatNumber(
+    summaryData?.summary?.bpSystolic,
+    null
+  )
+
+  const bpDiastolic = formatNumber(
+    summaryData?.summary?.bpDiastolic,
+    null
+  )
+
+  const bpPulse = formatNumber(
+    summaryData?.summary?.bpPulse,
+    null
+  )
+
+  const stepsToday = formatNumber(
+    summaryData?.summary?.stepsToday,
+    null
+  )
 
   const latestSpo2 =
-    vitalsData?.vitals?.spo2 && vitalsData.vitals.spo2.length > 0
-      ? formatNumber(vitalsData.vitals.spo2[vitalsData.vitals.spo2.length - 1]?.avg, null)
+    vitalsData?.vitals?.spo2 &&
+    vitalsData.vitals.spo2.length > 0
+      ? formatNumber(
+          vitalsData.vitals.spo2[
+            vitalsData.vitals.spo2.length - 1
+          ]?.avg,
+          null
+        )
       : null
 
   const weightSeries =
@@ -71,9 +153,14 @@ export function buildAlerts({
     })) || []
 
   const latestWeight =
-    weightSeries.length > 0 ? weightSeries[weightSeries.length - 1]?.value : null
+    weightSeries.length > 0
+      ? weightSeries[weightSeries.length - 1]?.value
+      : null
 
-  // Optional demo mode for presentation
+  /* =========================
+     Demo mode
+  ========================= */
+
   if (demoMode) {
     if (patientId === "demo-critical") {
       alerts.push({
@@ -94,8 +181,15 @@ export function buildAlerts({
     }
   }
 
-  // BP + pulse alert logic
-  if (bpSystolic !== null && bpDiastolic !== null && bpPulse !== null) {
+  /* =========================
+     BP + Pulse
+  ========================= */
+
+  if (
+    bpSystolic !== null &&
+    bpDiastolic !== null &&
+    bpPulse !== null
+  ) {
     if (
       bpSystolic >= 180 ||
       bpSystolic < 80 ||
@@ -133,7 +227,10 @@ export function buildAlerts({
     }
   }
 
-  // HR logic
+  /* =========================
+     Heart Rate
+  ========================= */
+
   if (hr !== null) {
     if (hr < 50 || hr > 150) {
       alerts.push({
@@ -152,7 +249,10 @@ export function buildAlerts({
     }
   }
 
-  // SpO2 logic
+  /* =========================
+     SpO2
+  ========================= */
+
   if (latestSpo2 !== null) {
     if (latestSpo2 < 90) {
       alerts.push({
@@ -171,10 +271,15 @@ export function buildAlerts({
     }
   }
 
-  // Weight trend logic
+  /* =========================
+     Weight trend
+  ========================= */
+
   if (weightSeries.length >= 2) {
     const sorted = [...weightSeries].sort(
-      (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+      (a, b) =>
+        new Date(a.time).getTime() -
+        new Date(b.time).getTime()
     )
 
     const latest = sorted[sorted.length - 1]?.value
@@ -182,67 +287,107 @@ export function buildAlerts({
 
     if (latest != null && previous != null) {
       const diff1 = latest - previous
+
       if (diff1 >= 1.5) {
         alerts.push({
           id: "weight-warning-1",
           level: "warning",
           title: "Rapid Weight Gain",
-          message: `Weight increased ${diff1.toFixed(1)} kg since previous reading`,
+          message: `Weight increased ${diff1.toFixed(
+            1
+          )} kg since previous reading`,
         })
       }
     }
 
     if (sorted.length >= 3) {
-      const diff2 = latest - sorted[sorted.length - 3]?.value
+      const diff2 =
+        latest - sorted[sorted.length - 3]?.value
+
       if (!Number.isNaN(diff2) && diff2 >= 3) {
         alerts.push({
           id: "weight-critical-2",
           level: "critical",
           title: "Significant Weight Gain",
-          message: `Weight increased ${diff2.toFixed(1)} kg over recent readings`,
+          message: `Weight increased ${diff2.toFixed(
+            1
+          )} kg over recent readings`,
         })
       }
     }
 
     if (sorted.length >= 6) {
-      const diff5 = latest - sorted[Math.max(0, sorted.length - 6)]?.value
+      const diff5 =
+        latest -
+        sorted[Math.max(0, sorted.length - 6)]?.value
+
       if (!Number.isNaN(diff5) && diff5 >= 2) {
         alerts.push({
           id: "weight-warning-5",
           level: "warning",
           title: "Weight Gain Trend",
-          message: `Weight increased ${diff5.toFixed(1)} kg over several days`,
+          message: `Weight increased ${diff5.toFixed(
+            1
+          )} kg over several days`,
         })
       }
     }
   }
 
-  // Baseline comparison if available
-  const baselineWeight = formatNumber(summaryData?.summary?.baselineWeight, null)
-  const baselineSystolic = formatNumber(summaryData?.summary?.baselineSystolic, null)
-  const baselineHr = formatNumber(summaryData?.summary?.baselineHr, null)
+  /* =========================
+     Baseline comparison
+  ========================= */
 
-  if (baselineWeight !== null && latestWeight !== null) {
-    const weightDiff = latestWeight - baselineWeight
+  const baselineWeight = formatNumber(
+    summaryData?.summary?.baselineWeight,
+    null
+  )
+
+  const baselineSystolic = formatNumber(
+    summaryData?.summary?.baselineSystolic,
+    null
+  )
+
+  const baselineHr = formatNumber(
+    summaryData?.summary?.baselineHr,
+    null
+  )
+
+  if (
+    baselineWeight !== null &&
+    latestWeight !== null
+  ) {
+    const weightDiff =
+      latestWeight - baselineWeight
+
     if (weightDiff >= 5) {
       alerts.push({
         id: "baseline-weight-critical",
         level: "critical",
         title: "Weight Far Above Baseline",
-        message: `Weight is ${weightDiff.toFixed(1)} kg above baseline`,
+        message: `Weight is ${weightDiff.toFixed(
+          1
+        )} kg above baseline`,
       })
     } else if (weightDiff >= 3) {
       alerts.push({
         id: "baseline-weight-warning",
         level: "warning",
         title: "Weight Above Baseline",
-        message: `Weight is ${weightDiff.toFixed(1)} kg above baseline`,
+        message: `Weight is ${weightDiff.toFixed(
+          1
+        )} kg above baseline`,
       })
     }
   }
 
-  if (baselineSystolic !== null && bpSystolic !== null) {
-    const sysDiff = bpSystolic - baselineSystolic
+  if (
+    baselineSystolic !== null &&
+    bpSystolic !== null
+  ) {
+    const sysDiff =
+      bpSystolic - baselineSystolic
+
     if (sysDiff >= 40) {
       alerts.push({
         id: "baseline-bp-warning",
@@ -255,6 +400,7 @@ export function buildAlerts({
 
   if (baselineHr !== null && hr !== null) {
     const hrDiff = Math.abs(hr - baselineHr)
+
     if (hrDiff >= 20) {
       alerts.push({
         id: "baseline-hr-warning",
@@ -265,8 +411,77 @@ export function buildAlerts({
     }
   }
 
-  // Low activity
-  if (stepsToday !== null && stepsToday < 3000) {
+  /* =========================
+     Symptom alerts
+  ========================= */
+
+  const todaySymptom =
+    symptomLogs?.[symptomLogs.length - 1]
+
+  const todayRedSymptoms =
+    countSymptomsInRange(
+      todaySymptom,
+      4,
+      5
+    )
+
+  const todayOrangeSymptoms =
+    countSymptomsInRange(
+      todaySymptom,
+      2,
+      3
+    )
+
+  const hasRedSymptomStreak =
+    hasConsecutiveSymptomDays(
+      symptomLogs,
+      4,
+      5,
+      2,
+      3
+    )
+
+  const hasOrangeSymptomStreak =
+    hasConsecutiveSymptomDays(
+      symptomLogs,
+      2,
+      3,
+      2,
+      3
+    )
+
+  if (
+    todayRedSymptoms >= 3 ||
+    hasRedSymptomStreak
+  ) {
+    alerts.push({
+      id: "symptom-red-alert",
+      level: "critical",
+      title: "Critical Symptom Alert",
+      message:
+        "Red zone symptoms detected based on daily or consecutive symptom ratings.",
+    })
+  } else if (
+    todayOrangeSymptoms >= 3 ||
+    hasOrangeSymptomStreak
+  ) {
+    alerts.push({
+      id: "symptom-warning-alert",
+      level: "warning",
+      title: "Symptom Warning",
+      message:
+        "Orange zone symptoms detected based on daily or consecutive symptom ratings.",
+    })
+  }
+
+  /* =========================
+     Activity
+  ========================= */
+
+  if (
+    stepsToday !== null &&
+    stepsToday < 3000
+  ) {
     alerts.push({
       id: "steps-warning",
       level: "warning",
@@ -275,13 +490,26 @@ export function buildAlerts({
     })
   }
 
-  // Missing self-check logs
+  /* =========================
+     Missing logs
+  ========================= */
+
   if (weeklyStatus) {
     const days = Object.values(weeklyStatus)
-    const missingWeightDays = days.filter((d) => !d.has_weight).length
-    const missingSymptomDays = days.filter((d) => !d.has_symptoms).length
-    const missingVitalDays = days.filter((d) => d.has_bp === false).length
-    const missingWaterDietDays = days.filter((d) => d.has_water_diet === false).length
+
+    const missingWeightDays =
+      days.filter((d) => !d.has_weight).length
+
+    const missingSymptomDays =
+      days.filter((d) => !d.has_symptoms).length
+
+    const missingVitalDays =
+      days.filter((d) => d.has_bp === false).length
+
+    const missingWaterDietDays =
+      days.filter(
+        (d) => d.has_water_diet === false
+      ).length
 
     if (missingVitalDays >= 2) {
       alerts.push({
@@ -319,6 +547,10 @@ export function buildAlerts({
       })
     }
   }
+
+  /* =========================
+     Stable
+  ========================= */
 
   if (alerts.length === 0) {
     alerts.push({
