@@ -27,10 +27,15 @@ type Message = {
 
 type PatientSummary = {
   full_name?: string | null
-  systolic_bp?: number | null
-  diastolic_bp?: number | null
-  heart_rate?: number | null
+  age?: number | null
+  dry_weight?: number | null
   current_medication?: string | null
+  latest_weight?: number | null
+  latest_weight_date?: string | null
+  weight_change?: number | null
+  latest_systolic?: number | null
+  latest_diastolic?: number | null
+  latest_bp_date?: string | null
 }
 
 export default function SymptomChecker() {
@@ -58,17 +63,54 @@ export default function SymptomChecker() {
         .eq("user_id", userId)
         .maybeSingle()
 
-      setPatientId(patientData?.patient_id || userId)
+      const effectivePatientId = patientData?.patient_id || userId
+      setPatientId(effectivePatientId)
 
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, systolic_bp, diastolic_bp, heart_rate, current_medication")
+        .select("full_name, age, dry_weight, current_medication")
         .eq("user_id", userId)
         .maybeSingle()
 
-      if (profileData) {
-        setPatientSummary(profileData)
-      }
+      const [{ data: latestWeight }, { data: latestBp }] = await Promise.all([
+        supabase
+          .from("weight_day")
+          .select("date, kg_avg, kg_min, kg_max")
+          .eq("patient_id", effectivePatientId)
+          .order("date", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+
+        supabase
+          .from("bp_readings")
+          .select("reading_date, reading_time, systolic, diastolic")
+          .eq("patient_id", effectivePatientId)
+          .order("reading_date", { ascending: false })
+          .order("reading_time", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
+
+      const dryWeight = Number(profileData?.dry_weight)
+      const latestWeightValue = Number(
+        latestWeight?.kg_avg ?? latestWeight?.kg_max ?? latestWeight?.kg_min
+      )
+
+      setPatientSummary({
+        full_name: profileData?.full_name ?? null,
+        age: profileData?.age ?? null,
+        dry_weight: Number.isFinite(dryWeight) ? dryWeight : null,
+        current_medication: profileData?.current_medication ?? null,
+        latest_weight: Number.isFinite(latestWeightValue) ? latestWeightValue : null,
+        latest_weight_date: latestWeight?.date ?? null,
+        weight_change:
+          Number.isFinite(latestWeightValue) && Number.isFinite(dryWeight)
+            ? latestWeightValue - dryWeight
+            : null,
+        latest_systolic: latestBp?.systolic ?? null,
+        latest_diastolic: latestBp?.diastolic ?? null,
+        latest_bp_date: latestBp?.reading_date ?? null,
+      })
 
       setMessages([
         {
@@ -85,7 +127,6 @@ export default function SymptomChecker() {
       try {
         const res = await fetch(`${serverUrl()}/health`)
         if (!res.ok) throw new Error(String(res.status))
-        console.log("[My Chat] backend health ok")
       } catch (e) {
         console.error("[My Chat] backend health failed", e)
         toast.error("Server connectivity issue")
@@ -129,24 +170,14 @@ export default function SymptomChecker() {
         body: JSON.stringify({
           message: userMessage.content,
           patientId,
+          patientSummary,
         }),
       })
 
-      let data: any = null
-
-      try {
-        data = await res.json()
-      } catch {
-        data = null
-      }
+      const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        const errMsg =
-          data?.details ||
-          data?.error ||
-          `AI request failed: ${res.status}`
-
-        throw new Error(errMsg)
+        throw new Error(data?.details || data?.error || `AI request failed: ${res.status}`)
       }
 
       const assistantMessage: Message = {
@@ -164,7 +195,7 @@ export default function SymptomChecker() {
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-    } catch (err: any) {
+    } catch (err) {
       console.error("[My Chat] AI failed:", err)
       toast.error("AI is currently busy. Please try again shortly.")
 
@@ -195,6 +226,20 @@ export default function SymptomChecker() {
       .map((m) => m.trim())
       .filter(Boolean) || []
 
+  const formatKg = (value?: number | null) =>
+    typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(1)}kg` : "-"
+
+  const formatWeightChange = (value?: number | null) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "-"
+    const sign = value > 0 ? "+" : ""
+    return `${sign}${value.toFixed(1)}kg from baseline`
+  }
+
+  const latestBp =
+    patientSummary?.latest_systolic && patientSummary?.latest_diastolic
+      ? `${patientSummary.latest_systolic}/${patientSummary.latest_diastolic}`
+      : "-"
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 h-screen flex flex-col">
       <div className="mb-4">
@@ -221,31 +266,64 @@ export default function SymptomChecker() {
 
           <CardContent className="space-y-4">
             <div className="border p-3 rounded-xl">
-              <p className="text-xs text-muted-foreground">{getText("fullName", "Full Name")}</p>
-              <p className="font-medium mt-1">{patientSummary?.full_name || "-"}</p>
+              <p className="font-medium mb-2">{getText("basicInfo", "Basic Info")}</p>
+
+              <div className="space-y-1 text-sm">
+                <p>
+                  <span className="text-muted-foreground">{getText("name", "Name")}:</span>{" "}
+                  <span className="font-medium">{patientSummary?.full_name || "-"}</span>
+                </p>
+
+                <p>
+                  <span className="text-muted-foreground">{getText("age", "Age")}:</span>{" "}
+                  <span className="font-medium">{patientSummary?.age ?? "-"}</span>
+                </p>
+
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("baselineDryWeight", "Baseline Dry Weight")}:
+                  </span>{" "}
+                  <span className="font-medium">{formatKg(patientSummary?.dry_weight)}</span>
+                </p>
+              </div>
             </div>
 
             <div className="border p-3 rounded-xl">
               <p className="font-medium flex gap-2 items-center mb-2">
                 <Activity className="w-4 h-4" />
-                {getText("latestVitals", "Latest Vitals")}
+                {getText("latestHealthStatus", "Latest Health Status")}
               </p>
-              <p className="text-sm">
-                {getText("bloodPressure", "Blood Pressure")}:{" "}
-                {patientSummary?.systolic_bp && patientSummary?.diastolic_bp
-                  ? `${patientSummary.systolic_bp}/${patientSummary.diastolic_bp}`
-                  : "-"}
-              </p>
-              <p className="text-sm mt-1">
-                {getText("heartRate", "Heart Rate")}:{" "}
-                {patientSummary?.heart_rate ? `${patientSummary.heart_rate} bpm` : "-"}
-              </p>
+
+              <div className="space-y-1 text-sm">
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("latestWeight", "Latest Weight")}:
+                  </span>{" "}
+                  <span className="font-medium">{formatKg(patientSummary?.latest_weight)}</span>
+                </p>
+
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("weightChange", "Weight Change")}:
+                  </span>{" "}
+                  <span className="font-medium">
+                    {formatWeightChange(patientSummary?.weight_change)}
+                  </span>
+                </p>
+
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("latestBp", "Latest BP")}:
+                  </span>{" "}
+                  <span className="font-medium">{latestBp}</span>
+                </p>
+              </div>
             </div>
 
             <div className="border p-3 rounded-xl">
               <p className="font-medium flex gap-2 items-center mb-2">
                 <Pill className="w-4 h-4" />
-                {getText("currentMedication", "Current Medication")}
+                {getText("medicationReminder", "Medication Reminder")}
               </p>
 
               {meds.length > 0 ? (
@@ -281,7 +359,9 @@ export default function SymptomChecker() {
               {messages.map((m) => (
                 <div
                   key={m.id}
-                  className={`flex gap-3 w-full ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex gap-3 w-full ${
+                    m.role === "user" ? "justify-end" : "justify-start"
+                  }`}
                 >
                   {m.role === "assistant" && (
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
@@ -299,6 +379,7 @@ export default function SymptomChecker() {
                     <div className="markdown prose prose-sm dark:prose-invert max-w-none break-words [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4">
                       <Markdown>{m.content}</Markdown>
                     </div>
+
                     <p
                       className={`text-[10px] mt-1 text-right ${
                         m.role === "user"
@@ -326,6 +407,7 @@ export default function SymptomChecker() {
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <Bot className="w-5 h-5 text-primary" />
                   </div>
+
                   <div className="bg-muted rounded-2xl rounded-bl-none p-4 flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin text-primary" />
                     <span className="text-xs text-muted-foreground">
@@ -360,6 +442,7 @@ export default function SymptomChecker() {
             <div className="px-4 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-t border-b border-amber-100 dark:border-amber-900/50 flex justify-center">
               <div className="flex items-center gap-1.5 text-center">
                 <AlertCircle className="w-3 h-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
+
                 <p className="text-[10px] font-medium text-amber-800 dark:text-amber-300">
                   {getText(
                     "aiMedicalDisclaimer",
@@ -376,8 +459,13 @@ export default function SymptomChecker() {
                 placeholder={getText("chatInputPlaceholder", "Type your question here...")}
                 disabled={loading}
               />
+
               <Button type="submit" disabled={loading || !input.trim()}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </form>
           </CardContent>
