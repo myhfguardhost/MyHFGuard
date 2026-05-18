@@ -277,6 +277,8 @@ const SelfCheck = () => {
 
     const endDate = selectedDate
     const startDate = subDays(endDate, 6)
+    const startStr = format(startDate, "yyyy-MM-dd")
+    const endStr = format(endDate, "yyyy-MM-dd")
 
     let profileDryWeight: number | null = dryWeight
 
@@ -314,40 +316,35 @@ const SelfCheck = () => {
     const trendMap = new Map(days.map((d) => [d.date, d]))
 
     try {
-      const vitalsRes = await getPatientVitals(
-        patientId,
-        "weekly",
-        format(endDate, "yyyy-MM-dd"),
-        0 - new Date().getTimezoneOffset()
-      )
+      const { data: weightRows } = await supabase
+        .from("weight_samples")
+        .select("time_ts, kg")
+        .eq("patient_id", patientId)
+        .gte("time_ts", `${startStr}T00:00:00`)
+        .lte("time_ts", `${endStr}T23:59:59`)
+        .order("time_ts", { ascending: true })
 
-      const vitals = vitalsRes?.vitals || {}
-
-      vitals.weight?.forEach((item: any) => {
-        const key = format(new Date(item.time), "yyyy-MM-dd")
+      weightRows?.forEach((item: any) => {
+        const key = format(new Date(item.time_ts), "yyyy-MM-dd")
         const row = trendMap.get(key)
-
-        const weightValue = Number(item.kg ?? item.value ?? item.kg_avg)
+        const weightValue = Number(item.kg)
 
         if (row && !Number.isNaN(weightValue)) {
           row.weight = weightValue
         }
       })
 
-      vitals.bp?.forEach((item: any) => {
-        const key =
-          item.reading_date ||
-          item.date ||
-          format(
-            new Date(
-              new Date(item.time).toLocaleString("en-US", {
-                timeZone: "Asia/Kuala_Lumpur",
-              })
-            ),
-            "yyyy-MM-dd"
-          )
+      const { data: bpRows } = await supabase
+        .from("bp_readings")
+        .select("reading_date, reading_time, systolic, diastolic, pulse")
+        .eq("patient_id", patientId)
+        .gte("reading_date", startStr)
+        .lte("reading_date", endStr)
+        .order("reading_date", { ascending: true })
+        .order("reading_time", { ascending: true })
 
-        const row = trendMap.get(key)
+      bpRows?.forEach((item: any) => {
+        const row = trendMap.get(item.reading_date)
 
         if (row) {
           row.systolic = Number(item.systolic)
@@ -360,8 +357,8 @@ const SelfCheck = () => {
         .from("symptom_log")
         .select("date, cough, sob_activity, leg_swelling, abd_discomfort, orthopnea")
         .eq("patient_id", patientId)
-        .gte("date", format(startDate, "yyyy-MM-dd"))
-        .lte("date", format(endDate, "yyyy-MM-dd"))
+        .gte("date", startStr)
+        .lte("date", endStr)
         .order("date", { ascending: true })
 
       if (!error && symptomRows) {
@@ -375,9 +372,7 @@ const SelfCheck = () => {
             Number(row.cough || 0) +
             Number(row.abd_discomfort || 0)
 
-          if (!grouped[row.date]) {
-            grouped[row.date] = { total: 0, count: 0 }
-          }
+          if (!grouped[row.date]) grouped[row.date] = { total: 0, count: 0 }
 
           grouped[row.date].total += total
           grouped[row.date].count += 1
