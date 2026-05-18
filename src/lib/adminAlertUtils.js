@@ -102,7 +102,7 @@ export function buildAlerts({
       bpDiastolic >= 120 ||
       bpDiastolic < 50 ||
       bpPulse < 50 ||
-      bpPulse > 120
+      bpPulse > 150
     ) {
       alerts.push({
         id: "bp-critical",
@@ -135,7 +135,7 @@ export function buildAlerts({
 
   // HR logic
   if (hr !== null) {
-    if (hr < 50 || hr > 120) {
+    if (hr < 50 || hr > 150) {
       alerts.push({
         id: "hr-critical",
         level: "critical",
@@ -243,7 +243,7 @@ export function buildAlerts({
 
   if (baselineSystolic !== null && bpSystolic !== null) {
     const sysDiff = bpSystolic - baselineSystolic
-    if (sysDiff >= 20) {
+    if (sysDiff >= 40) {
       alerts.push({
         id: "baseline-bp-warning",
         level: "warning",
@@ -280,8 +280,28 @@ export function buildAlerts({
     const days = Object.values(weeklyStatus)
     const missingWeightDays = days.filter((d) => !d.has_weight).length
     const missingSymptomDays = days.filter((d) => !d.has_symptoms).length
+    const missingVitalDays = days.filter((d) => d.has_bp === false).length
+    const missingWaterDietDays = days.filter((d) => d.has_water_diet === false).length
 
-    if (missingWeightDays >= 4) {
+    if (missingVitalDays >= 2) {
+      alerts.push({
+        id: "missing-vitals",
+        level: "warning",
+        title: "Incomplete Vital Logs",
+        message: `${missingVitalDays} days without vital log this week`,
+      })
+    }
+
+    if (missingWaterDietDays >= 2) {
+      alerts.push({
+        id: "missing-water-diet",
+        level: "warning",
+        title: "Incomplete Water & Diet Logs",
+        message: `${missingWaterDietDays} days without water and diet log this week`,
+      })
+    }
+
+    if (missingWeightDays >= 2) {
       alerts.push({
         id: "missing-weight",
         level: "warning",
@@ -290,7 +310,7 @@ export function buildAlerts({
       })
     }
 
-    if (missingSymptomDays >= 4) {
+    if (missingSymptomDays >= 2) {
       alerts.push({
         id: "missing-symptoms",
         level: "warning",
