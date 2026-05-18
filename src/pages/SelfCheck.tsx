@@ -44,6 +44,7 @@ import { format, addDays, isSameDay, isToday, subDays } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import StableChart from "@/components/StableChart"
 import { toast } from "sonner"
 import correctImage from "@/assets/correct_image.jpeg"
 import slantedImage from "@/assets/slanted_image.jpg"
@@ -55,7 +56,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Legend,
   ReferenceArea,
 } from "recharts"
@@ -1050,7 +1050,7 @@ const SelfCheck = () => {
                   <div className="rounded-xl border p-4 bg-muted/20">
                     <h3 className="mb-3 text-sm font-semibold">{t("selfCheck.weeklyTrend.weightTrend")}</h3>
                     <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <StableChart height={256}>
                         <LineChart data={weeklyTrend}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="day" />
@@ -1076,14 +1076,14 @@ const SelfCheck = () => {
                             connectNulls
                           />
                         </LineChart>
-                      </ResponsiveContainer>
+                      </StableChart>
                     </div>
                   </div>
 
                   <div className="rounded-xl border p-4 bg-muted/20">
                     <h3 className="mb-3 text-sm font-semibold">{t("selfCheck.weeklyTrend.bpPulseTrend")}</h3>
                     <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <StableChart height={256}>
                         <LineChart data={weeklyTrend}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="day" />
@@ -1115,7 +1115,7 @@ const SelfCheck = () => {
                             connectNulls
                           />
                         </LineChart>
-                      </ResponsiveContainer>
+                      </StableChart>
                     </div>
                   </div>
 
@@ -1136,7 +1136,7 @@ const SelfCheck = () => {
                     </div>
 
                     <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <StableChart height={256}>
                         <LineChart data={weeklyTrend}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="day" />
@@ -1157,7 +1157,7 @@ const SelfCheck = () => {
                             connectNulls
                           />
                         </LineChart>
-                      </ResponsiveContainer>
+                      </StableChart>
                     </div>
                   </div>
                 </div>
@@ -1931,4 +1931,3 @@ const SelfCheck = () => {
 
 
 export default SelfCheck
-

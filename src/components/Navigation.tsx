@@ -23,7 +23,6 @@ import BackToDashboard from "@/components/BackToDashboard"
 import { supabase } from "@/lib/supabase"
 import logoImg from "@/assets/loginlogo.jpg"
 
-
 const navItems = [
   { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { to: "/education", labelKey: "nav.education", icon: BookOpen },
@@ -35,20 +34,16 @@ const navItems = [
   { to: "/help-support", labelKey: "nav.helpSupport", icon: LifeBuoy },
 ]
 
-
 export default function Navigation() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
 
-
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
-
   const isDashboard =
     location.pathname === "/" || location.pathname.startsWith("/dashboard")
-
 
   const pageTitle = useMemo(() => {
     const current = navItems.find((item) =>
@@ -57,12 +52,10 @@ export default function Navigation() {
     return current ? t(current.labelKey) : t("common.appName", "MyHFGuard")
   }, [location.pathname, t])
 
-
   const handleLogout = async () => {
     await supabase.auth.signOut()
     navigate("/login")
   }
-
 
   const SidebarContent = () => (
     <div className="flex h-full flex-col">
@@ -74,11 +67,9 @@ export default function Navigation() {
           </p>
         </div>
 
-
         <nav className="space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon
-
 
             return (
               <NavLink
@@ -103,7 +94,6 @@ export default function Navigation() {
         </nav>
       </div>
 
-
       <div className="mt-auto shrink-0 space-y-2 pb-4 pt-6">
         <NavLink
           to="/profile"
@@ -122,7 +112,6 @@ export default function Navigation() {
           <span>{t("nav.profile", "Profile")}</span>
         </NavLink>
 
-
         <button
           type="button"
           onClick={handleLogout}
@@ -135,7 +124,6 @@ export default function Navigation() {
     </div>
   )
 
-
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed left-0 right-0 top-0 z-40 flex h-[73px] items-center justify-between border-b bg-background/95 px-3 py-3 backdrop-blur md:px-6">
@@ -147,7 +135,6 @@ export default function Navigation() {
               className="h-8 w-auto object-contain md:h-10"
             />
           </div>
-
 
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold text-primary md:text-2xl">
@@ -162,10 +149,8 @@ export default function Navigation() {
           </div>
         </div>
 
-
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
           <LanguageToggle />
-
 
           <button
             type="button"
@@ -174,7 +159,6 @@ export default function Navigation() {
           >
             <Menu className="h-5 w-5" />
           </button>
-
 
           <button
             type="button"
@@ -190,25 +174,22 @@ export default function Navigation() {
         </div>
       </header>
 
-
       <main
         className={cn(
-          "min-w-0 px-3 pb-6 pt-[89px] sm:px-4 md:px-6 lg:px-8",
+          "min-w-0 overflow-x-hidden px-3 pb-6 pt-[89px] sm:px-4 md:px-6 lg:px-8",
           desktopSidebarOpen && "lg:mr-72"
         )}
       >
-        <div className="mx-auto w-full max-w-7xl">
+        <div className="mx-auto w-full max-w-7xl min-w-0">
           {!isDashboard && (
             <div className="mb-4">
               <BackToDashboard />
             </div>
           )}
 
-
           <Outlet />
         </div>
       </main>
-
 
       {desktopSidebarOpen && (
         <aside className="fixed bottom-0 right-0 top-[73px] z-30 hidden w-72 border-l bg-card lg:block">
@@ -218,7 +199,6 @@ export default function Navigation() {
         </aside>
       )}
 
-
       {mobileSidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
@@ -227,13 +207,11 @@ export default function Navigation() {
             onClick={() => setMobileSidebarOpen(false)}
           />
 
-
           <aside className="absolute right-0 top-0 flex h-full w-[82vw] max-w-xs flex-col border-l bg-card p-4 shadow-2xl">
             <div className="mb-4 flex shrink-0 items-center justify-between">
               <span className="text-lg font-semibold">
                 {t("nav.menu", "Menu")}
               </span>
-
 
               <button
                 type="button"
@@ -243,7 +221,6 @@ export default function Navigation() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-
 
             <SidebarContent />
           </aside>

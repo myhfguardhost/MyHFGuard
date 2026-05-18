@@ -11,8 +11,8 @@ import { format, isSameDay, isToday } from "date-fns"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import StableChart from "@/components/StableChart"
 import {
-  ResponsiveContainer,
   LineChart,
   Line,
   CartesianGrid,
@@ -715,7 +715,7 @@ export default function WaterSalt() {
           </CardHeader>
           <CardContent>
             <div className="w-full min-h-[320px]">
-              <ResponsiveContainer width="100%" height={320}>
+              <StableChart height={320}>
                 <LineChart data={waterChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
@@ -746,7 +746,7 @@ export default function WaterSalt() {
                     dot={false}
                   />
                 </LineChart>
-              </ResponsiveContainer>
+              </StableChart>
             </div>
           </CardContent>
         </Card>
@@ -757,7 +757,7 @@ export default function WaterSalt() {
           </CardHeader>
           <CardContent>
             <div className="w-full min-h-[320px]">
-              <ResponsiveContainer width="100%" height={320}>
+              <StableChart height={320}>
                 <BarChart data={saltChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
@@ -777,7 +777,7 @@ export default function WaterSalt() {
                     ))}
                   </Bar>
                 </BarChart>
-              </ResponsiveContainer>
+              </StableChart>
             </div>
           </CardContent>
         </Card>
