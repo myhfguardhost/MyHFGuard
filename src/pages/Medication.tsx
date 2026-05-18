@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { supabase } from "@/lib/supabase"
 import { useLanguage } from "@/contexts/LanguageContext"
 
+
 import {
   Card,
   CardContent,
@@ -14,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
+
 import {
   Pill,
   Info,
@@ -24,10 +26,12 @@ import {
   Trash2,
 } from "lucide-react"
 
+
 type MedicationEntry = {
   name: string
   reminderTime: "12:00 PM" | "10:00 PM"
 }
+
 
 type ReminderItem = {
   id: string
@@ -37,6 +41,7 @@ type ReminderItem = {
   status?: string | null
   type?: string | null
 }
+
 
 const STATIN_KEYWORDS = [
   "statin",
@@ -49,8 +54,10 @@ const STATIN_KEYWORDS = [
   "pitavastatin",
 ]
 
+
 function normalizeMedicationList(raw: string): MedicationEntry[] {
   if (!raw) return []
+
 
   return raw
     .split(/\n|;/)
@@ -59,8 +66,10 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
     .flatMap((line) => {
       const lower = line.toLowerCase()
 
+
       const scheduleMatch = lower.match(/\((.*?)\)/)
       const schedule = scheduleMatch?.[1] || ""
+
 
       const isNoon =
         schedule.includes("noon") ||
@@ -68,19 +77,24 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
         schedule.includes("12 pm") ||
         schedule.includes("tengah hari")
 
+
       const isNight =
         schedule.includes("night") ||
         schedule.includes("malam") ||
         schedule.includes("10pm") ||
         schedule.includes("10 pm")
 
+
       const cleanedName = line.replace(/\(.*?\)/g, "").trim()
+
 
       const isStatin = STATIN_KEYWORDS.some((keyword) =>
         cleanedName.toLowerCase().includes(keyword)
       )
 
+
       const entries: MedicationEntry[] = []
+
 
       if (isNoon) {
         entries.push({
@@ -89,12 +103,14 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
         })
       }
 
+
       if (isNight || isStatin) {
         entries.push({
           name: cleanedName,
           reminderTime: "10:00 PM",
         })
       }
+
 
       if (!isNoon && !isNight && !isStatin) {
         entries.push({
@@ -103,17 +119,21 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
         })
       }
 
+
       return entries
     })
 }
+
 
 const Medication = () => {
   const { t } = useLanguage()
   const [patientId, setPatientId] = useState<string | undefined>(undefined)
 
+
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null)
+
 
   const [form, setForm] = useState({
     title: "",
@@ -122,8 +142,10 @@ const Medication = () => {
     notes: "",
   })
 
+
   useEffect(() => {
     let mounted = true
+
 
     async function init() {
       const { data } = await supabase.auth.getSession()
@@ -131,11 +153,13 @@ const Medication = () => {
       if (mounted) setPatientId(id)
     }
 
+
     init()
     return () => {
       mounted = false
     }
   }, [])
+
 
   const profileQuery = useQuery({
     queryKey: ["profile-medication", patientId],
@@ -147,10 +171,12 @@ const Medication = () => {
         .eq("user_id", patientId)
         .maybeSingle()
 
+
       if (error) throw error
       return data
     },
   })
+
 
   const remindersQuery = useQuery({
     queryKey: ["reminders", patientId],
@@ -162,22 +188,27 @@ const Medication = () => {
         .eq("patient_id", patientId)
         .order("due_ts", { ascending: true })
 
+
       if (error) throw error
       return data || []
     },
   })
 
+
   const medicationEntries = useMemo(() => {
     return normalizeMedicationList(profileQuery.data?.current_medication || "")
   }, [profileQuery.data])
+
 
   const noonMedications = medicationEntries.filter(
     (m) => m.reminderTime === "12:00 PM"
   )
 
+
   const nightMedications = medicationEntries.filter(
     (m) => m.reminderTime === "10:00 PM"
   )
+
 
   const upcomingAppointments = useMemo(() => {
     const now = new Date()
@@ -185,6 +216,7 @@ const Medication = () => {
       .filter((r) => new Date(r.due_ts) >= now)
       .slice(0, 10)
   }, [remindersQuery.data])
+
 
   const resetForm = () => {
     setForm({
@@ -197,6 +229,7 @@ const Medication = () => {
     setShowForm(false)
   }
 
+
   const handleOpenAddForm = () => {
     setEditingReminderId(null)
     setForm({
@@ -208,16 +241,20 @@ const Medication = () => {
     setShowForm((prev) => !prev)
   }
 
+
   const handleEditReminder = (reminder: ReminderItem) => {
     const dt = new Date(reminder.due_ts)
+
 
     const localDate = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(
       dt.getDate()
     ).padStart(2, "0")}`
 
+
     const localTime = `${String(dt.getHours()).padStart(2, "0")}:${String(
       dt.getMinutes()
     ).padStart(2, "0")}`
+
 
     setEditingReminderId(reminder.id)
     setForm({
@@ -229,26 +266,32 @@ const Medication = () => {
     setShowForm(true)
   }
 
+
   const handleSaveReminder = async () => {
     if (!patientId) {
       alert("Patient not found.")
       return
     }
 
+
     if (!form.title || !form.date || !form.time) {
       alert("Please fill in title, date and time.")
       return
     }
 
+
     try {
       setSaving(true)
 
+
       const datetime = new Date(`${form.date}T${form.time}`)
+
 
       if (Number.isNaN(datetime.getTime())) {
         alert("Invalid date or time.")
         return
       }
+
 
       if (editingReminderId) {
         const { error } = await supabase
@@ -261,6 +304,7 @@ const Medication = () => {
           })
           .eq("id", editingReminderId)
           .eq("patient_id", patientId)
+
 
         if (error) {
           console.error("Update reminder error:", error)
@@ -277,12 +321,14 @@ const Medication = () => {
           status: "upcoming",
         })
 
+
         if (error) {
           console.error("Save reminder error:", error)
           alert(`Failed to save reminder: ${error.message}`)
           return
         }
       }
+
 
       resetForm()
       await remindersQuery.refetch()
@@ -294,11 +340,14 @@ const Medication = () => {
     }
   }
 
+
   const handleDeleteReminder = async (id: string) => {
     if (!patientId) return
 
+
     const confirmed = window.confirm("Delete this reminder?")
     if (!confirmed) return
+
 
     try {
       const { error } = await supabase
@@ -307,15 +356,18 @@ const Medication = () => {
         .eq("id", id)
         .eq("patient_id", patientId)
 
+
       if (error) {
         console.error("Delete reminder error:", error)
         alert(`Failed to delete reminder: ${error.message}`)
         return
       }
 
+
       if (editingReminderId === id) {
         resetForm()
       }
+
 
       await remindersQuery.refetch()
     } catch (err) {
@@ -323,6 +375,7 @@ const Medication = () => {
       alert("Something went wrong while deleting reminder.")
     }
   }
+
 
   const ReminderCard = ({
     title,
@@ -341,6 +394,7 @@ const Medication = () => {
         </div>
         <CardDescription>{time}</CardDescription>
       </CardHeader>
+
 
       <CardContent>
         {meds.length > 0 ? (
@@ -367,16 +421,19 @@ const Medication = () => {
     </Card>
   )
 
+
   return (
-    <div className="min-h-screen bg-background px-6 py-8">
+    <div className="min-h-screen bg-background px-3 py-4 sm:px-4 md:px-6 md:py-8">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-3xl font-bold mt-4">
           {t("myMedicationReminder")}
         </h1>
 
+
         <p className="text-muted-foreground mb-6">
           {t("medicationReminderDesc")}
         </p>
+
 
         <Alert className="mb-6">
           <Info className="w-4 h-4" />
@@ -384,6 +441,7 @@ const Medication = () => {
             {t("medicationPageInfo")}
           </AlertDescription>
         </Alert>
+
 
         <Card className="mb-6">
           <CardHeader>
@@ -398,6 +456,7 @@ const Medication = () => {
                 </div>
               </div>
 
+
               <Button
                 onClick={handleOpenAddForm}
                 className="inline-flex items-center gap-2"
@@ -407,6 +466,7 @@ const Medication = () => {
               </Button>
             </div>
           </CardHeader>
+
 
           <CardContent>
             {showForm && (
@@ -427,6 +487,7 @@ const Medication = () => {
                     />
                   </div>
 
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block mb-2 text-sm text-muted-foreground">
@@ -441,6 +502,7 @@ const Medication = () => {
                         className="w-full rounded-xl bg-background border border-border px-4 py-3 text-foreground outline-none focus:border-cyan-400"
                       />
                     </div>
+
 
                     <div>
                       <label className="block mb-2 text-sm text-muted-foreground">
@@ -457,6 +519,7 @@ const Medication = () => {
                     </div>
                   </div>
 
+
                   <div>
                     <label className="block mb-2 text-sm text-muted-foreground">
                       {t("reminderNotes")}
@@ -472,6 +535,7 @@ const Medication = () => {
                     />
                   </div>
 
+
                   <div className="flex flex-wrap gap-3">
                     <Button onClick={handleSaveReminder} disabled={saving}>
                       {saving
@@ -480,6 +544,7 @@ const Medication = () => {
                         ? t("updateReminder")
                         : t("saveReminder")}
                     </Button>
+
 
                     <Button
                       variant="outline"
@@ -492,6 +557,7 @@ const Medication = () => {
                 </div>
               </div>
             )}
+
 
             {upcomingAppointments.length > 0 ? (
               <div className="space-y-2">
@@ -512,6 +578,7 @@ const Medication = () => {
                       ) : null}
                     </div>
 
+
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -522,6 +589,7 @@ const Medication = () => {
                         <Pencil className="w-4 h-4" />
                         {t("edit")}
                       </Button>
+
 
                       <Button
                         variant="outline"
@@ -542,11 +610,13 @@ const Medication = () => {
           </CardContent>
         </Card>
 
+
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>{t("medicationFromProfile")}</CardTitle>
             <CardDescription>{t("medicationFromProfileDesc")}</CardDescription>
           </CardHeader>
+
 
           <CardContent>
             {medicationEntries.length > 0 ? (
@@ -567,12 +637,14 @@ const Medication = () => {
           </CardContent>
         </Card>
 
+
         <div className="grid md:grid-cols-2 gap-6">
           <ReminderCard
             title={t("noonReminder")}
             time={t("twelveNoon")}
             meds={noonMedications}
           />
+
 
           <ReminderCard
             title={t("nightReminder")}
@@ -584,5 +656,6 @@ const Medication = () => {
     </div>
   )
 }
+
 
 export default Medication

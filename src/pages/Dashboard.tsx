@@ -5,6 +5,7 @@ import exerciseImg from "@/assets/Exercise.jpg"
 import reminderImg from "@/assets/reminder.jpg"
 import supportImg from "@/assets/support.jpg"
 
+
 import { useEffect, useState, memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card } from "@/components/ui/card"
@@ -17,17 +18,21 @@ import { supabase } from "@/lib/supabase"
 import { formatDistanceToNow, format } from "date-fns"
 import { useLanguage } from "@/contexts/LanguageContext"
 
+
 const Dashboard = () => {
   const navigate = useNavigate()
   const { t } = useLanguage()
 
+
   const ClockDisplay = memo(() => {
     const [now, setNow] = useState(new Date())
+
 
     useEffect(() => {
       const timer = setInterval(() => setNow(new Date()), 1000)
       return () => clearInterval(timer)
     }, [])
+
 
     return (
       <div className="text-left md:text-right">
@@ -41,16 +46,20 @@ const Dashboard = () => {
     )
   })
 
+
   const [patientId, setPatientId] = useState<string | undefined>(
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search).get("patientId") || undefined
       : undefined
   )
 
+
   const [showSyncNotice, setShowSyncNotice] = useState(true)
+
 
   useEffect(() => {
     let mounted = true
+
 
     async function init() {
       if (patientId) return
@@ -59,11 +68,13 @@ const Dashboard = () => {
       if (mounted) setPatientId(id)
     }
 
+
     init()
     return () => {
       mounted = false
     }
   }, [patientId])
+
 
   const { data } = useQuery({
     queryKey: ["patient-summary", patientId],
@@ -72,12 +83,14 @@ const Dashboard = () => {
     enabled: !!patientId,
   })
 
+
   const infoQuery = useQuery({
     queryKey: ["patient-info", patientId],
     queryFn: () => getPatientInfo(patientId),
     refetchOnWindowFocus: false,
     enabled: !!patientId,
   })
+
 
   useEffect(() => {
     async function syncIfDefault() {
@@ -87,13 +100,16 @@ const Dashboard = () => {
         !pr || (pr.first_name === "User" && pr.last_name === "Patient")
       if (!isDefault) return
 
+
       const { data } = await supabase.auth.getSession()
       const meta: any = data?.session?.user?.user_metadata || {}
       const firstName = meta.firstName
       const lastName = meta.lastName
       const dateOfBirth = meta.dateOfBirth
 
+
       if (!firstName && !lastName && !dateOfBirth) return
+
 
       try {
         await fetch(`${serverUrl()}/admin/ensure-patient`, {
@@ -105,18 +121,22 @@ const Dashboard = () => {
       } catch (_) {}
     }
 
+
     syncIfDefault()
   }, [patientId, infoQuery.data])
+
 
   const summary = data?.summary || {}
   const lastSyncFromSummary = summary.lastSyncTs
     ? new Date(summary.lastSyncTs)
     : undefined
 
+
   const lastSyncDisplay =
     lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime())
       ? formatDistanceToNow(lastSyncFromSummary, { addSuffix: true })
       : summary.lastSyncTs || "unknown"
+
 
   const homeComponents = [
     {
@@ -162,9 +182,10 @@ const Dashboard = () => {
     },
   ]
 
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4 md:px-6 md:py-8">
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
@@ -176,6 +197,7 @@ const Dashboard = () => {
           </div>
           <ClockDisplay />
         </div>
+
 
         {showSyncNotice && (
           <Alert className="mb-8 border-primary/40 bg-white dark:bg-slate-900 dark:border-slate-700 shadow-sm">
@@ -196,6 +218,7 @@ const Dashboard = () => {
           </Alert>
         )}
 
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {homeComponents.map((item) => (
             <Card
@@ -208,6 +231,7 @@ const Dashboard = () => {
                 style={{ backgroundImage: `url(${item.image})` }}
               >
                 <div className="absolute inset-0 bg-black/45" />
+
 
                 <div className="relative z-10 flex h-full flex-col justify-end p-6 text-white">
                   <h2 className="text-3xl font-bold mb-2">{item.title}</h2>
@@ -223,5 +247,6 @@ const Dashboard = () => {
     </div>
   )
 }
+
 
 export default Dashboard

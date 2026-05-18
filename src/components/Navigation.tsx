@@ -13,6 +13,8 @@ import {
   PanelRightClose,
   PanelRightOpen,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import LanguageToggle from "@/components/LanguageToggle"
@@ -20,6 +22,7 @@ import { cn } from "@/lib/utils"
 import BackToDashboard from "@/components/BackToDashboard"
 import { supabase } from "@/lib/supabase"
 import logoImg from "@/assets/loginlogo.jpg"
+
 
 const navItems = [
   { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
@@ -32,115 +35,56 @@ const navItems = [
   { to: "/help-support", labelKey: "nav.helpSupport", icon: LifeBuoy },
 ]
 
+
 export default function Navigation() {
   const { t } = useTranslation()
   const location = useLocation()
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+
 
   const isDashboard =
     location.pathname === "/" || location.pathname.startsWith("/dashboard")
 
+
   const pageTitle = useMemo(() => {
-    const current = navItems.find((item) => location.pathname.startsWith(item.to))
-    return current ? t(current.labelKey) : t("common.appName")
+    const current = navItems.find((item) =>
+      location.pathname.startsWith(item.to)
+    )
+    return current ? t(current.labelKey) : t("common.appName", "MyHFGuard")
   }, [location.pathname, t])
 
+
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut()
-
-    if (error) {
-      console.error("Logout failed:", error.message)
-      return
-    }
-
+    await supabase.auth.signOut()
     navigate("/login")
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="flex items-center justify-between border-b bg-background px-4 py-4 md:px-6">
-        <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-white p-2 shadow-sm border border-slate-200">
-            <img
-              src={logoImg}
-              alt="HFGuard Logo"
-              className="h-10 w-auto object-contain"
-            />
-          </div>
 
-          <div>
-            <h1 className="text-2xl font-bold text-primary">{pageTitle}</h1>
-            <p className="text-sm text-muted-foreground">
-              {t("common.welcomeToMyHFGuard", "Heart failure self-care management")}
-            </p>
-          </div>
+  const SidebarContent = () => (
+    <div className="flex h-full flex-col">
+      <div className="shrink-0">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">{t("nav.menu", "Menu")}</h2>
+          <p className="text-sm text-muted-foreground">
+            {t("nav.quickAccess", "Quick access")}
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <LanguageToggle />
-          <button
-            type="button"
-            onClick={() => setSidebarOpen((prev) => !prev)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-foreground transition hover:bg-accent"
-            aria-label={sidebarOpen ? t("common.close") : t("common.openMenu", "Open menu")}
-            title={sidebarOpen ? t("common.close") : t("common.openMenu", "Open menu")}
-          >
-            {sidebarOpen ? (
-              <PanelRightClose className="h-5 w-5" />
-            ) : (
-              <PanelRightOpen className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-      </header>
 
-      <div className="flex min-h-[calc(100vh-81px)]">
-        <main className="flex-1 p-4 md:p-6">
-          {!isDashboard && (
-            <div className="mb-4">
-              <BackToDashboard />
-            </div>
-          )}
-          <Outlet />
-        </main>
+        <nav className="space-y-2">
+          {navItems.map((item) => {
+            const Icon = item.icon
 
-        {sidebarOpen && (
-          <aside className="flex w-72 flex-col border-l bg-card p-4">
-            <div className="mb-4">
-              <h2 className="text-lg font-semibold">{t("nav.menu", "Menu")}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t("nav.quickAccess", "Quick access")}
-              </p>
-            </div>
 
-            <nav className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
-                        "hover:bg-primary/10 hover:text-primary",
-                        isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-foreground"
-                      )
-                    }
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>{t(item.labelKey)}</span>
-                  </NavLink>
-                )
-              })}
-            </nav>
-
-            <div className="mt-auto pt-4">
+            return (
               <NavLink
-                to="/profile"
+                key={item.to}
+                to={item.to}
+                onClick={() => setMobileSidebarOpen(false)}
                 className={({ isActive }) =>
                   cn(
                     "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
@@ -151,22 +95,160 @@ export default function Navigation() {
                   )
                 }
               >
-                <User className="h-5 w-5" />
-                <span>{t("nav.profile", "Profile")}</span>
+                <Icon className="h-5 w-5 shrink-0" />
+                <span>{t(item.labelKey)}</span>
               </NavLink>
+            )
+          })}
+        </nav>
+      </div>
+
+
+      <div className="mt-auto shrink-0 space-y-2 pb-4 pt-6">
+        <NavLink
+          to="/profile"
+          onClick={() => setMobileSidebarOpen(false)}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
+              "hover:bg-primary/10 hover:text-primary",
+              isActive
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-foreground"
+            )
+          }
+        >
+          <User className="h-5 w-5 shrink-0" />
+          <span>{t("nav.profile", "Profile")}</span>
+        </NavLink>
+
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-600 transition-all hover:bg-red-50 hover:text-red-700"
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          <span>{t("nav.logout", "Logout")}</span>
+        </button>
+      </div>
+    </div>
+  )
+
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="fixed left-0 right-0 top-0 z-40 flex h-[73px] items-center justify-between border-b bg-background/95 px-3 py-3 backdrop-blur md:px-6">
+        <div className="flex min-w-0 items-center gap-2 md:gap-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm md:rounded-2xl md:p-2">
+            <img
+              src={logoImg}
+              alt="HFGuard Logo"
+              className="h-8 w-auto object-contain md:h-10"
+            />
+          </div>
+
+
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold text-primary md:text-2xl">
+              {pageTitle}
+            </h1>
+            <p className="hidden text-sm text-muted-foreground sm:block">
+              {t(
+                "common.welcomeToMyHFGuard",
+                "Heart failure self-care management"
+              )}
+            </p>
+          </div>
+        </div>
+
+
+        <div className="flex shrink-0 items-center gap-2 md:gap-3">
+          <LanguageToggle />
+
+
+          <button
+            type="button"
+            onClick={() => setMobileSidebarOpen(true)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-foreground transition hover:bg-accent lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+
+          <button
+            type="button"
+            onClick={() => setDesktopSidebarOpen((prev) => !prev)}
+            className="hidden h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-foreground transition hover:bg-accent lg:inline-flex"
+          >
+            {desktopSidebarOpen ? (
+              <PanelRightClose className="h-5 w-5" />
+            ) : (
+              <PanelRightOpen className="h-5 w-5" />
+            )}
+          </button>
+        </div>
+      </header>
+
+
+      <main
+        className={cn(
+          "min-w-0 px-3 pb-6 pt-[89px] sm:px-4 md:px-6 lg:px-8",
+          desktopSidebarOpen && "lg:mr-72"
+        )}
+      >
+        <div className="mx-auto w-full max-w-7xl">
+          {!isDashboard && (
+            <div className="mb-4">
+              <BackToDashboard />
+            </div>
+          )}
+
+
+          <Outlet />
+        </div>
+      </main>
+
+
+      {desktopSidebarOpen && (
+        <aside className="fixed bottom-0 right-0 top-[73px] z-30 hidden w-72 border-l bg-card lg:block">
+          <div className="flex h-full w-full flex-col p-4">
+            <SidebarContent />
+          </div>
+        </aside>
+      )}
+
+
+      {mobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+
+
+          <aside className="absolute right-0 top-0 flex h-full w-[82vw] max-w-xs flex-col border-l bg-card p-4 shadow-2xl">
+            <div className="mb-4 flex shrink-0 items-center justify-between">
+              <span className="text-lg font-semibold">
+                {t("nav.menu", "Menu")}
+              </span>
+
 
               <button
                 type="button"
-                onClick={handleLogout}
-                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-600 transition-all hover:bg-red-50 hover:text-red-700"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background"
               >
-                <LogOut className="h-5 w-5" />
-                <span>{t("nav.logout", "Logout")}</span>
+                <X className="h-5 w-5" />
               </button>
             </div>
+
+
+            <SidebarContent />
           </aside>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

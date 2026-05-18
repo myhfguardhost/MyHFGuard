@@ -21,10 +21,12 @@ import { toast } from "sonner"
 import { useLanguage } from "@/contexts/LanguageContext"
 import { ResponsiveContainer, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts"
 
+
 const getWeekKey = () => {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
   return format(weekStart, "yyyy-MM-dd")
 }
+
 
 const Exercise = () => {
   const { t } = useLanguage()
@@ -33,8 +35,10 @@ const Exercise = () => {
   const [goalSaved, setGoalSaved] = useState(false)
   const [collecting, setCollecting] = useState(false)
 
+
   const currentWeekKey = getWeekKey()
   const currentWeekLabel = `${t("weekOf")} ${format(new Date(currentWeekKey), "d MMM yyyy")}`
+
 
   const weeklyGoals = [
     { key: "goalBetterSleep", label: t("goalBetterSleep") },
@@ -49,6 +53,7 @@ const Exercise = () => {
     { key: "goalImprovedAppetite", label: t("goalImprovedAppetite") },
   ]
 
+
   useEffect(() => {
     async function init() {
       const { data } = await supabase.auth.getSession()
@@ -62,12 +67,14 @@ const Exercise = () => {
     init()
   }, [currentWeekKey])
 
+
   const summaryQuery = useQuery({
     queryKey: ["patient-summary", patientId],
     queryFn: () => getPatientSummary(patientId),
     enabled: !!patientId,
     refetchOnWindowFocus: false,
   })
+
 
   const vitalsQuery = useQuery({
     queryKey: ["patient-vitals-exercise", patientId],
@@ -76,13 +83,16 @@ const Exercise = () => {
     refetchOnWindowFocus: false,
   })
 
+
   const summary = summaryQuery.data?.summary || {}
   const vitals = vitalsQuery.data?.vitals || {}
+
 
   const stepCount = summary.stepsToday || 0
   const distanceKm = summary.distanceToday || 0
   const exerciseMinutes = stepCount > 0 ? Math.max(10, Math.round(stepCount / 100)) : 0
   const spo2 = vitals.spo2?.length ? Math.round(vitals.spo2[vitals.spo2.length - 1].avg || 0) : 98
+
 
   const stepTarget = 3000
   const baselineSteps = 2000
@@ -91,15 +101,18 @@ const Exercise = () => {
   const toleratedWell = stepCount >= baselineSteps
   const targetReached = stepCount >= stepTarget
 
+
   const syncDisplay = summary.lastSyncTs
     ? formatDistanceToNow(new Date(summary.lastSyncTs), { addSuffix: true })
     : t("notSyncedYet")
+
 
   const recommendation = useMemo(() => {
     if (targetReached) return t("exerciseRecommendationReached")
     if (toleratedWell) return t("exerciseRecommendationGood")
     return t("exerciseRecommendationSlow")
   }, [targetReached, toleratedWell, t])
+
 
   const weeklyStepsData = [
     { day: "Mon", steps: 0 },
@@ -111,15 +124,19 @@ const Exercise = () => {
     { day: "Sun", steps: 0 },
   ]
 
+
   ;(vitals.steps || []).forEach((item: any) => {
     const day = format(new Date(item.time), "EEE")
 
+
     const row = weeklyStepsData.find((d) => d.day === day)
+
 
     if (row) {
       row.steps += Number(item.count || item.steps || item.value || 0)
     }
   })
+
 
   const handleSaveGoal = () => {
     if (!patientId) {
@@ -132,11 +149,13 @@ const Exercise = () => {
     setTimeout(() => setGoalSaved(false), 2000)
   }
 
+
   const handleCollectData = async () => {
     if (!patientId) {
       toast.error(t("userNotFound"))
       return
     }
+
 
     setCollecting(true)
     try {
@@ -149,10 +168,12 @@ const Exercise = () => {
     }
   }
 
+
   const currentGoalLabel = weeklyGoals.find((goal) => goal.key === selectedGoal)?.label || t("goalBetterSleep")
 
+
   return (
-    <div className="min-h-screen bg-background px-6 py-8 text-foreground">
+    <div className="min-h-screen bg-background px-3 py-4 sm:px-4 md:px-6 md:py-8 text-foreground">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -160,11 +181,13 @@ const Exercise = () => {
             <p className="mt-2 text-muted-foreground">{t("exerciseDesc")}</p>
           </div>
 
+
           <div className="flex w-fit items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm">
             <Smartphone className="h-4 w-4 text-primary" />
             <span>{t("lastSynced")} : {syncDisplay}</span>
           </div>
         </div>
+
 
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
           <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm lg:col-span-2">
@@ -173,12 +196,15 @@ const Exercise = () => {
               <h2 className="text-xl font-semibold">{t("weeklyGoal")}</h2>
             </div>
 
+
             <div className="mb-4 inline-flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
               <CalendarDays className="h-4 w-4 text-primary" />
               {currentWeekLabel}
             </div>
 
+
             <p className="mb-3 text-muted-foreground">{t("selectGoal")}</p>
+
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {weeklyGoals.map((goal) => (
@@ -194,6 +220,7 @@ const Exercise = () => {
               ))}
             </div>
 
+
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button onClick={handleSaveGoal}>{t("saveGoal")}</Button>
               {goalSaved && (
@@ -204,17 +231,20 @@ const Exercise = () => {
               )}
             </div>
 
+
             <div className="mt-4 rounded-xl border border-border bg-muted px-4 py-3">
               <p className="text-sm text-muted-foreground">{t("currentGoal")}</p>
               <p className="mt-1 text-lg font-semibold text-primary">{currentGoalLabel}</p>
             </div>
           </Card>
 
+
           <div className="flex flex-col gap-4">
             <Button onClick={handleCollectData} className="flex h-[120px] w-full items-center justify-center gap-2 text-lg font-semibold">
               <Download className="h-5 w-5" />
               {collecting || summaryQuery.isFetching || vitalsQuery.isFetching ? t("collecting") : t("collectData")}
             </Button>
+
 
             <Card className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-sm">
               <div className="mb-3 flex items-center gap-2">
@@ -233,6 +263,7 @@ const Exercise = () => {
               </div>
             </Card>
 
+
             <Card className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-sm">
               <div className="mb-3 flex items-center gap-2">
                 <Activity className="text-pink-600 dark:text-pink-400" />
@@ -241,6 +272,7 @@ const Exercise = () => {
               <div className="text-3xl font-bold">{spo2}%</div>
               <p className="mt-2 text-muted-foreground">{t("spo2Desc")}</p>
             </Card>
+
 
             <Card className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-sm">
               <div className="mb-3 flex items-center gap-2">
@@ -252,6 +284,7 @@ const Exercise = () => {
           </div>
         </div>
 
+
         <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4">
           <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
             <div className="mb-4 flex items-center gap-2">
@@ -262,6 +295,7 @@ const Exercise = () => {
             <p className="mt-2 text-muted-foreground">{t("todaySteps")}</p>
           </Card>
 
+
           <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
             <div className="mb-4 flex items-center gap-2">
               <MapPinned className="text-green-600 dark:text-green-400" />
@@ -270,6 +304,7 @@ const Exercise = () => {
             <div className="text-3xl font-bold">{distanceKm} km</div>
             <p className="mt-2 text-muted-foreground">{t("distanceDesc")}</p>
           </Card>
+
 
           <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
             <div className="mb-4 flex items-center gap-2">
@@ -280,12 +315,14 @@ const Exercise = () => {
             <p className="mt-2 text-muted-foreground">{t("exerciseTimeDesc")}</p>
           </Card>
 
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
                 {t("weeklyStepTrend")}
               </CardTitle>
             </CardHeader>
+
 
             <CardContent>
               <div className="h-[180px]">
@@ -295,6 +332,7 @@ const Exercise = () => {
                     <XAxis dataKey="day" fontSize={12} />
                     <YAxis hide />
                     <Tooltip />
+
 
                     <Bar
                       dataKey="steps"
@@ -308,6 +346,7 @@ const Exercise = () => {
           </Card>
         </div>
 
+
         <Card className="mt-6 rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
           <h2 className="text-xl font-semibold">{t("exerciseNotes")}</h2>
           <p className="mt-2 text-muted-foreground">{t("exerciseNotesDesc")}</p>
@@ -316,5 +355,6 @@ const Exercise = () => {
     </div>
   )
 }
+
 
 export default Exercise

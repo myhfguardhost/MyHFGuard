@@ -11,8 +11,10 @@ import {
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
+
 import { supabase } from "@/lib/supabase"
 import { getUserCoins } from "@/lib/coinService"
+
 
 type ProfileForm = {
   fullName: string
@@ -28,13 +30,16 @@ type ProfileForm = {
   coins: number
 }
 
+
 const Profile = () => {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
 
+
   const getCurrentProfileLanguage = (): "BM" | "BI" => {
     return i18n.language === "ms" ? "BM" : "BI"
   }
+
 
   const [form, setForm] = useState<ProfileForm>({
     fullName: "",
@@ -51,10 +56,14 @@ const Profile = () => {
   })
 
 
+
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [refreshingCoins, setRefreshingCoins] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+
+
 
 
   const bmi = useMemo(() => {
@@ -62,21 +71,31 @@ const Profile = () => {
     const heightCm = parseFloat(form.height)
 
 
+
+
     if (!weight || !heightCm) return ""
+
+
 
 
     const heightM = heightCm / 100
     const result = weight / (heightM * heightM)
 
 
+
+
     return result.toFixed(2) // 2 decimal places
   }, [form.dryWeight, form.height])
+
+
 
 
   useEffect(() => {
     loadProfile()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+
 
 
   useEffect(() => {
@@ -88,19 +107,27 @@ const Profile = () => {
   }, [i18n.language])
 
 
+
+
   const loadProfile = async () => {
     try {
       setLoading(true)
+
+
 
 
       const { data: sessionData } = await supabase.auth.getSession()
       const user = sessionData.session?.user
 
 
+
+
       if (!user) {
         setLoading(false)
         return
       }
+
+
 
 
       const { data, error } = await supabase
@@ -110,11 +137,15 @@ const Profile = () => {
         .maybeSingle()
 
 
+
+
       if (error) {
         console.error("Load profile error:", error)
         setLoading(false)
         return
       }
+
+
 
 
       if (data) {
@@ -133,7 +164,11 @@ const Profile = () => {
         })
 
 
+
+
         setIsLocked(!!data.baseline_locked)
+
+
 
 
         if (data.profile_completed) {
@@ -148,10 +183,14 @@ const Profile = () => {
   }
 
 
+
+
   const refreshCoins = async () => {
     try {
       setRefreshingCoins(true)
       const latestCoins = await getUserCoins()
+
+
 
 
       setForm((prev) => ({
@@ -167,10 +206,14 @@ const Profile = () => {
   }
 
 
+
+
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target
+
+
 
 
     setForm((prev) => ({
@@ -180,13 +223,19 @@ const Profile = () => {
   }
 
 
+
+
   const handleSave = async () => {
     try {
       setSaving(true)
 
 
+
+
       const { data: sessionData } = await supabase.auth.getSession()
       const user = sessionData.session?.user
+
+
 
 
       if (!user) {
@@ -195,8 +244,12 @@ const Profile = () => {
       }
 
 
+
+
       const latestCoins = await getUserCoins().catch(() => form.coins)
       const currentLanguage = getCurrentProfileLanguage()
+
+
 
 
       const profileData = {
@@ -219,9 +272,13 @@ const Profile = () => {
       }
 
 
+
+
       const { error } = await supabase
         .from("profiles")
         .upsert(profileData, { onConflict: "user_id" })
+
+
 
 
       if (error) {
@@ -231,6 +288,8 @@ const Profile = () => {
       }
 
 
+
+
       setForm((prev) => ({
         ...prev,
         coins: latestCoins,
@@ -238,8 +297,12 @@ const Profile = () => {
       }))
 
 
+
+
       localStorage.setItem("profileCompleted", "true")
       setIsLocked(true)
+
+
 
 
       alert(t("profile.profileSavedSuccessfully"))
@@ -253,8 +316,12 @@ const Profile = () => {
   }
 
 
+
+
   const baselineInputClass =
     "w-full rounded-xl bg-background border border-border px-4 py-3 text-foreground outline-none focus:border-cyan-400 disabled:opacity-60 disabled:cursor-not-allowed"
+
+
 
 
   if (loading) {
@@ -266,8 +333,10 @@ const Profile = () => {
   }
 
 
+
+
   return (
-    <div className="min-h-screen bg-background text-foreground px-6 py-8">
+    <div className="min-h-screen bg-background text-foreground px-3 py-4 sm:px-4 md:px-6 md:py-8">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -276,6 +345,8 @@ const Profile = () => {
               {t("profile.profileDesc")}
             </p>
           </div>
+
+
 
 
           {isLocked && (
@@ -287,11 +358,15 @@ const Profile = () => {
         </div>
 
 
+
+
         {isLocked && (
           <div className="mb-6 rounded-2xl bg-yellow-500/10 border border-yellow-400/20 px-5 py-4 text-yellow-700 dark:text-yellow-200">
             {t("profile.baselineNotice")}
           </div>
         )}
+
+
 
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -303,6 +378,8 @@ const Profile = () => {
                 {t("profile.personalInformation")}
               </h2>
             </div>
+
+
 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -322,6 +399,8 @@ const Profile = () => {
               </div>
 
 
+
+
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
                   {t("profile.age")}
@@ -336,6 +415,8 @@ const Profile = () => {
                   className={baselineInputClass}
                 />
               </div>
+
+
 
 
               <div className="md:col-span-2">
@@ -356,6 +437,8 @@ const Profile = () => {
           </div>
 
 
+
+
           {/* Preferences */}
           <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
@@ -366,6 +449,8 @@ const Profile = () => {
             </div>
 
 
+
+
             <div className="space-y-4">
               <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
                 {t("profile.language")}{" "}
@@ -374,10 +459,14 @@ const Profile = () => {
               </div>
 
 
+
+
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
                   {t("coin.coinCollection")}
                 </label>
+
+
 
 
                 <div className="rounded-xl bg-yellow-500/10 border border-yellow-400/20 px-4 py-4">
@@ -388,14 +477,20 @@ const Profile = () => {
                       </div>
 
 
+
+
                       <div className="text-sm text-muted-foreground">
                         {t("coin.coinsEarnedFromEducationVideos")}
                       </div>
                     </div>
 
 
+
+
                     <Coins className="w-10 h-10 text-yellow-500" />
                   </div>
+
+
 
 
                   <button
@@ -415,6 +510,8 @@ const Profile = () => {
           </div>
 
 
+
+
           {/* Baseline Health Data */}
           <div className="lg:col-span-2 bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
@@ -423,6 +520,8 @@ const Profile = () => {
                 {t("profile.baselineHealthData")}
               </h2>
             </div>
+
+
 
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -442,6 +541,8 @@ const Profile = () => {
               </div>
 
 
+
+
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
                   {t("profile.bloodPressureDiastolic")}
@@ -458,6 +559,8 @@ const Profile = () => {
               </div>
 
 
+
+
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
                   {t("profile.heartRate")}
@@ -472,6 +575,8 @@ const Profile = () => {
                   className={baselineInputClass}
                 />
               </div>
+
+
 
 
               <div>
@@ -491,6 +596,8 @@ const Profile = () => {
               </div>
 
 
+
+
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
                   {t("profile.height")}
@@ -508,6 +615,8 @@ const Profile = () => {
               </div>
 
 
+
+
               <div>
                 <label className="block mb-2 text-sm text-muted-foreground">
                   {t("profile.bmi")}
@@ -520,6 +629,8 @@ const Profile = () => {
           </div>
 
 
+
+
           {/* Medication */}
           <div className="bg-card/80 backdrop-blur-sm rounded-2xl p-6 border border-border">
             <div className="flex items-center gap-3 mb-5">
@@ -528,6 +639,8 @@ const Profile = () => {
                 {t("profile.currentMedication")}
               </h2>
             </div>
+
+
 
 
             <textarea
@@ -540,6 +653,8 @@ const Profile = () => {
             />
           </div>
         </div>
+
+
 
 
         <div className="mt-8 flex justify-end">
@@ -556,5 +671,6 @@ const Profile = () => {
     </div>
   )
 }
+
 
 export default Profile
