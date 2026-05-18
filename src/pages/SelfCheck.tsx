@@ -317,17 +317,16 @@ const SelfCheck = () => {
 
     try {
       const { data: weightRows } = await supabase
-        .from("weight_samples")
-        .select("time_ts, kg")
+        .from("weight_day")
+        .select("date, kg_avg, kg_min, kg_max")
         .eq("patient_id", patientId)
-        .gte("time_ts", `${startStr}T00:00:00`)
-        .lte("time_ts", `${endStr}T23:59:59`)
-        .order("time_ts", { ascending: true })
+        .gte("date", startStr)
+        .lte("date", endStr)
+        .order("date", { ascending: true })
 
       weightRows?.forEach((item: any) => {
-        const key = format(new Date(item.time_ts), "yyyy-MM-dd")
-        const row = trendMap.get(key)
-        const weightValue = Number(item.kg)
+        const row = trendMap.get(item.date)
+        const weightValue = Number(item.kg_avg ?? item.kg_max ?? item.kg_min)
 
         if (row && !Number.isNaN(weightValue)) {
           row.weight = weightValue
