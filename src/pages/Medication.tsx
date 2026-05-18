@@ -42,22 +42,8 @@ type ReminderItem = {
   type?: string | null
 }
 
-
-const STATIN_KEYWORDS = [
-  "statin",
-  "atorvastatin",
-  "simvastatin",
-  "rosuvastatin",
-  "pravastatin",
-  "lovastatin",
-  "fluvastatin",
-  "pitavastatin",
-]
-
-
 function normalizeMedicationList(raw: string): MedicationEntry[] {
   if (!raw) return []
-
 
   return raw
     .split(/\n|;/)
@@ -66,10 +52,8 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
     .flatMap((line) => {
       const lower = line.toLowerCase()
 
-
       const scheduleMatch = lower.match(/\((.*?)\)/)
       const schedule = scheduleMatch?.[1] || ""
-
 
       const isNoon =
         schedule.includes("noon") ||
@@ -77,24 +61,15 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
         schedule.includes("12 pm") ||
         schedule.includes("tengah hari")
 
-
       const isNight =
         schedule.includes("night") ||
         schedule.includes("malam") ||
         schedule.includes("10pm") ||
         schedule.includes("10 pm")
 
-
       const cleanedName = line.replace(/\(.*?\)/g, "").trim()
 
-
-      const isStatin = STATIN_KEYWORDS.some((keyword) =>
-        cleanedName.toLowerCase().includes(keyword)
-      )
-
-
       const entries: MedicationEntry[] = []
-
 
       if (isNoon) {
         entries.push({
@@ -103,22 +78,12 @@ function normalizeMedicationList(raw: string): MedicationEntry[] {
         })
       }
 
-
-      if (isNight || isStatin) {
+      if (isNight) {
         entries.push({
           name: cleanedName,
           reminderTime: "10:00 PM",
         })
       }
-
-
-      if (!isNoon && !isNight && !isStatin) {
-        entries.push({
-          name: cleanedName,
-          reminderTime: "12:00 PM",
-        })
-      }
-
 
       return entries
     })
