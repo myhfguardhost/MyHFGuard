@@ -1,5 +1,7 @@
 opencv-python-headless
 numpy
+pytesseract
+pillow
 imutils
 roboflow
 python-dotenv
