@@ -1,11 +1,14 @@
 import sys
+import os
 import cv2
 import pytesseract
 import json
 import re
 import numpy as np
+import base64
 
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+if os.name == "nt":
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
 def output(data, code=0):
@@ -25,14 +28,15 @@ def normalize_text(text):
         .replace("S", "5")
         .replace("s", "5")
         .replace(",", ".")
+        .replace(" ", "")
     )
 
 
 def extract_candidates(text):
     text = normalize_text(text)
-    matches = re.findall(r"\d{2,3}(?:\.\d{1,2})?", text)
     values = []
 
+    matches = re.findall(r"\d{2,3}\.\d{1,2}", text)
     for m in matches:
         try:
             v = float(m)
@@ -41,7 +45,76 @@ def extract_candidates(text):
         except:
             pass
 
+    digit_groups = re.findall(r"\d{4}", text)
+    for g in digit_groups:
+        try:
+            v = float(g[:2] + "." + g[2:])
+            if 20 <= v <= 300:
+                values.append(v)
+        except:
+            pass
+
+    digit_groups_3 = re.findall(r"\d{3}", text)
+    for g in digit_groups_3:
+        try:
+            v = float(g[:2] + "." + g[2:])
+            if 20 <= v <= 300:
+                values.append(v)
+        except:
+            pass
+
     return values
+
+
+def get_regions(img):
+    h, w = img.shape[:2]
+    regions = []
+
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    lower_blue = np.array([85, 30, 30])
+    upper_blue = np.array([155, 255, 255])
+    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+    kernel = np.ones((7, 7), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.dilate(mask, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    boxes = []
+    for c in contours:
+        x, y, bw, bh = cv2.boundingRect(c)
+        area = bw * bh
+        if area > 800 and bw > bh:
+            boxes.append((x, y, bw, bh, area))
+
+    boxes = sorted(boxes, key=lambda b: b[4], reverse=True)
+
+    if boxes:
+        x, y, bw, bh, _ = boxes[0]
+
+        pad_x = int(bw * 0.12)
+        pad_y = int(bh * 0.35)
+
+        x1 = max(0, x - pad_x)
+        y1 = max(0, y - pad_y)
+        x2 = min(w, x + bw + pad_x)
+        y2 = min(h, y + bh + pad_y)
+
+        display = img[y1:y2, x1:x2]
+        dh, dw = display.shape[:2]
+
+        main_digits = display[:, :int(dw * 0.72)]
+
+        regions.append(("main_digits", main_digits))
+        regions.append(("display", display))
+
+    center = img[int(h * 0.20):int(h * 0.85), int(w * 0.03):int(w * 0.97)]
+    regions.append(("center", center))
+    regions.append(("full", img))
+
+    return regions
 
 
 def preprocess_variants(img):
@@ -52,96 +125,79 @@ def preprocess_variants(img):
     else:
         gray = img.copy()
 
-    gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
     blur = cv2.GaussianBlur(gray, (3, 3), 0)
     eq = cv2.equalizeHist(blur)
+
+    kernel_sharp = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+    sharp = cv2.filter2D(eq, -1, kernel_sharp)
 
     _, otsu = cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     _, inv_otsu = cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
     adaptive = cv2.adaptiveThreshold(
-        eq, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+        eq, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 3
     )
     adaptive_inv = cv2.adaptiveThreshold(
-        eq, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
+        eq, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 3
     )
-
-    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-    sharpen = cv2.filter2D(eq, -1, kernel)
 
     variants.append(("gray", gray))
     variants.append(("eq", eq))
+    variants.append(("sharp", sharp))
     variants.append(("otsu", otsu))
     variants.append(("inv_otsu", inv_otsu))
     variants.append(("adaptive", adaptive))
     variants.append(("adaptive_inv", adaptive_inv))
-    variants.append(("sharpen", sharpen))
 
     return variants
 
 
 def run_ocr(img):
     configs = [
-        r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789.',
-        r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789.',
-        r'--oem 3 --psm 8 -c tessedit_char_whitelist=0123456789.',
-        r'--oem 3 --psm 13 -c tessedit_char_whitelist=0123456789.',
+        r"--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789.",
+        r"--oem 3 --psm 8 -c tessedit_char_whitelist=0123456789.",
+        r"--oem 3 --psm 13 -c tessedit_char_whitelist=0123456789.",
+        r"--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789.",
     ]
 
-    outputs = []
+    results = []
     for cfg in configs:
         try:
             txt = pytesseract.image_to_string(img, config=cfg).strip()
             txt = normalize_text(txt)
             if txt:
-                outputs.append((cfg, txt))
-        except:
-            pass
-    return outputs
+                results.append((cfg, txt))
+        except Exception as e:
+            results.append((cfg, f"OCR_ERROR:{str(e)}"))
+
+    return results
 
 
 def score_candidate(value, text, region_name):
     score = 0
 
-    # realistic body weight preference
     if 30 <= value <= 200:
         score += 50
 
-    # decimal format preferred
     if "." in text:
-        score += 20
+        score += 30
 
-    # prefer main-left display region
     if region_name == "main_digits":
-        score += 40
+        score += 50
     elif region_name == "display":
-        score += 20
+        score += 30
+    elif region_name == "center":
+        score += 10
 
-    # avoid tiny side readings like temperature
     if value < 25:
-        score -= 30
+        score -= 50
+
+    if value > 250:
+        score -= 50
 
     return score
-
-
-def get_regions(img):
-    h, w = img.shape[:2]
-
-    # Main display area roughly lower-middle
-    display = img[int(h * 0.45):int(h * 0.90), int(w * 0.10):int(w * 0.95)]
-
-    dh, dw = display.shape[:2]
-
-    # Main big digits on left side only
-    main_digits = display[int(dh * 0.15):int(dh * 0.95), int(dw * 0.00):int(dw * 0.72)]
-
-    # Full image fallback
-    return [
-        ("main_digits", main_digits),
-        ("display", display),
-        ("full", img),
-    ]
 
 
 if len(sys.argv) < 2:
@@ -180,7 +236,7 @@ try:
                 for value in candidates:
                     s = score_candidate(value, txt, region_name)
 
-                    if (best is None) or (s > best["score"]):
+                    if best is None or s > best["score"]:
                         best = {
                             "weight": value,
                             "score": s,
@@ -199,7 +255,6 @@ if best_region_image is not None:
     try:
         success, buffer = cv2.imencode(".jpg", best_region_image)
         if success:
-            import base64
             annotated_b64 = base64.b64encode(buffer).decode("utf-8")
     except:
         annotated_b64 = None
