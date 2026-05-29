@@ -167,8 +167,7 @@ def run_ocr(img):
         try:
             txt = pytesseract.image_to_string(img, config=cfg).strip()
             txt = normalize_text(txt)
-            if txt:
-                results.append((cfg, txt))
+            results.append((cfg, txt))
         except Exception as e:
             results.append((cfg, f"OCR_ERROR:{str(e)}"))
 
