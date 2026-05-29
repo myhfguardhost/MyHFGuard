@@ -901,23 +901,22 @@ const SelfCheck = () => {
 
 
   const handleWeightScan = async () => {
-    if (!selectedWeightImage) {
+    if (!selectedWeightImage || !patientId) {
       toast.error(t("selfCheck.weightScanner.selectPhotoFirst"))
       return
     }
 
-    if (!patientId) {
-      toast.error("Patient ID not ready. Please refresh or login again.")
-      return
-    }
 
     setLoadingWeightScan(true)
+
 
     try {
       const result = await processWeightImage(selectedWeightImage, patientId)
       setWeightScanResult(result)
 
+
       const detectedWeight = extractWeightFromOCR(result)
+
 
       if (detectedWeight) {
         setWeightKg(detectedWeight)
@@ -1255,9 +1254,7 @@ const SelfCheck = () => {
 
                       {selectedWeightImage && (
                         <div className="space-y-2">
-                          <Button onClick={handleWeightScan} 
-                              disabled={loadinloadingWeightScan || !selectedWeightImage || !patientIdgWeightScan} 
-                              className="w-full">
+                          <Button onClick={handleWeightScan} disabled={loadingWeightScan} className="w-full">
                             {loadingWeightScan ? (
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
