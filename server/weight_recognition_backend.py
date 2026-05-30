@@ -1,276 +1,165 @@
-import sys
-import os
-import cv2
-import pytesseract
-import json
-import re
-import numpy as np
-import base64
+import sys, json, cv2, numpy as np, re
 
-if os.name == "nt":
-    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-
+DIGITS = {
+    (1,1,1,1,1,1,0): "0",
+    (0,1,1,0,0,0,0): "1",
+    (1,1,0,1,1,0,1): "2",
+    (1,1,1,1,0,0,1): "3",
+    (0,1,1,0,0,1,1): "4",
+    (1,0,1,1,0,1,1): "5",
+    (1,0,1,1,1,1,1): "6",
+    (1,1,1,0,0,0,0): "7",
+    (1,1,1,1,1,1,1): "8",
+    (1,1,1,1,0,1,1): "9",
+}
 
 def output(data, code=0):
     print(json.dumps(data))
     sys.exit(code)
 
-
-def normalize_text(text):
-    if not text:
-        return ""
-    return (
-        text.strip()
-        .replace("O", "0")
-        .replace("o", "0")
-        .replace("B", "8")
-        .replace("b", "8")
-        .replace("S", "5")
-        .replace("s", "5")
-        .replace(",", ".")
-        .replace(" ", "")
-    )
-
-
-def extract_candidates(text):
-    text = normalize_text(text)
-    values = []
-
-    matches = re.findall(r"\d{2,3}\.\d{1,2}", text)
-    for m in matches:
-        try:
-            v = float(m)
-            if 20 <= v <= 300:
-                values.append(v)
-        except:
-            pass
-
-    digit_groups = re.findall(r"\d{4}", text)
-    for g in digit_groups:
-        try:
-            v = float(g[:2] + "." + g[2:])
-            if 20 <= v <= 300:
-                values.append(v)
-        except:
-            pass
-
-    digit_groups_3 = re.findall(r"\d{3}", text)
-    for g in digit_groups_3:
-        try:
-            v = float(g[:2] + "." + g[2:])
-            if 20 <= v <= 300:
-                values.append(v)
-        except:
-            pass
-
-    return values
-
-
-def get_regions(img):
-    h, w = img.shape[:2]
-    regions = []
-
+def find_display(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    lower_blue = np.array([85, 30, 30])
-    upper_blue = np.array([155, 255, 255])
-    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+    lower = np.array([85, 40, 40])
+    upper = np.array([155, 255, 255])
+    mask = cv2.inRange(hsv, lower, upper)
 
-    kernel = np.ones((7, 7), np.uint8)
+    kernel = np.ones((7,7), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    mask = cv2.dilate(mask, kernel, iterations=1)
+    mask = cv2.dilate(mask, kernel, iterations=2)
 
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     boxes = []
     for c in contours:
-        x, y, bw, bh = cv2.boundingRect(c)
-        area = bw * bh
-        if area > 800 and bw > bh:
-            boxes.append((x, y, bw, bh, area))
+        x, y, w, h = cv2.boundingRect(c)
+        area = w * h
+        if area > 800 and w > h:
+            boxes.append((x, y, w, h, area))
 
-    boxes = sorted(boxes, key=lambda b: b[4], reverse=True)
+    if not boxes:
+        return None
 
-    if boxes:
-        x, y, bw, bh, _ = boxes[0]
+    x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
 
-        pad_x = int(bw * 0.12)
-        pad_y = int(bh * 0.35)
+    pad_x = int(w * 0.08)
+    pad_y = int(h * 0.25)
 
-        x1 = max(0, x - pad_x)
-        y1 = max(0, y - pad_y)
-        x2 = min(w, x + bw + pad_x)
-        y2 = min(h, y + bh + pad_y)
+    H, W = img.shape[:2]
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - pad_y)
+    x2 = min(W, x + w + pad_x)
+    y2 = min(H, y + h + pad_y)
 
-        display = img[y1:y2, x1:x2]
-        dh, dw = display.shape[:2]
+    return img[y1:y2, x1:x2]
 
-        main_digits = display[:, :int(dw * 0.72)]
+def prepare_digit_area(display):
+    h, w = display.shape[:2]
 
-        regions.append(("main_digits", main_digits))
-        regions.append(("display", display))
+    # keep left 72%, avoid KG and temperature
+    main = display[:, :int(w * 0.72)]
 
-    center = img[int(h * 0.20):int(h * 0.85), int(w * 0.03):int(w * 0.97)]
-    regions.append(("center", center))
-    regions.append(("full", img))
-
-    return regions
-
-
-def preprocess_variants(img):
-    variants = []
-
-    if len(img.shape) == 3:
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = img.copy()
-
+    gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
-    blur = cv2.GaussianBlur(gray, (3, 3), 0)
-    eq = cv2.equalizeHist(blur)
+    # bright LED digits become white
+    _, th = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
 
-    kernel_sharp = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-    sharp = cv2.filter2D(eq, -1, kernel_sharp)
+    kernel = np.ones((3,3), np.uint8)
+    th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel)
 
-    _, otsu = cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    _, inv_otsu = cv2.threshold(eq, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    return th
 
-    adaptive = cv2.adaptiveThreshold(
-        eq, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 3
-    )
-    adaptive_inv = cv2.adaptiveThreshold(
-        eq, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 3
-    )
+def segment_digit(roi):
+    h, w = roi.shape
 
-    variants.append(("gray", gray))
-    variants.append(("eq", eq))
-    variants.append(("sharp", sharp))
-    variants.append(("otsu", otsu))
-    variants.append(("inv_otsu", inv_otsu))
-    variants.append(("adaptive", adaptive))
-    variants.append(("adaptive_inv", adaptive_inv))
-
-    return variants
-
-
-def run_ocr(img):
-    configs = [
-        r"--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789.",
-        r"--oem 3 --psm 8 -c tessedit_char_whitelist=0123456789.",
-        r"--oem 3 --psm 13 -c tessedit_char_whitelist=0123456789.",
-        r"--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789.",
+    # seven segment regions: top, upper-right, lower-right, bottom, lower-left, upper-left, middle
+    segs = [
+        (int(w*0.20), int(h*0.00), int(w*0.80), int(h*0.18)),  # top
+        (int(w*0.65), int(h*0.10), int(w*1.00), int(h*0.48)),  # upper right
+        (int(w*0.65), int(h*0.52), int(w*1.00), int(h*0.90)),  # lower right
+        (int(w*0.20), int(h*0.82), int(w*0.80), int(h*1.00)),  # bottom
+        (int(w*0.00), int(h*0.52), int(w*0.35), int(h*0.90)),  # lower left
+        (int(w*0.00), int(h*0.10), int(w*0.35), int(h*0.48)),  # upper left
+        (int(w*0.20), int(h*0.40), int(w*0.80), int(h*0.62)),  # middle
     ]
 
-    results = []
-    for cfg in configs:
-        try:
-            txt = pytesseract.image_to_string(img, config=cfg).strip()
-            txt = normalize_text(txt)
-            results.append((cfg, txt))
-        except Exception as e:
-            results.append((cfg, f"OCR_ERROR:{str(e)}"))
+    on = []
+    for x1, y1, x2, y2 in segs:
+        part = roi[y1:y2, x1:x2]
+        total = cv2.countNonZero(part)
+        area = max(1, part.shape[0] * part.shape[1])
+        on.append(1 if total / area > 0.18 else 0)
 
-    return results
+    return DIGITS.get(tuple(on), "")
 
+def recognize(display):
+    th = prepare_digit_area(display)
 
-def score_candidate(value, text, region_name):
-    score = 0
+    contours, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    if 30 <= value <= 200:
-        score += 50
+    boxes = []
+    for c in contours:
+        x, y, w, h = cv2.boundingRect(c)
+        if h > th.shape[0] * 0.35 and w > 10:
+            boxes.append((x, y, w, h))
 
-    if "." in text:
-        score += 30
+    boxes = sorted(boxes, key=lambda b: b[0])
 
-    if region_name == "main_digits":
-        score += 50
-    elif region_name == "display":
-        score += 30
-    elif region_name == "center":
-        score += 10
+    chars = []
+    last_x = None
 
-    if value < 25:
-        score -= 50
+    for x, y, w, h in boxes:
+        roi = th[y:y+h, x:x+w]
 
-    if value > 250:
-        score -= 50
+        # decimal dot
+        if h < th.shape[0] * 0.25 and w < th.shape[1] * 0.08:
+            chars.append(".")
+            continue
 
-    return score
+        digit = segment_digit(roi)
+        if digit:
+            chars.append(digit)
 
+        last_x = x
+
+    text = "".join(chars)
+
+    # fallback: infer decimal if 4 digits e.g. 6405 -> 64.05
+    nums = re.findall(r"\d+", text)
+    for n in nums:
+        if len(n) == 4:
+            return float(n[:2] + "." + n[2:])
+        if len(n) == 3:
+            return float(n[:2] + "." + n[2:])
+        if len(n) == 2:
+            return float(n)
+
+    return None
 
 if len(sys.argv) < 2:
     output({"error": "No image path provided"}, 1)
 
-image_path = sys.argv[1]
-img = cv2.imread(image_path)
-
+img = cv2.imread(sys.argv[1])
 if img is None:
     output({"error": "Image not found"}, 1)
 
-all_attempts = []
-best = None
-best_region_image = None
+display = find_display(img)
+if display is None:
+    output({"error": "Weight not detected", "rawText": "display not found", "allAttempts": []}, 1)
 
-try:
-    regions = get_regions(img)
+weight = recognize(display)
 
-    for region_name, region_img in regions:
-        variants = preprocess_variants(region_img)
-
-        for variant_name, variant_img in variants:
-            ocr_results = run_ocr(variant_img)
-
-            for cfg, txt in ocr_results:
-                candidates = extract_candidates(txt)
-
-                all_attempts.append({
-                    "region": region_name,
-                    "variant": variant_name,
-                    "config": cfg,
-                    "text": txt,
-                    "candidates": candidates,
-                })
-
-                for value in candidates:
-                    s = score_candidate(value, txt, region_name)
-
-                    if best is None or s > best["score"]:
-                        best = {
-                            "weight": value,
-                            "score": s,
-                            "rawText": txt,
-                            "region": region_name,
-                            "variant": variant_name,
-                            "config": cfg,
-                        }
-                        best_region_image = region_img.copy()
-
-except Exception as e:
-    output({"error": f"Processing failed: {str(e)}"}, 1)
-
-annotated_b64 = None
-if best_region_image is not None:
-    try:
-        success, buffer = cv2.imencode(".jpg", best_region_image)
-        if success:
-            annotated_b64 = base64.b64encode(buffer).decode("utf-8")
-    except:
-        annotated_b64 = None
-
-if best:
+if weight and 20 <= weight <= 300:
     output({
-        "weight": f"{best['weight']:.1f}",
-        "detectedWeight": f"{best['weight']:.1f}",
-        "rawText": best["rawText"],
-        "region": best["region"],
-        "variant": best["variant"],
-        "annotatedImage": annotated_b64,
-        "allAttempts": all_attempts
+        "weight": f"{weight:.1f}",
+        "detectedWeight": f"{weight:.1f}",
+        "rawText": f"opencv-seven-segment:{weight}",
+        "allAttempts": [{"method": "opencv-seven-segment", "value": weight}]
     }, 0)
-else:
-    output({
-        "error": "Weight not detected",
-        "rawText": "",
-        "allAttempts": all_attempts
-    }, 1)
+
+output({
+    "error": "Weight not detected",
+    "rawText": "opencv seven segment failed",
+    "allAttempts": [{"method": "opencv-seven-segment", "value": None}]
+}, 1)
