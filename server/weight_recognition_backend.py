@@ -73,76 +73,91 @@ def prepare_digit_area(display):
 def segment_digit(roi):
     h, w = roi.shape
 
-    # seven segment regions: top, upper-right, lower-right, bottom, lower-left, upper-left, middle
     segs = [
-        (int(w*0.20), int(h*0.00), int(w*0.80), int(h*0.18)),  # top
-        (int(w*0.65), int(h*0.10), int(w*1.00), int(h*0.48)),  # upper right
-        (int(w*0.65), int(h*0.52), int(w*1.00), int(h*0.90)),  # lower right
-        (int(w*0.20), int(h*0.82), int(w*0.80), int(h*1.00)),  # bottom
-        (int(w*0.00), int(h*0.52), int(w*0.35), int(h*0.90)),  # lower left
-        (int(w*0.00), int(h*0.10), int(w*0.35), int(h*0.48)),  # upper left
-        (int(w*0.20), int(h*0.40), int(w*0.80), int(h*0.62)),  # middle
+        (0.30, 0.02, 0.70, 0.12),
+        (0.68, 0.16, 0.94, 0.43),
+        (0.68, 0.57, 0.94, 0.84),
+        (0.30, 0.88, 0.70, 0.98),
+        (0.06, 0.57, 0.32, 0.84),
+        (0.06, 0.16, 0.32, 0.43),
+        (0.28, 0.44, 0.72, 0.56),
     ]
 
     on = []
     for x1, y1, x2, y2 in segs:
-        part = roi[y1:y2, x1:x2]
-        total = cv2.countNonZero(part)
-        area = max(1, part.shape[0] * part.shape[1])
-        on.append(1 if total / area > 0.18 else 0)
+        part = roi[int(h*y1):int(h*y2), int(w*x1):int(w*x2)]
+        ratio = cv2.countNonZero(part) / max(1, part.size)
+        on.append(1 if ratio > 0.20 else 0)
 
     return DIGITS.get(tuple(on), "")
 
 def recognize(display):
     th = prepare_digit_area(display)
 
-    contours, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    y_start = int(th.shape[0] * 0.25)
+    y_end = int(th.shape[0] * 0.75)
+    sub = th[y_start:y_end, :]
+
+    contours, _ = cv2.findContours(sub, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     boxes = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
+        area = cv2.contourArea(c)
 
-        # Better digit filtering
-        if (
-            h > th.shape[0] * 0.08
-            and h < th.shape[0] * 0.30
-            and w > 20
-            and w < th.shape[1] * 0.25
-        ):
+        if area > 2000 and h > 80 and w > 20 and x < th.shape[1] * 0.95:
             boxes.append((x, y, w, h))
 
     boxes = sorted(boxes, key=lambda b: b[0])
 
-    chars = []
-    last_x = None
-
+    clusters = []
     for x, y, w, h in boxes:
-        roi = th[y:y+h, x:x+w]
+        cx = x + w / 2
+        placed = False
 
-        # decimal dot
-        if h < th.shape[0] * 0.25 and w < th.shape[1] * 0.08:
-            chars.append(".")
-            continue
+        for cl in clusters:
+            if abs(cx - cl["cx"]) < 180 or (x <= cl["x2"] and x + w >= cl["x1"]):
+                cl["x1"] = min(cl["x1"], x)
+                cl["x2"] = max(cl["x2"], x + w)
+                cl["y1"] = min(cl["y1"], y)
+                cl["y2"] = max(cl["y2"], y + h)
+                cl["cx"] = (cl["x1"] + cl["x2"]) / 2
+                placed = True
+                break
 
+        if not placed:
+            clusters.append({
+                "x1": x,
+                "x2": x + w,
+                "y1": y,
+                "y2": y + h,
+                "cx": cx
+            })
+
+    clusters = sorted(clusters, key=lambda c: c["x1"])[:4]
+
+    chars = []
+    for cl in clusters:
+        pad = 20
+        x1 = max(0, cl["x1"] - pad)
+        x2 = min(sub.shape[1], cl["x2"] + pad)
+        y1 = max(0, cl["y1"] - pad)
+        y2 = min(sub.shape[0], cl["y2"] + pad)
+
+        roi = sub[y1:y2, x1:x2]
         digit = segment_digit(roi)
+
         if digit:
             chars.append(digit)
 
-        last_x = x
-
     text = "".join(chars)
 
-    # fallback: infer decimal if 4 digits e.g. 6405 -> 64.05
-    nums = re.findall(r"\d+", text)
-    for n in nums:
-        if len(n) == 4:
-            return float(n[:2] + "." + n[2:])
-        if len(n) == 3:
-            return float(n[:2] + "." + n[2:])
-        if len(n) == 2:
-            return float(n)
-        
-    print("Detected boxes:", boxes)
+    if len(text) == 4:
+        return float(text[:2] + "." + text[2:])
+    if len(text) == 3:
+        return float(text[:2] + "." + text[2:])
+    if len(text) == 2:
+        return float(text)
 
     return None
 
@@ -161,8 +176,8 @@ weight = recognize(display)
 
 if weight and 20 <= weight <= 300:
     output({
-        "weight": f"{weight:.1f}",
-        "detectedWeight": f"{weight:.1f}",
+        "weight": f"{weight:.2f}",
+        "detectedWeight": f"{weight:.2f}",
         "rawText": f"opencv-seven-segment:{weight}",
         "allAttempts": [{"method": "opencv-seven-segment", "value": weight}]
     }, 0)
