@@ -726,7 +726,7 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     const userMessage = String(message).trim()
 
-    // Strict topic filter
+    // Restrict chatbot to heart failure health topics only
     const allowedKeywords = [
       'heart failure', 'hf', 'cardiac', 'heart problem', 'weak heart',
       'symptom', 'symptoms', 'gejala', 'simptom',
@@ -740,41 +740,116 @@ app.post('/api/chat/symptoms', async (req, res) => {
       'foot swelling', 'feet swelling', 'edema',
       'bengkak', 'kaki bengkak', 'bengkak kaki',
 
-      'orthopnea', 'need more pillows', 'sleep sitting up', 'cannot lie flat',
-      'susah tidur', 'tidur duduk', 'tak boleh baring',
+      'orthopnea', 'need more pillows', 'sleep sitting up',
+      'cannot lie flat', 'susah tidur', 'tidur duduk',
 
-      'cough', 'batuk',
-      'abdomen', 'abdominal discomfort', 'bloated', 'bloating',
-      'perut kembung', 'perut sakit',
+      'cough', 'persistent cough', 'batuk',
 
-      'fatigue', 'tired', 'weak', 'dizzy', 'dizziness', 'faint',
+      'fatigue', 'tired', 'weak', 'weakness',
+      'dizzy', 'dizziness', 'lightheaded',
+      'faint', 'fainted',
       'penat', 'letih', 'lemah', 'pening', 'pitam',
 
-      'chest pain', 'chest tightness', 'palpitations',
+      'chest pain', 'chest tightness',
+      'palpitations', 'fast heartbeat',
       'sakit dada', 'jantung laju',
 
-      'blood pressure', 'bp', 'systolic', 'diastolic',
-      'heart rate', 'pulse', 'spo2', 'oxygen', 'o2',
-      'tekanan darah', 'darah tinggi', 'darah rendah', 'kadar nadi', 'oksigen',
+      'blood pressure', 'bp',
+      'systolic', 'diastolic',
+      'heart rate', 'pulse',
+      'spo2', 'oxygen', 'oxygen level', 'o2',
+      'temperature', 'fever',
 
-      'weight', 'weight gain', 'daily weight',
-      'berat', 'berat badan', 'naik berat', 'berat naik',
+      'tekanan darah',
+      'darah tinggi',
+      'darah rendah',
+      'kadar nadi',
+      'oksigen',
+      'demam',
 
-      'medication', 'medicine', 'drug', 'tablet', 'pill',
-      'ubat', 'makan ubat', 'pil',
+      'weight', 'body weight', 'daily weight',
+      'weight gain', 'weight increase',
+      'sudden weight gain',
+      'weight loss',
 
-      'reminder', 'appointment', 'doctor', 'clinic', 'hospital',
-      'peringatan', 'janji temu', 'doktor', 'klinik',
+      'berat',
+      'berat badan',
+      'naik berat',
+      'berat naik',
+      'turun berat',
 
-      'steps', 'walking', 'exercise', 'vitals', 'health data',
-      'log', 'record', 'reading',
-      'langkah', 'berjalan', 'senaman', 'rekod', 'bacaan',
+      'medication', 'medicine', 'drug',
+      'tablet', 'pill', 'capsule',
+      'aspirin', 'furosemide',
+      'atorvastatin', 'diuretic',
+      'dose', 'dosage',
+      'side effect',
 
-      'water', 'fluid', 'salt', 'diet',
-      'air', 'cecair', 'garam', 'makanan',
+      'ubat',
+      'makan ubat',
+      'pil',
+      'tablet',
+      'dos',
 
-      'what should i do', 'is this normal', 'can i', 'should i',
-      'apa perlu saya buat', 'normal ke', 'boleh ke', 'kenapa'
+      'reminder', 'appointment',
+      'doctor', 'clinic', 'hospital',
+      'follow up',
+
+      'peringatan',
+      'janji temu',
+      'doktor',
+      'klinik',
+      'hospital',
+
+      'exercise', 'activity',
+      'walking', 'walk',
+      'steps', 'step count',
+
+      'senaman',
+      'aktiviti',
+      'berjalan',
+      'langkah',
+
+      'water', 'fluid',
+      'fluid intake',
+      'salt', 'sodium',
+      'diet', 'food',
+
+      'air',
+      'cecair',
+      'garam',
+      'makanan',
+
+      'log', 'record',
+      'reading', 'history',
+      'trend', 'health data',
+
+      'rekod',
+      'bacaan',
+      'trend',
+
+      'emergency',
+      'urgent',
+      'not feeling well',
+      'feel sick',
+      'condition worse',
+
+      'kecemasan',
+      'teruk',
+      'tak sihat',
+      'makin teruk',
+
+      'what should i do',
+      'is this normal',
+      'can i',
+      'should i',
+      'help me',
+
+      'apa perlu saya buat',
+      'normal ke',
+      'boleh ke',
+      'tolong',
+      'kenapa',
     ]
 
     const lowerMsg = userMessage.toLowerCase()
@@ -783,11 +858,13 @@ app.post('/api/chat/symptoms', async (req, res) => {
       lowerMsg.includes(keyword.toLowerCase())
     )
 
+    console.log("[CHAT DEBUG] message:", userMessage)
+    console.log("[CHAT DEBUG] allowed:", isAllowed)
+
     if (!isAllowed) {
-      return res.status(200).json({
+      return res.json({
         reply:
-          "I'm mainly designed to help with heart failure care, symptoms, medication reminders, blood pressure, weight, exercise and related health concerns.",
-        timestamp: new Date().toISOString()
+          "I'm mainly designed to help with heart failure care, symptoms, medication reminders, blood pressure, weight, exercise, and related health concerns."
       })
     }
 
