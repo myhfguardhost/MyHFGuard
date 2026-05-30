@@ -1017,7 +1017,7 @@ app.post('/api/chat/symptoms', async (req, res) => {
     ]
 
     const lowerMsg = userMessage.toLowerCase()
-    const isAllowed = allowedKeywords.some((keyword) => lowerMsg.includes(keyword))
+    const isAllowed = allowedKeywords.some((keyword) => lowerMsg.includes(keyword.toLowerCase()))
 
     if (!isAllowed) {
       return res.status(200).json({
