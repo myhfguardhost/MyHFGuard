@@ -116,7 +116,7 @@ def recognize(display):
         placed = False
 
         for cl in clusters:
-            if abs(cx - cl["cx"]) < 180 or (x <= cl["x2"] and x + w >= cl["x1"]):
+            if abs(cx - cl["cx"]) < 120 or (x <= cl["x2"] and x + w >= cl["x1"]):
                 cl["x1"] = min(cl["x1"], x)
                 cl["x2"] = max(cl["x2"], x + w)
                 cl["y1"] = min(cl["y1"], y)
@@ -134,7 +134,7 @@ def recognize(display):
                 "cx": cx
             })
 
-    clusters = sorted(clusters, key=lambda c: c["x1"])[:4]
+    clusters = sorted(clusters, key=lambda c: c["x1"])[:5]
 
     chars = []
     for cl in clusters:
