@@ -1895,7 +1895,7 @@ const SelfCheck = () => {
                   <span>{t("selfCheck.weightScanner.correct")}</span>
                 </div>
                 <div className="border-2 border-green-500 dark:border-green-400 rounded-lg overflow-hidden">
-                  <img src={correctWeightImg} alt={t("selfCheck.weightScanner.correctExampleAlt")} className="w-full h-64 object-cover object-center" />
+                  <img src={correctWeightImg} alt={t("selfCheck.weightScanner.correctExampleAlt")} className="w-full h-64 object-contain bg-black" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {t("selfCheck.weightScanner.correctDesc")}
@@ -1909,7 +1909,7 @@ const SelfCheck = () => {
                   <span>{t("selfCheck.weightScanner.incorrect")}</span>
                 </div>
                 <div className="border-2 border-red-500 dark:border-red-400 rounded-lg overflow-hidden">
-                  <img src={incorrectWeightImg} alt={t("selfCheck.weightScanner.incorrectExampleAlt")} className="w-full h-64 object-cover object-center" />
+                  <img src={incorrectWeightImg} alt={t("selfCheck.weightScanner.incorrectExampleAlt")} className="w-full h-64 object-contain bg-black" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {t("selfCheck.weightScanner.incorrectDesc")}
