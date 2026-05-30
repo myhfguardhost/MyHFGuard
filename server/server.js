@@ -728,17 +728,292 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     // Strict topic filter
     const allowedKeywords = [
-      'heart failure', 'hf', 'symptom', 'symptoms',
-      'blood pressure', 'bp', 'systolic', 'diastolic',
-      'heart rate', 'pulse', 'spo2', 'oxygen', 'o2',
-      'weight', 'weight gain', 'swelling', 'leg swelling',
-      'breathless', 'shortness of breath', 'breathing',
-      'orthopnea', 'cough', 'abdomen', 'abdominal discomfort',
-      'medication', 'medicine', 'drug', 'tablet', 'pill',
-      'reminder', 'appointment', 'doctor', 'clinic', 'hospital',
-      'chest pain', 'dizzy', 'fatigue', 'tired',
-      'steps', 'walking', 'exercise', 'vitals', 'health data',
-      'log', 'record', 'reading'
+      // =========================
+      // HEART FAILURE / CARDIAC
+      // =========================
+      'heart failure',
+      'hf',
+      'cardiac',
+      'heart problem',
+      'weak heart',
+      'fluid retention',
+      'kegagalan jantung',
+      'jantung lemah',
+      'masalah jantung',
+
+      // =========================
+      // BREATHING / RESPIRATORY
+      // =========================
+      'breathless',
+      'shortness of breath',
+      'short of breath',
+      'difficulty breathing',
+      'breathing difficulty',
+      'hard to breathe',
+      'cannot breathe',
+      'cant breathe',
+      'trouble breathing',
+      '喘',
+      'sesak nafas',
+      'sukar bernafas',
+      'nafas pendek',
+      'susah bernafas',
+      'tak boleh bernafas',
+
+      // =========================
+      // SWELLING / FLUID
+      // =========================
+      'swelling',
+      'swollen',
+      'leg swelling',
+      'ankle swelling',
+      'foot swelling',
+      'feet swelling',
+      'water retention',
+      'edema',
+      'bloating',
+      'bloated',
+      'abdomen swelling',
+      'abdominal discomfort',
+      'abdomen pain',
+      'perut kembung',
+      'perut sakit',
+      'bengkak',
+      'kaki bengkak',
+      'bengkak kaki',
+
+      // =========================
+      // SLEEP / ORTHOPNEA
+      // =========================
+      'orthopnea',
+      'need more pillows',
+      'sleep sitting up',
+      'cannot lie flat',
+      'difficulty sleeping',
+      'wakeup breathless',
+      'susah tidur',
+      'tidur duduk',
+      'tak boleh baring',
+
+      // =========================
+      // COUGH
+      // =========================
+      'cough',
+      'persistent cough',
+      'dry cough',
+      'batuk',
+      'batuk berterusan',
+
+      // =========================
+      // FATIGUE / DIZZY
+      // =========================
+      'fatigue',
+      'tired',
+      'weak',
+      'weakness',
+      'low energy',
+      'dizzy',
+      'dizziness',
+      'lightheaded',
+      'faint',
+      'fainted',
+      'penat',
+      'letih',
+      'lemah',
+      'pening',
+      'pitam',
+
+      // =========================
+      // CHEST / HEART
+      // =========================
+      'chest pain',
+      'chest tightness',
+      'heart racing',
+      'palpitations',
+      'fast heartbeat',
+      'slow heartbeat',
+      'irregular heartbeat',
+      'sakit dada',
+      'jantung laju',
+      'degupan laju',
+
+      // =========================
+      // BLOOD PRESSURE / VITALS
+      // =========================
+      'blood pressure',
+      'bp',
+      'high bp',
+      'low bp',
+      'systolic',
+      'diastolic',
+      'heart rate',
+      'pulse',
+      'pulse rate',
+      'spo2',
+      'oxygen',
+      'oxygen level',
+      'o2',
+      'temperature',
+      'fever',
+      'vitals',
+      'vital signs',
+
+      'tekanan darah',
+      'darah tinggi',
+      'darah rendah',
+      'kadar nadi',
+      'nadi',
+      'oksigen',
+      'demam',
+      'bacaan',
+
+      // =========================
+      // WEIGHT
+      // =========================
+      'weight',
+      'body weight',
+      'daily weight',
+      'weight gain',
+      'weight increase',
+      'sudden weight gain',
+      'weight loss',
+      'gain weight',
+      'lose weight',
+
+      'berat',
+      'berat badan',
+      'naik berat',
+      'turun berat',
+      'berat naik',
+
+      // =========================
+      // MEDICATION
+      // =========================
+      'medication',
+      'medicine',
+      'drug',
+      'tablet',
+      'pill',
+      'capsule',
+      'diuretic',
+      'water pill',
+      'aspirin',
+      'furosemide',
+      'atorvastatin',
+      'dose',
+      'dosage',
+      'side effect',
+      'side effects',
+      'missed medicine',
+
+      'ubat',
+      'makan ubat',
+      'pil',
+      'tablet',
+      'dos',
+      'kesan sampingan',
+      'terlupa makan ubat',
+
+      // =========================
+      // REMINDER / APPOINTMENT
+      // =========================
+      'reminder',
+      'appointment',
+      'follow up',
+      'doctor',
+      'clinic',
+      'hospital',
+      'emergency',
+      'urgent',
+
+      'peringatan',
+      'janji temu',
+      'doktor',
+      'klinik',
+      'hospital',
+      'kecemasan',
+      'teruk',
+
+      // =========================
+      // EXERCISE / ACTIVITY
+      // =========================
+      'exercise',
+      'activity',
+      'walking',
+      'walk',
+      'steps',
+      'step count',
+      'distance',
+      'treadmill',
+
+      'senaman',
+      'aktiviti',
+      'berjalan',
+      'langkah',
+      'jarak',
+
+      // =========================
+      // WATER / DIET
+      // =========================
+      'water',
+      'fluid',
+      'fluid intake',
+      'drink water',
+      'salt',
+      'sodium',
+      'diet',
+      'low salt',
+      'food',
+      'meal',
+
+      'air',
+      'cecair',
+      'garam',
+      'diet',
+      'makanan',
+
+      // =========================
+      // LOGS / RECORDS
+      // =========================
+      'log',
+      'record',
+      'reading',
+      'history',
+      'trend',
+      'health data',
+      'report',
+      'summary',
+
+      'rekod',
+      'bacaan',
+      'trend',
+      'laporan',
+      'ringkasan',
+
+      // =========================
+      // GENERAL PATIENT QUESTIONS
+      // =========================
+      'how',
+      'why',
+      'what',
+      'when',
+      'can i',
+      'should i',
+      'is this normal',
+      'what should i do',
+      'help me',
+      'not feeling well',
+      'feel sick',
+      'condition worse',
+
+      'kenapa',
+      'macam mana',
+      'boleh ke',
+      'normal ke',
+      'apa perlu saya buat',
+      'tolong',
+      'tak sihat',
+      'makin teruk',
     ]
 
     const lowerMsg = userMessage.toLowerCase()
@@ -747,7 +1022,7 @@ app.post('/api/chat/symptoms', async (req, res) => {
     if (!isAllowed) {
       return res.status(200).json({
         reply:
-          "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard. Please ask about your health records, symptoms, blood pressure, SpO2, weight, exercise, or medication.",
+          "I'm mainly designed to help with heart failure care, symptoms, medication reminders, blood pressure, weight, exercise and related health concerns.",
         timestamp: new Date().toISOString()
       })
     }
