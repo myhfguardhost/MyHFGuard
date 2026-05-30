@@ -63,7 +63,7 @@ def prepare_digit_area(display):
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
     # bright LED digits become white
-    _, th = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+    _, th = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
 
     kernel = np.ones((3,3), np.uint8)
     th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel)
@@ -101,7 +101,14 @@ def recognize(display):
     boxes = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
-        if h > th.shape[0] * 0.35 and w > 10:
+
+        # Better digit filtering
+        if (
+            h > th.shape[0] * 0.08
+            and h < th.shape[0] * 0.30
+            and w > 20
+            and w < th.shape[1] * 0.25
+        ):
             boxes.append((x, y, w, h))
 
     boxes = sorted(boxes, key=lambda b: b[0])
@@ -134,6 +141,8 @@ def recognize(display):
             return float(n[:2] + "." + n[2:])
         if len(n) == 2:
             return float(n)
+        
+    print("Detected boxes:", boxes)
 
     return None
 
