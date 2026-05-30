@@ -48,6 +48,8 @@ import StableChart from "@/components/StableChart"
 import { toast } from "sonner"
 import correctImage from "@/assets/correct_image.jpeg"
 import slantedImage from "@/assets/slanted_image.jpg"
+import correctWeightImg from "../assets/correct-weight.jpg"
+import incorrectWeightImg from "../assets/incorrect-weight.jpg"
 import { useTranslation } from "react-i18next"
 import {
   LineChart,
@@ -1893,7 +1895,7 @@ const SelfCheck = () => {
                   <span>{t("selfCheck.weightScanner.correct")}</span>
                 </div>
                 <div className="border-2 border-green-500 dark:border-green-400 rounded-lg overflow-hidden">
-                  <img src={correctImage} alt={t("selfCheck.weightScanner.correctExampleAlt")} className="w-full h-auto" />
+                  <img src={correctWeightImg} alt={t("selfCheck.weightScanner.correctExampleAlt")} className="w-full h-64 object-cover object-center" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {t("selfCheck.weightScanner.correctDesc")}
@@ -1907,7 +1909,7 @@ const SelfCheck = () => {
                   <span>{t("selfCheck.weightScanner.incorrect")}</span>
                 </div>
                 <div className="border-2 border-red-500 dark:border-red-400 rounded-lg overflow-hidden">
-                  <img src={slantedImage} alt={t("selfCheck.weightScanner.incorrectExampleAlt")} className="w-full h-auto" />
+                  <img src={incorrectWeightImg} alt={t("selfCheck.weightScanner.incorrectExampleAlt")} className="w-full h-64 object-cover object-center" />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {t("selfCheck.weightScanner.incorrectDesc")}
