@@ -678,7 +678,7 @@ async function generateWithRetry(prompt, systemInstruction) {
 
   for (const modelName of modelNames) {
     const model = genAI.getGenerativeModel({
-      model: gemini-2.0-flash,
+      model: modelName,
       systemInstruction
     })
 
@@ -728,296 +728,60 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     // Strict topic filter
     const allowedKeywords = [
-      // =========================
-      // HEART FAILURE / CARDIAC
-      // =========================
-      'heart failure',
-      'hf',
-      'cardiac',
-      'heart problem',
-      'weak heart',
-      'fluid retention',
-      'kegagalan jantung',
-      'jantung lemah',
-      'masalah jantung',
+      'heart failure', 'hf', 'cardiac', 'heart problem', 'weak heart',
+      'symptom', 'symptoms', 'gejala', 'simptom',
 
-      // =========================
-      // BREATHING / RESPIRATORY
-      // =========================
-      'breathless',
-      'shortness of breath',
-      'short of breath',
-      'difficulty breathing',
-      'breathing difficulty',
-      'hard to breathe',
-      'cannot breathe',
-      'cant breathe',
-      'trouble breathing',
-      '喘',
-      'sesak nafas',
-      'sukar bernafas',
-      'nafas pendek',
-      'susah bernafas',
-      'tak boleh bernafas',
+      'breathless', 'shortness of breath', 'short of breath',
+      'difficulty breathing', 'breathing difficulty', 'hard to breathe',
+      'cannot breathe', 'cant breathe', 'trouble breathing',
+      'sesak nafas', 'sukar bernafas', 'nafas pendek', 'susah bernafas',
 
-      // =========================
-      // SWELLING / FLUID
-      // =========================
-      'swelling',
-      'swollen',
-      'leg swelling',
-      'ankle swelling',
-      'foot swelling',
-      'feet swelling',
-      'water retention',
-      'edema',
-      'bloating',
-      'bloated',
-      'abdomen swelling',
-      'abdominal discomfort',
-      'abdomen pain',
-      'perut kembung',
-      'perut sakit',
-      'bengkak',
-      'kaki bengkak',
-      'bengkak kaki',
+      'swelling', 'swollen', 'leg swelling', 'ankle swelling',
+      'foot swelling', 'feet swelling', 'edema',
+      'bengkak', 'kaki bengkak', 'bengkak kaki',
 
-      // =========================
-      // SLEEP / ORTHOPNEA
-      // =========================
-      'orthopnea',
-      'need more pillows',
-      'sleep sitting up',
-      'cannot lie flat',
-      'difficulty sleeping',
-      'wakeup breathless',
-      'susah tidur',
-      'tidur duduk',
-      'tak boleh baring',
+      'orthopnea', 'need more pillows', 'sleep sitting up', 'cannot lie flat',
+      'susah tidur', 'tidur duduk', 'tak boleh baring',
 
-      // =========================
-      // COUGH
-      // =========================
-      'cough',
-      'persistent cough',
-      'dry cough',
-      'batuk',
-      'batuk berterusan',
+      'cough', 'batuk',
+      'abdomen', 'abdominal discomfort', 'bloated', 'bloating',
+      'perut kembung', 'perut sakit',
 
-      // =========================
-      // FATIGUE / DIZZY
-      // =========================
-      'fatigue',
-      'tired',
-      'weak',
-      'weakness',
-      'low energy',
-      'dizzy',
-      'dizziness',
-      'lightheaded',
-      'faint',
-      'fainted',
-      'penat',
-      'letih',
-      'lemah',
-      'pening',
-      'pitam',
+      'fatigue', 'tired', 'weak', 'dizzy', 'dizziness', 'faint',
+      'penat', 'letih', 'lemah', 'pening', 'pitam',
 
-      // =========================
-      // CHEST / HEART
-      // =========================
-      'chest pain',
-      'chest tightness',
-      'heart racing',
-      'palpitations',
-      'fast heartbeat',
-      'slow heartbeat',
-      'irregular heartbeat',
-      'sakit dada',
-      'jantung laju',
-      'degupan laju',
+      'chest pain', 'chest tightness', 'palpitations',
+      'sakit dada', 'jantung laju',
 
-      // =========================
-      // BLOOD PRESSURE / VITALS
-      // =========================
-      'blood pressure',
-      'bp',
-      'high bp',
-      'low bp',
-      'systolic',
-      'diastolic',
-      'heart rate',
-      'pulse',
-      'pulse rate',
-      'spo2',
-      'oxygen',
-      'oxygen level',
-      'o2',
-      'temperature',
-      'fever',
-      'vitals',
-      'vital signs',
+      'blood pressure', 'bp', 'systolic', 'diastolic',
+      'heart rate', 'pulse', 'spo2', 'oxygen', 'o2',
+      'tekanan darah', 'darah tinggi', 'darah rendah', 'kadar nadi', 'oksigen',
 
-      'tekanan darah',
-      'darah tinggi',
-      'darah rendah',
-      'kadar nadi',
-      'nadi',
-      'oksigen',
-      'demam',
-      'bacaan',
+      'weight', 'weight gain', 'daily weight',
+      'berat', 'berat badan', 'naik berat', 'berat naik',
 
-      // =========================
-      // WEIGHT
-      // =========================
-      'weight',
-      'body weight',
-      'daily weight',
-      'weight gain',
-      'weight increase',
-      'sudden weight gain',
-      'weight loss',
-      'gain weight',
-      'lose weight',
+      'medication', 'medicine', 'drug', 'tablet', 'pill',
+      'ubat', 'makan ubat', 'pil',
 
-      'berat',
-      'berat badan',
-      'naik berat',
-      'turun berat',
-      'berat naik',
+      'reminder', 'appointment', 'doctor', 'clinic', 'hospital',
+      'peringatan', 'janji temu', 'doktor', 'klinik',
 
-      // =========================
-      // MEDICATION
-      // =========================
-      'medication',
-      'medicine',
-      'drug',
-      'tablet',
-      'pill',
-      'capsule',
-      'diuretic',
-      'water pill',
-      'aspirin',
-      'furosemide',
-      'atorvastatin',
-      'dose',
-      'dosage',
-      'side effect',
-      'side effects',
-      'missed medicine',
+      'steps', 'walking', 'exercise', 'vitals', 'health data',
+      'log', 'record', 'reading',
+      'langkah', 'berjalan', 'senaman', 'rekod', 'bacaan',
 
-      'ubat',
-      'makan ubat',
-      'pil',
-      'tablet',
-      'dos',
-      'kesan sampingan',
-      'terlupa makan ubat',
+      'water', 'fluid', 'salt', 'diet',
+      'air', 'cecair', 'garam', 'makanan',
 
-      // =========================
-      // REMINDER / APPOINTMENT
-      // =========================
-      'reminder',
-      'appointment',
-      'follow up',
-      'doctor',
-      'clinic',
-      'hospital',
-      'emergency',
-      'urgent',
-
-      'peringatan',
-      'janji temu',
-      'doktor',
-      'klinik',
-      'hospital',
-      'kecemasan',
-      'teruk',
-
-      // =========================
-      // EXERCISE / ACTIVITY
-      // =========================
-      'exercise',
-      'activity',
-      'walking',
-      'walk',
-      'steps',
-      'step count',
-      'distance',
-      'treadmill',
-
-      'senaman',
-      'aktiviti',
-      'berjalan',
-      'langkah',
-      'jarak',
-
-      // =========================
-      // WATER / DIET
-      // =========================
-      'water',
-      'fluid',
-      'fluid intake',
-      'drink water',
-      'salt',
-      'sodium',
-      'diet',
-      'low salt',
-      'food',
-      'meal',
-
-      'air',
-      'cecair',
-      'garam',
-      'diet',
-      'makanan',
-
-      // =========================
-      // LOGS / RECORDS
-      // =========================
-      'log',
-      'record',
-      'reading',
-      'history',
-      'trend',
-      'health data',
-      'report',
-      'summary',
-
-      'rekod',
-      'bacaan',
-      'trend',
-      'laporan',
-      'ringkasan',
-
-      // =========================
-      // GENERAL PATIENT QUESTIONS
-      // =========================
-      'how',
-      'why',
-      'what',
-      'when',
-      'can i',
-      'should i',
-      'is this normal',
-      'what should i do',
-      'help me',
-      'not feeling well',
-      'feel sick',
-      'condition worse',
-
-      'kenapa',
-      'macam mana',
-      'boleh ke',
-      'normal ke',
-      'apa perlu saya buat',
-      'tolong',
-      'tak sihat',
-      'makin teruk',
+      'what should i do', 'is this normal', 'can i', 'should i',
+      'apa perlu saya buat', 'normal ke', 'boleh ke', 'kenapa'
     ]
 
     const lowerMsg = userMessage.toLowerCase()
-    const isAllowed = allowedKeywords.some((keyword) => lowerMsg.includes(keyword.toLowerCase()))
+
+    const isAllowed = allowedKeywords.some((keyword) =>
+      lowerMsg.includes(keyword.toLowerCase())
+    )
 
     if (!isAllowed) {
       return res.status(200).json({
