@@ -50,7 +50,10 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
         })
       }
 
-      const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY
+      const apiKey =
+        process.env.GEMINI_WEIGHT_API_KEY ||
+        process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_GENAI_KEY
       if (!apiKey) {
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path)
         return res.status(500).json({

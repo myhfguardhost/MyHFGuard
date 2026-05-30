@@ -678,7 +678,7 @@ async function generateWithRetry(prompt, systemInstruction) {
 
   for (const modelName of modelNames) {
     const model = genAI.getGenerativeModel({
-      model: modelName,
+      model: gemini-2.0-flash,
       systemInstruction
     })
 
