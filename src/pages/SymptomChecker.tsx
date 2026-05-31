@@ -126,25 +126,53 @@ export default function SymptomChecker() {
     async function init() {
       const { data } = await supabase.auth.getSession()
       const userId = data?.session?.user?.id
-
       if (!userId) return
 
-      const { data: patientData } = await supabase
+      setPatientId(userId)
+
+      // patient table
+      const { data: patientData, error: patientError } = await supabase
         .from("patients")
         .select("patient_id, first_name, last_name, dob")
-        .eq("user_id", userId)
+        .eq("patient_id", userId)
         .maybeSingle()
 
-      const finalPatientId = patientData?.patient_id || userId
-      setPatientId(finalPatientId)
+      console.log("patientData:", patientData)
+      console.log("patientError:", patientError)
 
-      const { data: profileData } = await supabase
+      // profile table
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select(
-          "full_name, systolic_bp, diastolic_bp, heart_rate, current_medication, height, bmi, dry_weight, baseline_weight"
-        )
-        .eq("user_id", userId)
+        .select(`
+          full_name,
+          height,
+          bmi,
+          dry_weight,
+          baseline_weight,
+          systolic_bp,
+          diastolic_bp,
+          heart_rate,
+          current_medication
+        `)
+        .eq("id", userId)
         .maybeSingle()
+
+      console.log("profileData:", profileData)
+      console.log("profileError:", profileError)
+
+      // medication fallback
+      let medicationText = profileData?.current_medication || ""
+
+      if (!medicationText) {
+        const { data: meds } = await supabase
+          .from("medication")
+          .select("name")
+          .eq("patient_id", userId)
+
+        if (meds?.length) {
+          medicationText = meds.map((m) => m.name).join(", ")
+        }
+      }
 
       let age: number | null = null
       if (patientData?.dob) {
@@ -157,6 +185,7 @@ export default function SymptomChecker() {
 
       setPatientSummary({
         ...(profileData || {}),
+        current_medication: medicationText,
         first_name: patientData?.first_name,
         last_name: patientData?.last_name,
         age,
