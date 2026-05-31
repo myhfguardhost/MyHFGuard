@@ -774,6 +774,30 @@ app.post('/api/chat/symptoms', async (req, res) => {
       })
     }
 
+    const asksVitals =
+      /recent vitals|vitals|reading|readings|bp|blood pressure|weight|spo2|oxygen|heart rate|pulse|summary|indicate/i.test(userMessage)
+
+    if (asksVitals) {
+      return res.status(200).json({
+        reply:
+    `Based on your recent data:
+
+    - Blood Pressure: ${healthData.bp}
+    - Weight: ${healthData.weight}
+    - Symptoms: ${healthData.symptoms}
+    - Medication: ${healthData.medications}
+
+    What this means:
+    Your data can help show whether your heart failure condition is stable or needs attention.
+
+    Actions:
+    1. Continue logging your daily weight, BP, symptoms and SpO2.
+    2. Contact your doctor if weight increases quickly, BP is very high, SpO2 is below 95%, or symptoms get worse.
+    3. Seek emergency help immediately if you have chest pain, severe breathing difficulty, fainting, or SpO2 below 90%.`,
+        timestamp: new Date().toISOString()
+      })
+    }
+    
     const healthData = await fetchPatientHealthData(patientId)
 
     const systemInstruction = `You are MyHFGuard AI, a STRICT heart-failure support assistant for patients.

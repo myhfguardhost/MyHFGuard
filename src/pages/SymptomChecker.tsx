@@ -222,7 +222,7 @@ export default function SymptomChecker() {
 
   const meds =
     patientSummary?.current_medication
-      ?.split(/\n|,|;/)
+      ?.split(/\n|;/)
       .map((m) => m.trim())
       .filter(Boolean) || []
 
@@ -349,7 +349,7 @@ export default function SymptomChecker() {
             <CardDescription>
               {getText(
                 "chatWithAssistantDesc",
-                "Ask about symptoms, reminders, medication, vitals or general health guidance."
+                "Ask about symptoms, reminders, medication, vitals or heart failure guidance."
               )}
             </CardDescription>
           </CardHeader>
