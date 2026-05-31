@@ -60,7 +60,7 @@ export default function SymptomChecker() {
       const { data: patientData } = await supabase
         .from("patients")
         .select("patient_id")
-        .eq("user_id", userId)
+        .eq("patient_id", userId)
         .maybeSingle()
 
       setPatientId(patientData?.patient_id || userId)
