@@ -726,6 +726,181 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     const userMessage = String(message).trim()
 
+    // Restrict chatbot to heart failure health topics only
+    const allowedKeywords = [
+      'heart failure', 'hf', 'cardiac', 'heart problem', 'weak heart',
+      'symptom', 'symptoms', 'gejala', 'simptom',
+
+      'breathless', 'shortness of breath', 'short of breath',
+      'difficulty breathing', 'breathing difficulty', 'hard to breathe',
+      'cannot breathe', 'cant breathe', 'trouble breathing',
+      'sesak nafas', 'sukar bernafas', 'nafas pendek', 'susah bernafas',
+
+      'swelling', 'swollen', 'leg swelling', 'ankle swelling',
+      'foot swelling', 'feet swelling', 'edema',
+      'bengkak', 'kaki bengkak', 'bengkak kaki',
+
+      'orthopnea', 'need more pillows', 'sleep sitting up',
+      'cannot lie flat', 'susah tidur', 'tidur duduk',
+
+      'cough', 'persistent cough', 'batuk',
+
+      'fatigue', 'tired', 'weak', 'weakness',
+      'dizzy', 'dizziness', 'lightheaded',
+      'faint', 'fainted',
+      'penat', 'letih', 'lemah', 'pening', 'pitam',
+
+      'chest pain', 'chest tightness',
+      'palpitations', 'fast heartbeat',
+      'sakit dada', 'jantung laju',
+
+      'blood pressure', 'bp',
+      'systolic', 'diastolic',
+      'heart rate', 'pulse',
+      'spo2', 'oxygen', 'oxygen level', 'o2',
+      'temperature', 'fever',
+
+      'tekanan darah',
+      'darah tinggi',
+      'darah rendah',
+      'kadar nadi',
+      'oksigen',
+      'demam',
+
+      'weight', 'body weight', 'daily weight',
+      'weight gain', 'weight increase',
+      'sudden weight gain',
+      'weight loss',
+
+      'berat',
+      'berat badan',
+      'naik berat',
+      'berat naik',
+      'turun berat',
+
+      'medication', 'medicine', 'drug',
+      'tablet', 'pill', 'capsule',
+      'aspirin', 'furosemide',
+      'atorvastatin', 'diuretic',
+      'dose', 'dosage',
+      'side effect',
+
+      'ubat',
+      'makan ubat',
+      'pil',
+      'tablet',
+      'dos',
+
+      'reminder', 'appointment',
+      'doctor', 'clinic', 'hospital',
+      'follow up',
+
+      'peringatan',
+      'janji temu',
+      'doktor',
+      'klinik',
+      'hospital',
+
+      'exercise', 'activity',
+      'walking', 'walk',
+      'steps', 'step count',
+
+      'senaman',
+      'aktiviti',
+      'berjalan',
+      'langkah',
+
+      'water', 'fluid',
+      'fluid intake',
+      'salt', 'sodium',
+      'diet', 'food',
+
+      'air',
+      'cecair',
+      'garam',
+      'makanan',
+
+      'log', 'record',
+      'reading', 'history',
+      'trend', 'health data',
+
+      'rekod',
+      'bacaan',
+      'trend',
+
+      'emergency',
+      'urgent',
+      'not feeling well',
+      'feel sick',
+      'condition worse',
+
+      'kecemasan',
+      'teruk',
+      'tak sihat',
+      'makin teruk',
+
+      'what should i do',
+      'is this normal',
+      'can i',
+      'should i',
+      'help me',
+
+      'apa perlu saya buat',
+      'normal ke',
+      'boleh ke',
+      'tolong',
+      'kenapa',
+    ]
+
+    const lowerMsg = userMessage.toLowerCase()
+
+    const patientDataPatterns = [
+      'recent',
+      'latest',
+      'vitals',
+      'recent vitals',
+      'latest vitals',
+      'readings',
+      'reading',
+      'health',
+      'health data',
+      'data',
+      'record',
+      'records',
+      'patient summary',
+      'latest health status',
+      'health status',
+      'baseline',
+      'dry weight',
+      'indicate',
+      'show',
+      'shows',
+      'mean',
+      'means',
+      'meaning',
+      'normal',
+      'abnormal',
+      'risk',
+      'condition',
+      'trend',
+      'result',
+      'results',
+      'status',
+
+      // BM
+      'bacaan',
+      'rekod',
+      'kesihatan',
+      'data',
+      'status kesihatan',
+      'maksud',
+      'normal ke',
+      'risiko',
+      'keadaan',
+      'tunjuk',
+      'menunjukkan'
+    ]
+
     const blockedTopics = [
       'math', 'calculate', 'coding', 'programming', 'javascript', 'python',
       'celebrity', 'movie', 'anime', 'game', 'football', 'crypto',
