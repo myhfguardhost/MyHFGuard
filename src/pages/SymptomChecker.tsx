@@ -431,32 +431,6 @@ export default function SymptomChecker() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-slate-600">
-                    <Activity className="h-4 w-4 text-red-500" />
-                    Heart Rate
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">
-                      {latestHr ? `${latestHr} bpm` : "-"}
-                    </span>
-                    {getStatusBadge(getHrStatus(latestHr) as any)}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-slate-600">
-                    <Footprints className="h-4 w-4 text-orange-500" />
-                    Steps Today
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">
-                      {dashboardSummary?.stepsToday ?? "-"}
-                    </span>
-                    {getStatusBadge(getStepsStatus(dashboardSummary?.stepsToday) as any)}
-                  </div>
-                </div>
-
                 {weightChange != null && (
                   <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
                     Weight change:{" "}
@@ -501,14 +475,14 @@ export default function SymptomChecker() {
                     >
                       <span className="font-medium text-slate-700">{m}</span>
                       <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
-                        Active
+                        Reminder
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
                 <p className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
-                  No medication found.
+                  No medication reminder found.
                 </p>
               )}
 
@@ -521,29 +495,6 @@ export default function SymptomChecker() {
                 View Medication Advice
                 <ChevronRight className="ml-1 h-4 w-4" />
               </Button>
-            </div>
-
-            <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-4">
-              <p className="mb-3 flex items-center gap-2 font-semibold text-slate-800">
-                <Target className="h-4 w-4 text-sky-600" />
-                Daily Goals
-              </p>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-white p-3 text-center shadow-sm">
-                  <Footprints className="mx-auto mb-1 h-4 w-4 text-sky-600" />
-                  <p className="text-xs text-slate-500">Steps</p>
-                  <p className="font-bold text-slate-800">
-                    {dashboardSummary?.stepsToday ?? 0}/3000
-                  </p>
-                </div>
-
-                <div className="rounded-xl bg-white p-3 text-center shadow-sm">
-                  <Droplets className="mx-auto mb-1 h-4 w-4 text-sky-600" />
-                  <p className="text-xs text-slate-500">Water</p>
-                  <p className="font-bold text-slate-800">Track</p>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>
