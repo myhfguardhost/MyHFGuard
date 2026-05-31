@@ -726,196 +726,43 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     const userMessage = String(message).trim()
 
-    // Restrict chatbot to heart failure health topics only
-    const allowedKeywords = [
-      'heart failure', 'hf', 'cardiac', 'heart problem', 'weak heart',
-      'symptom', 'symptoms', 'gejala', 'simptom',
-
-      'breathless', 'shortness of breath', 'short of breath',
-      'difficulty breathing', 'breathing difficulty', 'hard to breathe',
-      'cannot breathe', 'cant breathe', 'trouble breathing',
-      'sesak nafas', 'sukar bernafas', 'nafas pendek', 'susah bernafas',
-
-      'swelling', 'swollen', 'leg swelling', 'ankle swelling',
-      'foot swelling', 'feet swelling', 'edema',
-      'bengkak', 'kaki bengkak', 'bengkak kaki',
-
-      'orthopnea', 'need more pillows', 'sleep sitting up',
-      'cannot lie flat', 'susah tidur', 'tidur duduk',
-
-      'cough', 'persistent cough', 'batuk',
-
-      'fatigue', 'tired', 'weak', 'weakness',
-      'dizzy', 'dizziness', 'lightheaded',
-      'faint', 'fainted',
-      'penat', 'letih', 'lemah', 'pening', 'pitam',
-
-      'chest pain', 'chest tightness',
-      'palpitations', 'fast heartbeat',
-      'sakit dada', 'jantung laju',
-
-      'blood pressure', 'bp',
-      'systolic', 'diastolic',
-      'heart rate', 'pulse',
-      'spo2', 'oxygen', 'oxygen level', 'o2',
-      'temperature', 'fever',
-
-      'tekanan darah',
-      'darah tinggi',
-      'darah rendah',
-      'kadar nadi',
-      'oksigen',
-      'demam',
-
-      'weight', 'body weight', 'daily weight',
-      'weight gain', 'weight increase',
-      'sudden weight gain',
-      'weight loss',
-
-      'berat',
-      'berat badan',
-      'naik berat',
-      'berat naik',
-      'turun berat',
-
-      'medication', 'medicine', 'drug',
-      'tablet', 'pill', 'capsule',
-      'aspirin', 'furosemide',
-      'atorvastatin', 'diuretic',
-      'dose', 'dosage',
-      'side effect',
-
-      'ubat',
-      'makan ubat',
-      'pil',
-      'tablet',
-      'dos',
-
-      'reminder', 'appointment',
-      'doctor', 'clinic', 'hospital',
-      'follow up',
-
-      'peringatan',
-      'janji temu',
-      'doktor',
-      'klinik',
-      'hospital',
-
-      'exercise', 'activity',
-      'walking', 'walk',
-      'steps', 'step count',
-
-      'senaman',
-      'aktiviti',
-      'berjalan',
-      'langkah',
-
-      'water', 'fluid',
-      'fluid intake',
-      'salt', 'sodium',
-      'diet', 'food',
-
-      'air',
-      'cecair',
-      'garam',
-      'makanan',
-
-      'log', 'record',
-      'reading', 'history',
-      'trend', 'health data',
-
-      'rekod',
-      'bacaan',
-      'trend',
-
-      'emergency',
-      'urgent',
-      'not feeling well',
-      'feel sick',
-      'condition worse',
-
-      'kecemasan',
-      'teruk',
-      'tak sihat',
-      'makin teruk',
-
-      'what should i do',
-      'is this normal',
-      'can i',
-      'should i',
-      'help me',
-
-      'apa perlu saya buat',
-      'normal ke',
-      'boleh ke',
-      'tolong',
-      'kenapa',
+    const blockedTopics = [
+      'math', 'calculate', 'coding', 'programming', 'javascript', 'python',
+      'celebrity', 'movie', 'anime', 'game', 'football', 'crypto',
+      'bitcoin', 'politics', 'homework', 'assignment', 'exam answer',
+      'weather', 'stock market'
     ]
 
-    const lowerMsg = userMessage.toLowerCase()
-
-    const patientDataPatterns = [
-      'my recent',
-      'my latest',
-      'my vitals',
-      'recent vitals',
-      'latest vitals',
-      'my readings',
-      'my reading',
-      'my health',
-      'my health data',
-      'my data',
-      'my record',
-      'my records',
-      'patient summary',
-      'latest health status',
-      'health status',
-      'baseline',
-      'dry weight',
-      'indicate',
-      'show',
-      'shows',
-      'mean',
-      'means',
-      'meaning',
-      'normal',
-      'abnormal',
-      'risk',
-      'condition',
-      'trend',
-      'result',
-      'results',
-      'status',
-
-      // BM
-      'bacaan saya',
-      'rekod saya',
-      'kesihatan saya',
-      'data saya',
-      'status kesihatan',
-      'maksud',
-      'normal ke',
-      'risiko',
-      'keadaan',
-      'tunjuk',
-      'menunjukkan'
+    const healthPatterns = [
+      ...allowedKeywords,
+      'heart', 'breath', 'nafas', 'chest', 'pressure', 'pulse',
+      'oxygen', 'weight', 'berat', 'swelling', 'bengkak',
+      'medicine', 'medication', 'ubat', 'doctor', 'doktor',
+      'hospital', 'symptom', 'gejala', 'exercise', 'steps',
+      'walking', 'diet', 'salt', 'water', 'fluid',
+      'vitals', 'reading', 'record', 'trend', 'health',
+      'fatigue', 'tired', 'dizzy', 'pening', 'weak',
+      'cough', 'batuk', 'pain', 'sakit', 'emergency',
+      'normal', 'condition', 'sleep', 'my recent',
+      'my latest', 'my data', 'my readings', 'my vitals'
     ]
 
-    const isAllowed =
-      allowedKeywords.some((keyword) =>
-        lowerMsg.includes(keyword.toLowerCase())
-      ) ||
-      patientDataPatterns.some((pattern) =>
-        lowerMsg.includes(pattern.toLowerCase())
-      )
+    const isBlocked = blockedTopics.some((word) =>
+      lowerMsg.includes(word)
+    )
+
+    const isHealthQuestion = healthPatterns.some((word) =>
+      lowerMsg.includes(word.toLowerCase())
+    )
 
     console.log("[CHAT DEBUG] message:", userMessage)
-    console.log("[CHAT DEBUG] allowed:", isAllowed)
+    console.log("[CHAT DEBUG] health:", isHealthQuestion)
+    console.log("[CHAT DEBUG] blocked:", isBlocked)
 
-    if (!isAllowed) {
+    if (isBlocked || !isHealthQuestion) {
       return res.json({
         reply:
-          "I'm mainly designed to help with heart failure care, symptoms, medication reminders, blood pressure, weight, exercise, and related health concerns.",
+          "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard.",
         timestamp: new Date().toISOString()
       })
     }
