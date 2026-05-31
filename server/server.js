@@ -854,9 +854,60 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     const lowerMsg = userMessage.toLowerCase()
 
-    const isAllowed = allowedKeywords.some((keyword) =>
-      lowerMsg.includes(keyword.toLowerCase())
-    )
+    const patientDataPatterns = [
+      'my recent',
+      'my latest',
+      'my vitals',
+      'recent vitals',
+      'latest vitals',
+      'my readings',
+      'my reading',
+      'my health',
+      'my health data',
+      'my data',
+      'my record',
+      'my records',
+      'patient summary',
+      'latest health status',
+      'health status',
+      'baseline',
+      'dry weight',
+      'indicate',
+      'show',
+      'shows',
+      'mean',
+      'means',
+      'meaning',
+      'normal',
+      'abnormal',
+      'risk',
+      'condition',
+      'trend',
+      'result',
+      'results',
+      'status',
+
+      // BM
+      'bacaan saya',
+      'rekod saya',
+      'kesihatan saya',
+      'data saya',
+      'status kesihatan',
+      'maksud',
+      'normal ke',
+      'risiko',
+      'keadaan',
+      'tunjuk',
+      'menunjukkan'
+    ]
+
+    const isAllowed =
+      allowedKeywords.some((keyword) =>
+        lowerMsg.includes(keyword.toLowerCase())
+      ) ||
+      patientDataPatterns.some((pattern) =>
+        lowerMsg.includes(pattern.toLowerCase())
+      )
 
     console.log("[CHAT DEBUG] message:", userMessage)
     console.log("[CHAT DEBUG] allowed:", isAllowed)
@@ -864,7 +915,8 @@ app.post('/api/chat/symptoms', async (req, res) => {
     if (!isAllowed) {
       return res.json({
         reply:
-          "I'm mainly designed to help with heart failure care, symptoms, medication reminders, blood pressure, weight, exercise, and related health concerns."
+          "I'm mainly designed to help with heart failure care, symptoms, medication reminders, blood pressure, weight, exercise, and related health concerns.",
+        timestamp: new Date().toISOString()
       })
     }
 
