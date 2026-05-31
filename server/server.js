@@ -743,6 +743,8 @@ app.post('/api/chat/symptoms', async (req, res) => {
     const userMessage = String(message).trim()
     const lowerMsg = userMessage.toLowerCase()
 
+    const healthData = await fetchPatientHealthData(patientId)
+
     const unrelatedPatterns = [
       'math', 'calculate', 'coding', 'programming', 'javascript', 'python',
       'celebrity', 'movie', 'drama', 'game', 'homework', 'assignment',
@@ -814,8 +816,6 @@ app.post('/api/chat/symptoms', async (req, res) => {
       })
     }
     
-    const healthData = await fetchPatientHealthData(patientId)
-
     const systemInstruction = `You are MyHFGuard AI, a STRICT heart-failure support assistant for patients.
 
   VERY IMPORTANT RULES:
