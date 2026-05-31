@@ -1,11 +1,5 @@
 import { useState, useEffect, useRef } from "react"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -17,15 +11,6 @@ import {
   Sparkles,
   Pill,
   Activity,
-  HeartPulse,
-  Droplets,
-  Footprints,
-  ShieldAlert,
-  ChevronRight,
-  Stethoscope,
-  Weight,
-  ClipboardList,
-  Target,
 } from "lucide-react"
 import { serverUrl } from "@/lib/api"
 import { supabase } from "@/lib/supabase"
@@ -42,70 +27,15 @@ type Message = {
 
 type PatientSummary = {
   full_name?: string | null
-  first_name?: string | null
-  last_name?: string | null
   age?: number | null
-  height?: number | null
-  bmi?: number | null
   dry_weight?: number | null
-  baseline_weight?: number | null
-  systolic_bp?: number | null
-  diastolic_bp?: number | null
-  heart_rate?: number | null
   current_medication?: string | null
-}
-
-type DashboardSummary = {
-  heartRate?: number | null
-  bpSystolic?: number | null
-  bpDiastolic?: number | null
-  bpPulse?: number | null
-  weightKg?: number | null
-  stepsToday?: number | null
-  distanceToday?: number | null
-  lastSyncTs?: string | null
-}
-
-function getStatusBadge(type: "normal" | "warning" | "danger" | "neutral") {
-  const styles = {
-    normal: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    warning: "bg-amber-50 text-amber-700 border-amber-200",
-    danger: "bg-red-50 text-red-700 border-red-200",
-    neutral: "bg-slate-50 text-slate-600 border-slate-200",
-  }
-
-  const labels = {
-    normal: "Normal",
-    warning: "Check",
-    danger: "Urgent",
-    neutral: "No data",
-  }
-
-  return (
-    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${styles[type]}`}>
-      {labels[type]}
-    </span>
-  )
-}
-
-function getBpStatus(s?: number | null, d?: number | null) {
-  if (!s || !d) return "neutral"
-  if (s >= 180 || d >= 120 || s < 80 || d < 50) return "danger"
-  if (s >= 140 || d >= 90) return "warning"
-  return "normal"
-}
-
-function getHrStatus(hr?: number | null) {
-  if (!hr) return "neutral"
-  if (hr < 50 || hr > 150) return "danger"
-  if (hr < 60 || hr > 100) return "warning"
-  return "normal"
-}
-
-function getStepsStatus(steps?: number | null) {
-  if (steps == null) return "neutral"
-  if (steps < 3000) return "warning"
-  return "normal"
+  latest_weight?: number | null
+  latest_weight_date?: string | null
+  weight_change?: number | null
+  latest_systolic?: number | null
+  latest_diastolic?: number | null
+  latest_bp_date?: string | null
 }
 
 export default function SymptomChecker() {
@@ -119,7 +49,6 @@ export default function SymptomChecker() {
   const [loading, setLoading] = useState(false)
   const [patientId, setPatientId] = useState<string | null>(null)
   const [patientSummary, setPatientSummary] = useState<PatientSummary | null>(null)
-  const [dashboardSummary, setDashboardSummary] = useState<DashboardSummary | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -128,76 +57,60 @@ export default function SymptomChecker() {
       const userId = data?.session?.user?.id
       if (!userId) return
 
-      setPatientId(userId)
-
-      // patient table
-      const { data: patientData, error: patientError } = await supabase
+      const { data: patientData } = await supabase
         .from("patients")
-        .select("patient_id, first_name, last_name, dob")
-        .eq("patient_id", userId)
+        .select("patient_id")
+        .eq("user_id", userId)
         .maybeSingle()
 
-      console.log("patientData:", patientData)
-      console.log("patientError:", patientError)
+      const effectivePatientId = patientData?.patient_id || userId
+      setPatientId(effectivePatientId)
 
-      // profile table
-      const { data: profileData, error: profileError } = await supabase
+      const { data: profileData } = await supabase
         .from("profiles")
-        .select(`
-          full_name,
-          height,
-          bmi,
-          dry_weight,
-          baseline_weight,
-          systolic_bp,
-          diastolic_bp,
-          heart_rate,
-          current_medication
-        `)
-        .eq("id", userId)
+        .select("full_name, age, dry_weight, current_medication")
+        .eq("user_id", userId)
         .maybeSingle()
 
-      console.log("profileData:", profileData)
-      console.log("profileError:", profileError)
+      const [{ data: latestWeight }, { data: latestBp }] = await Promise.all([
+        supabase
+          .from("weight_day")
+          .select("date, kg_avg, kg_min, kg_max")
+          .eq("patient_id", effectivePatientId)
+          .order("date", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
 
-      // medication fallback
-      let medicationText = profileData?.current_medication || ""
+        supabase
+          .from("bp_readings")
+          .select("reading_date, reading_time, systolic, diastolic")
+          .eq("patient_id", effectivePatientId)
+          .order("reading_date", { ascending: false })
+          .order("reading_time", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ])
 
-      if (!medicationText) {
-        const { data: meds } = await supabase
-          .from("medication")
-          .select("name")
-          .eq("patient_id", userId)
-
-        if (meds?.length) {
-          medicationText = meds.map((m) => m.name).join(", ")
-        }
-      }
-
-      let age: number | null = null
-      if (patientData?.dob) {
-        const dob = new Date(patientData.dob)
-        const today = new Date()
-        age = today.getFullYear() - dob.getFullYear()
-        const m = today.getMonth() - dob.getMonth()
-        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--
-      }
+      const dryWeight = Number(profileData?.dry_weight)
+      const latestWeightValue = Number(
+        latestWeight?.kg_avg ?? latestWeight?.kg_max ?? latestWeight?.kg_min
+      )
 
       setPatientSummary({
-        ...(profileData || {}),
-        current_medication: medicationText,
-        first_name: patientData?.first_name,
-        last_name: patientData?.last_name,
-        age,
+        full_name: profileData?.full_name ?? null,
+        age: profileData?.age ?? null,
+        dry_weight: Number.isFinite(dryWeight) ? dryWeight : null,
+        current_medication: profileData?.current_medication ?? null,
+        latest_weight: Number.isFinite(latestWeightValue) ? latestWeightValue : null,
+        latest_weight_date: latestWeight?.date ?? null,
+        weight_change:
+          Number.isFinite(latestWeightValue) && Number.isFinite(dryWeight)
+            ? latestWeightValue - dryWeight
+            : null,
+        latest_systolic: latestBp?.systolic ?? null,
+        latest_diastolic: latestBp?.diastolic ?? null,
+        latest_bp_date: latestBp?.reading_date ?? null,
       })
-
-      try {
-        const summaryRes = await fetch(`${serverUrl()}/patient/summary?patientId=${finalPatientId}`)
-        const summaryJson = await summaryRes.json()
-        setDashboardSummary(summaryJson?.summary || null)
-      } catch (e) {
-        console.error("[My Chat] patient summary fetch failed", e)
-      }
 
       setMessages([
         {
@@ -205,7 +118,7 @@ export default function SymptomChecker() {
           role: "assistant",
           content: getText(
             "myChatWelcome",
-            "Hello! I'm your MyHFGuard AI Chat Assistant. I can help answer questions based on your **symptoms, reminders, medication and health data**.\n\n**Important:** I am not a doctor and cannot diagnose conditions. If you have chest pain, severe breathing difficulty, fainting, or stroke symptoms, please seek emergency help immediately.\n\nHow can I help you today?"
+            "Hello! I'm your MyHFGuard AI Chat Assistant. I can help answer questions based on your symptoms, reminders, medication and health data.\n\n**Important:** I am not a doctor and cannot diagnose conditions. If you have chest pain, severe breathing difficulty, or stroke symptoms, please seek emergency help immediately.\n\nHow can I help you today?"
           ),
           timestamp: new Date().toISOString(),
         },
@@ -227,14 +140,12 @@ export default function SymptomChecker() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages, loading])
+  }, [messages])
 
-  const handleSend = async (e?: React.FormEvent, directText?: string) => {
+  const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
 
-    const textToSend = directText || input.trim()
-
-    if (!textToSend || !patientId || loading) {
+    if (!input.trim() || !patientId || loading) {
       if (!patientId) {
         toast.error(getText("userNotFound", "Unable to identify user. Please log in again."))
       }
@@ -244,7 +155,7 @@ export default function SymptomChecker() {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: textToSend,
+      content: input.trim(),
       timestamp: new Date().toISOString(),
     }
 
@@ -259,20 +170,14 @@ export default function SymptomChecker() {
         body: JSON.stringify({
           message: userMessage.content,
           patientId,
+          patientSummary,
         }),
       })
 
-      let data: any = null
-
-      try {
-        data = await res.json()
-      } catch {
-        data = null
-      }
+      const data = await res.json().catch(() => null)
 
       if (!res.ok) {
-        const errMsg = data?.details || data?.error || `AI request failed: ${res.status}`
-        throw new Error(errMsg)
+        throw new Error(data?.details || data?.error || `AI request failed: ${res.status}`)
       }
 
       const assistantMessage: Message = {
@@ -290,7 +195,7 @@ export default function SymptomChecker() {
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-    } catch (err: any) {
+    } catch (err) {
       console.error("[My Chat] AI failed:", err)
       toast.error("AI is currently busy. Please try again shortly.")
 
@@ -298,7 +203,7 @@ export default function SymptomChecker() {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content:
-          "AI service is currently busy. Please try again later.\n\nIf you have chest pain, severe shortness of breath, fainting or stroke symptoms, please seek emergency help immediately.",
+          "AI is currently busy. Please try again shortly.\n\nIf you have chest pain, severe shortness of breath, fainting or stroke symptoms, please seek emergency help immediately.",
         timestamp: new Date().toISOString(),
       }
 
@@ -315,273 +220,171 @@ export default function SymptomChecker() {
     getText("chatPromptDoctor", "What signs mean I should call my doctor?"),
   ]
 
-  const quickActions = [
-    {
-      label: "View my trends",
-      icon: ClipboardList,
-      text: "Can you explain my recent health trend?",
-    },
-    {
-      label: "Medication reminders",
-      icon: Pill,
-      text: "What medication reminders do I have?",
-    },
-    {
-      label: "Symptoms guide",
-      icon: ShieldAlert,
-      text: "What symptoms should I watch for today?",
-    },
-    {
-      label: "When to seek help",
-      icon: Stethoscope,
-      text: "When should I contact doctor or emergency services?",
-    },
-  ]
-
-  const displayName =
-    patientSummary?.full_name ||
-    [patientSummary?.first_name, patientSummary?.last_name].filter(Boolean).join(" ") ||
-    "Patient"
-
-  const latestBpS = dashboardSummary?.bpSystolic ?? patientSummary?.systolic_bp ?? null
-  const latestBpD = dashboardSummary?.bpDiastolic ?? patientSummary?.diastolic_bp ?? null
-  const latestHr = dashboardSummary?.heartRate ?? patientSummary?.heart_rate ?? null
-  const latestWeight = dashboardSummary?.weightKg ?? null
-  const dryWeight = patientSummary?.dry_weight ?? patientSummary?.baseline_weight ?? null
-  const weightChange =
-    latestWeight != null && dryWeight != null
-      ? Number((latestWeight - dryWeight).toFixed(1))
-      : null
-
   const meds =
     patientSummary?.current_medication
       ?.split(/\n|,|;/)
       .map((m) => m.trim())
       .filter(Boolean) || []
 
+  const formatKg = (value?: number | null) =>
+    typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(1)}kg` : "-"
+
+  const formatWeightChange = (value?: number | null) => {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "-"
+    const sign = value > 0 ? "+" : ""
+    return `${sign}${value.toFixed(1)}kg from baseline`
+  }
+
+  const latestBp =
+    patientSummary?.latest_systolic && patientSummary?.latest_diastolic
+      ? `${patientSummary.latest_systolic}/${patientSummary.latest_diastolic}`
+      : "-"
+
   return (
-    <main className="min-h-screen bg-slate-50/70 px-4 py-5">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-5 lg:grid-cols-[340px_1fr]">
-        <Card className="h-fit overflow-hidden border-slate-200 bg-white shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 text-sky-600">
-                <HeartPulse className="h-6 w-6" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl">Patient Summary</CardTitle>
-                <CardDescription>Overview of key health information</CardDescription>
-              </div>
-            </div>
+    <main className="mx-auto max-w-6xl px-4 py-6 h-screen flex flex-col">
+      <div className="mb-4">
+        <h2 className="text-3xl font-bold flex items-center gap-2">
+          <Sparkles className="w-6 h-6 text-primary" />
+          {getText("myChatTitle", "My Chat")}
+        </h2>
+        <p className="text-muted-foreground">
+          {getText(
+            "myChatDesc",
+            "Chat with AI assistant for support, guidance and heart health questions."
+          )}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 flex-1 min-h-0">
+        <Card className="min-h-0 shadow-md">
+          <CardHeader>
+            <CardTitle>{getText("patientSummary", "Patient Summary")}</CardTitle>
+            <CardDescription>
+              {getText("patientSummaryDesc", "Basic data used to support AI responses")}
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-4">
-            <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="flex items-center gap-2 font-semibold text-slate-800">
-                  <User className="h-4 w-4 text-sky-600" />
-                  Basic Info
+            <div className="border p-3 rounded-xl">
+              <p className="font-medium mb-2">{getText("basicInfo", "Basic Info")}</p>
+
+              <div className="space-y-1 text-sm">
+                <p>
+                  <span className="text-muted-foreground">{getText("name", "Name")}:</span>{" "}
+                  <span className="font-medium">{patientSummary?.full_name || "-"}</span>
                 </p>
-              </div>
 
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Name</span>
-                  <span className="font-semibold text-slate-800">{displayName}</span>
-                </div>
+                <p>
+                  <span className="text-muted-foreground">{getText("age", "Age")}:</span>{" "}
+                  <span className="font-medium">{patientSummary?.age ?? "-"}</span>
+                </p>
 
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Age</span>
-                  <span className="font-semibold text-slate-800">
-                    {patientSummary?.age ?? "-"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Baseline Dry Weight</span>
-                  <span className="font-semibold text-slate-800">
-                    {dryWeight ? `${dryWeight} kg` : "-"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">Height</span>
-                  <span className="font-semibold text-slate-800">
-                    {patientSummary?.height ? `${patientSummary.height} cm` : "-"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between gap-3">
-                  <span className="text-slate-500">BMI</span>
-                  <span className="font-semibold text-slate-800">
-                    {patientSummary?.bmi ? Number(patientSummary.bmi).toFixed(2) : "-"}
-                  </span>
-                </div>
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("baselineDryWeight", "Baseline Dry Weight")}:
+                  </span>{" "}
+                  <span className="font-medium">{formatKg(patientSummary?.dry_weight)}</span>
+                </p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="flex items-center gap-2 font-semibold text-slate-800">
-                  <Activity className="h-4 w-4 text-sky-600" />
-                  Latest Health Status
+            <div className="border p-3 rounded-xl">
+              <p className="font-medium flex gap-2 items-center mb-2">
+                <Activity className="w-4 h-4" />
+                {getText("latestHealthStatus", "Latest Health Status")}
+              </p>
+
+              <div className="space-y-1 text-sm">
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("latestWeight", "Latest Weight")}:
+                  </span>{" "}
+                  <span className="font-medium">{formatKg(patientSummary?.latest_weight)}</span>
                 </p>
-                <span className="text-[11px] text-slate-400">
-                  {dashboardSummary?.lastSyncTs
-                    ? new Date(dashboardSummary.lastSyncTs).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Latest"}
-                </span>
-              </div>
 
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-slate-600">
-                    <Weight className="h-4 w-4 text-sky-500" />
-                    Weight
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("weightChange", "Weight Change")}:
+                  </span>{" "}
+                  <span className="font-medium">
+                    {formatWeightChange(patientSummary?.weight_change)}
                   </span>
-                  <span className="font-bold text-slate-900">
-                    {latestWeight ? `${latestWeight} kg` : "-"}
-                  </span>
-                </div>
+                </p>
 
-                <div className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-slate-600">
-                    <HeartPulse className="h-4 w-4 text-rose-500" />
-                    Blood Pressure
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">
-                      {latestBpS && latestBpD ? `${latestBpS}/${latestBpD}` : "-"}
-                    </span>
-                    {getStatusBadge(getBpStatus(latestBpS, latestBpD) as any)}
-                  </div>
-                </div>
-
-                {weightChange != null && (
-                  <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    Weight change:{" "}
-                    <span
-                      className={
-                        weightChange >= 1.5
-                          ? "font-bold text-amber-600"
-                          : "font-bold text-emerald-600"
-                      }
-                    >
-                      {weightChange > 0 ? "+" : ""}
-                      {weightChange} kg
-                    </span>{" "}
-                    from baseline
-                  </div>
-                )}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-2 w-full rounded-xl"
-                  onClick={() => handleSend(undefined, "Can you explain my latest health status?")}
-                >
-                  View Trends
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
+                <p>
+                  <span className="text-muted-foreground">
+                    {getText("latestBp", "Latest BP")}:
+                  </span>{" "}
+                  <span className="font-medium">{latestBp}</span>
+                </p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="mb-3 flex items-center gap-2 font-semibold text-slate-800">
-                <Pill className="h-4 w-4 text-sky-600" />
-                Medication Reminder
+            <div className="border p-3 rounded-xl">
+              <p className="font-medium flex gap-2 items-center mb-2">
+                <Pill className="w-4 h-4" />
+                {getText("medicationReminder", "Medication Reminder")}
               </p>
 
               {meds.length > 0 ? (
                 <div className="space-y-2">
                   {meds.map((m, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"
-                    >
-                      <span className="font-medium text-slate-700">{m}</span>
-                      <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
-                        Reminder
-                      </span>
+                    <div key={i} className="text-sm rounded-lg bg-muted/40 px-3 py-2">
+                      {m}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
-                  No medication reminder found.
+                <p className="text-sm text-muted-foreground">
+                  {getText("noMedicationFound", "No medication found.")}
                 </p>
               )}
-
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3 w-full rounded-xl"
-                onClick={() => handleSend(undefined, "What medicine do I need to take today?")}
-              >
-                View Medication Advice
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="flex min-h-[calc(100vh-40px)] flex-col overflow-hidden border-slate-200 bg-white shadow-sm">
-          <CardHeader className="border-b border-slate-100">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-2xl">
-                  <Sparkles className="h-6 w-6 text-sky-600" />
-                  Chat with AI Assistant
-                </CardTitle>
-                <CardDescription>
-                  Ask about symptoms, reminders, medication, vitals or general health guidance.
-                </CardDescription>
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl"
-                onClick={() => handleSend(undefined, "Show my patient summary.")}
-              >
-                <User className="mr-2 h-4 w-4" />
-                Patient Summary
-              </Button>
-            </div>
+        <Card className="flex flex-col min-h-0 overflow-hidden shadow-md">
+          <CardHeader>
+            <CardTitle>{getText("chatWithAssistant", "Chat with AI Assistant")}</CardTitle>
+            <CardDescription>
+              {getText(
+                "chatWithAssistantDesc",
+                "Ask about symptoms, reminders, medication, vitals or general health guidance."
+              )}
+            </CardDescription>
           </CardHeader>
 
-          <CardContent className="flex min-h-0 flex-1 flex-col p-0">
-            <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto bg-white p-5">
+          <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((m) => (
                 <div
                   key={m.id}
-                  className={`flex w-full gap-3 ${
+                  className={`flex gap-3 w-full ${
                     m.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
                   {m.role === "assistant" && (
-                    <div className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-sky-100 bg-sky-50">
-                      <Bot className="h-5 w-5 text-sky-600" />
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                      <Bot className="w-5 h-5 text-primary" />
                     </div>
                   )}
 
                   <div
-                    className={`relative max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm sm:max-w-[76%] ${
+                    className={`relative max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
                       m.role === "user"
-                        ? "rounded-br-md bg-sky-600 text-white"
-                        : "rounded-bl-md border border-slate-200 bg-slate-50 text-slate-800"
+                        ? "bg-primary text-primary-foreground rounded-br-none"
+                        : "bg-muted/50 border rounded-bl-none"
                     }`}
                   >
-                    <div className="markdown prose prose-sm max-w-none break-words prose-p:mb-2 prose-p:last:mb-0 prose-ul:pl-4">
+                    <div className="markdown prose prose-sm dark:prose-invert max-w-none break-words [&>p]:mb-2 [&>p:last-child]:mb-0 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4">
                       <Markdown>{m.content}</Markdown>
                     </div>
 
                     <p
-                      className={`mt-2 text-right text-[10px] ${
-                        m.role === "user" ? "text-white/75" : "text-slate-400"
+                      className={`text-[10px] mt-1 text-right ${
+                        m.role === "user"
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
                       }`}
                     >
                       {new Date(m.timestamp).toLocaleTimeString([], {
@@ -592,102 +395,79 @@ export default function SymptomChecker() {
                   </div>
 
                   {m.role === "user" && (
-                    <div className="mt-1 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-sky-600">
-                      <User className="h-5 w-5 text-white" />
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-1">
+                      <User className="w-5 h-5 text-primary-foreground" />
                     </div>
                   )}
                 </div>
               ))}
 
               {loading && (
-                <div className="flex w-full justify-start gap-3">
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-sky-100 bg-sky-50">
-                    <Bot className="h-5 w-5 text-sky-600" />
+                <div className="flex gap-3 justify-start w-full animate-pulse">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Bot className="w-5 h-5 text-primary" />
                   </div>
-                  <div className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-slate-200 bg-slate-50 px-4 py-3">
-                    <Loader2 className="h-4 w-4 animate-spin text-sky-600" />
-                    <span className="text-sm text-slate-500">
-                      Analyzing your health data...
+
+                  <div className="bg-muted rounded-2xl rounded-bl-none p-4 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-xs text-muted-foreground">
+                      {getText("aiAnalyzing", "Analyzing your health data...")}
                     </span>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-slate-100 bg-white px-5 py-3">
-              {messages.length === 1 && (
-                <div className="mb-3">
-                  <p className="mb-2 text-xs font-semibold text-slate-500">
-                    Suggested Questions
-                  </p>
+            {messages.length === 1 && (
+              <div className="p-3 border-t">
+                <p className="text-xs mb-2">
+                  {getText("suggestedQuestions", "Suggested Questions")}
+                </p>
 
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    {suggestedQuestions.map((q, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => handleSend(undefined, q)}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 transition hover:border-sky-200 hover:bg-sky-50"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="mb-3">
-                <p className="mb-2 text-xs font-semibold text-slate-500">Quick Actions</p>
-
-                <div className="flex flex-wrap gap-2">
-                  {quickActions.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={() => handleSend(undefined, item.text)}
-                        className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-sky-200 hover:bg-sky-50"
-                      >
-                        <Icon className="h-3.5 w-3.5 text-sky-600" />
-                        {item.label}
-                      </button>
-                    )
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {suggestedQuestions.map((q, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setInput(q)}
+                      className="border rounded-xl px-3 py-2 text-sm hover:bg-accent text-left"
+                    >
+                      {q}
+                    </button>
+                  ))}
                 </div>
               </div>
+            )}
 
-              <form onSubmit={handleSend} className="flex gap-2">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={getText("chatInputPlaceholder", "Type your question here...")}
-                  disabled={loading}
-                  className="h-12 rounded-xl border-slate-200 bg-slate-50"
-                />
+            <div className="px-4 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-t border-b border-amber-100 dark:border-amber-900/50 flex justify-center">
+              <div className="flex items-center gap-1.5 text-center">
+                <AlertCircle className="w-3 h-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
 
-                <Button
-                  type="submit"
-                  disabled={loading || !input.trim()}
-                  className="h-12 rounded-xl bg-sky-600 px-4 hover:bg-sky-700"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
+                <p className="text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                  {getText(
+                    "aiMedicalDisclaimer",
+                    "AI provides information, not diagnosis. Consult a doctor for medical advice."
                   )}
-                </Button>
-              </form>
-            </div>
-
-            <div className="border-t border-amber-100 bg-amber-50 px-4 py-2">
-              <div className="flex items-center justify-center gap-1.5 text-center">
-                <AlertCircle className="h-3.5 w-3.5 flex-shrink-0 text-amber-600" />
-                <p className="text-[11px] font-medium text-amber-800">
-                  AI provides information, not diagnosis. Consult a doctor for medical advice.
                 </p>
               </div>
             </div>
+
+            <form onSubmit={handleSend} className="p-3 border-t flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={getText("chatInputPlaceholder", "Type your question here...")}
+                disabled={loading}
+              />
+
+              <Button type="submit" disabled={loading || !input.trim()}>
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
