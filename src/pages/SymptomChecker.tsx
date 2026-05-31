@@ -236,7 +236,7 @@ export default function SymptomChecker() {
 
   const meds =
     patientSummary?.current_medication
-      ?.split(/\n|,|;/)
+      ?.split(/\n|;/)
       .map((m) => m.trim())
       .filter(Boolean) || []
 
