@@ -743,8 +743,8 @@ app.post('/api/chat/symptoms', async (req, res) => {
       'vitals', 'reading', 'record', 'trend', 'health',
       'fatigue', 'tired', 'dizzy', 'pening', 'weak',
       'cough', 'batuk', 'pain', 'sakit', 'emergency',
-      'normal', 'condition', 'sleep', 'my recent',
-      'my latest', 'my data', 'my readings', 'my vitals'
+      'normal', 'condition', 'sleep', 'recent',
+      'latest', 'data', 'readings', 'vitals'
     ]
 
     const isBlocked = blockedTopics.some((word) =>
