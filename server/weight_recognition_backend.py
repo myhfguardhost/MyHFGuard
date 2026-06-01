@@ -18,14 +18,13 @@ def output(data, code=0):
     sys.exit(code)
 
 def find_display(img):
-    H, W = img.shape[:2]
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    lower = np.array([85, 40, 40])
+    upper = np.array([155, 255, 255])
+    mask = cv2.inRange(hsv, lower, upper)
 
-    # Find bright white LED digits directly
-    _, mask = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
-
-    kernel = np.ones((3, 3), np.uint8)
+    kernel = np.ones((7, 7), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
     mask = cv2.dilate(mask, kernel, iterations=2)
 
@@ -35,50 +34,38 @@ def find_display(img):
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
         area = w * h
+        if area > 800 and w > h:
+            boxes.append((x, y, w, h, area))
 
-        # white digit parts, ignore tiny noise
-        if area > 50 and h > 8 and w > 3:
-            # avoid top wood bright lines
-            if y > H * 0.25:
-                boxes.append((x, y, w, h))
+    if not boxes:
+        return None
 
-    if boxes:
-        x1 = min(b[0] for b in boxes)
-        y1 = min(b[1] for b in boxes)
-        x2 = max(b[0] + b[2] for b in boxes)
-        y2 = max(b[1] + b[3] for b in boxes)
+    x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
 
-        pad_x = int((x2 - x1) * 1.2)
-        pad_y = int((y2 - y1) * 1.8)
+    pad_x = int(w * 0.08)
+    pad_y = int(h * 0.25)
 
-        x1 = max(0, x1 - pad_x)
-        y1 = max(0, y1 - pad_y)
-        x2 = min(W, x2 + pad_x)
-        y2 = min(H, y2 + pad_y)
+    H, W = img.shape[:2]
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - pad_y)
+    x2 = min(W, x + w + pad_x)
+    y2 = min(H, y + h + pad_y)
 
-        return img[y1:y2, x1:x2]
-
-    return None
+    return img[y1:y2, x1:x2]
 
 def prepare_digit_area(display):
     h, w = display.shape[:2]
 
+    # Keep left 72% only, avoid KG / battery / temperature.
     main = display[:, :int(w * 0.72)]
 
     gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
-    # Dark display uses lower threshold, light display needs higher threshold
-    if gray.mean() > 100:
-        threshold_value = max(190, np.percentile(gray, 97) - 5)
-    else:
-        threshold_value = 120
-
-    _, th = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
+    _, th = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
 
     kernel = np.ones((3, 3), np.uint8)
     th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel)
-    th = cv2.dilate(th, kernel, iterations=1)
 
     return th
 
