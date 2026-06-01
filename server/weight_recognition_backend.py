@@ -20,8 +20,9 @@ def output(data, code=0):
 def find_display(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    lower = np.array([85, 40, 40])
-    upper = np.array([155, 255, 255])
+    # Try blue/green LCD first
+    lower = np.array([70, 15, 30])
+    upper = np.array([170, 255, 255])
     mask = cv2.inRange(hsv, lower, upper)
 
     kernel = np.ones((7, 7), np.uint8)
@@ -37,21 +38,49 @@ def find_display(img):
         if area > 800 and w > h:
             boxes.append((x, y, w, h, area))
 
+    if boxes:
+        x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
+
+        pad_x = int(w * 0.10)
+        pad_y = int(h * 0.35)
+
+        H, W = img.shape[:2]
+        return img[
+            max(0, y - pad_y):min(H, y + h + pad_y),
+            max(0, x - pad_x):min(W, x + w + pad_x)
+        ]
+
+    # Fallback: detect bright white LED digits
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    bright = cv2.inRange(gray, 170, 255)
+
+    bright = cv2.dilate(bright, np.ones((9, 9), np.uint8), iterations=2)
+
+    contours, _ = cv2.findContours(bright, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    boxes = []
+    for c in contours:
+        x, y, w, h = cv2.boundingRect(c)
+        area = w * h
+
+        if area > 300 and w > 5 and h > 10:
+            boxes.append((x, y, w, h))
+
     if not boxes:
         return None
 
-    x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
+    x1 = min(x for x, y, w, h in boxes)
+    y1 = min(y for x, y, w, h in boxes)
+    x2 = max(x + w for x, y, w, h in boxes)
+    y2 = max(y + h for x, y, w, h in boxes)
 
-    pad_x = int(w * 0.08)
-    pad_y = int(h * 0.25)
-
+    pad = 40
     H, W = img.shape[:2]
-    x1 = max(0, x - pad_x)
-    y1 = max(0, y - pad_y)
-    x2 = min(W, x + w + pad_x)
-    y2 = min(H, y + h + pad_y)
 
-    return img[y1:y2, x1:x2]
+    return img[
+        max(0, y1 - pad):min(H, y2 + pad),
+        max(0, x1 - pad):min(W, x2 + pad)
+    ]
 
 def prepare_digit_area(display):
     h, w = display.shape[:2]
