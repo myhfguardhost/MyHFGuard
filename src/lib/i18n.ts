@@ -589,6 +589,18 @@ const resources = {
         subtitle: "Ask questions about your symptoms and heart failure care",
         placeholder: "Type your message here...",
         send: "Send",
+
+        patientSummary: "Patient Summary",
+        patientSummaryDesc: "Basic data used to support AI responses",
+        basicInfo: "Basic Info",
+        latestHealthStatus: "Latest Health Status",
+        medicationReminder: "Medication Reminder",
+        name: "Name",
+        age: "Age",
+        baselineDryWeight: "Baseline Dry Weight",
+        latestWeight: "Latest Weight",
+        weightChange: "Weight Change",
+        latestBP: "Latest BP",
       },
 
 
@@ -1333,6 +1345,18 @@ const resources = {
         subtitle: "Tanya soalan tentang simptom anda dan penjagaan kegagalan jantung",
         placeholder: "Taip mesej anda di sini...",
         send: "Hantar",
+
+        patientSummary: "Ringkasan Pesakit",
+        patientSummaryDesc: "Data asas yang digunakan untuk menyokong jawapan AI",
+        basicInfo: "Maklumat Asas",
+        latestHealthStatus: "Status Kesihatan Terkini",
+        medicationReminder: "Peringatan Ubat",
+        name: "Nama",
+        age: "Umur",
+        baselineDryWeight: "Berat Kering Asas",
+        latestWeight: "Berat Terkini",
+        weightChange: "Perubahan Berat",
+        latestBP: "Tekanan Darah Terkini",
       },
 
 
