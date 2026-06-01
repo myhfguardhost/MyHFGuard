@@ -77,13 +77,16 @@ export default function AIAssistant() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${serverUrl()}api/chat/symptoms`, {
+            const res = await fetch(`${serverUrl()}/api/chat/symptoms`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ message: input, patientId })
             })
-            if (!res.ok) throw new Error('AI request failed')
             const data = await res.json()
+            if (!res.ok) {
+                console.error('[AI ERROR]', data)
+                throw new Error(data.error || 'AI request failed')
+                }
             const aiMsg: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',

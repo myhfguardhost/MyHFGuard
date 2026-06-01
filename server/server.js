@@ -875,15 +875,12 @@ app.post('/api/chat/symptoms', async (req, res) => {
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('MyChat error:', {
-      message: error?.message,
-      status: error?.status,
-      details: error?.details,
-      stack: error?.stack
-    })
-    return res.status(200).json({
+    console.error('[MyChat REAL ERROR]:', error?.message || error)
+
+    return res.status(503).json({
+      error: error?.message || 'AI request failed',
       reply:
-        'AI service is currently busy. Please try again later.\n\nIf you have chest pain, severe shortness of breath, fainting, or stroke symptoms, please seek emergency help immediately.',
+        'AI service is currently unavailable. Please try again later.\n\nIf you have chest pain, severe shortness of breath, fainting or stroke symptoms, please seek emergency help immediately.',
       timestamp: new Date().toISOString()
     })
   }
