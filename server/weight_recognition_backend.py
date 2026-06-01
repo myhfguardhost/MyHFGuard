@@ -18,10 +18,13 @@ def output(data, code=0):
     sys.exit(code)
 
 def find_display(img):
+    H, W = img.shape[:2]
+
+    # Try original blue/green display detection first
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    lower = np.array([85, 40, 40])
-    upper = np.array([155, 255, 255])
+    lower = np.array([75, 15, 40])
+    upper = np.array([170, 255, 255])
     mask = cv2.inRange(hsv, lower, upper)
 
     kernel = np.ones((7, 7), np.uint8)
@@ -37,21 +40,22 @@ def find_display(img):
         if area > 800 and w > h:
             boxes.append((x, y, w, h, area))
 
-    if not boxes:
-        return None
+    if boxes:
+        x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
 
-    x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
+        pad_x = int(w * 0.08)
+        pad_y = int(h * 0.25)
 
-    pad_x = int(w * 0.08)
-    pad_y = int(h * 0.25)
+        x1 = max(0, x - pad_x)
+        y1 = max(0, y - pad_y)
+        x2 = min(W, x + w + pad_x)
+        y2 = min(H, y + h + pad_y)
 
-    H, W = img.shape[:2]
-    x1 = max(0, x - pad_x)
-    y1 = max(0, y - pad_y)
-    x2 = min(W, x + w + pad_x)
-    y2 = min(H, y + h + pad_y)
+        return img[y1:y2, x1:x2]
 
-    return img[y1:y2, x1:x2]
+    # Fallback for light background scale:
+    # crop lower 70%, because number usually appears below table/floor
+    return img[int(H * 0.25):H, :]
 
 def prepare_digit_area(display):
     h, w = display.shape[:2]
