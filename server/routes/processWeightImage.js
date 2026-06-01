@@ -49,8 +49,8 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
 
           const weight = parseFloat(result.weight)
           return res.json({
-            weight: weight.toFixed(1),
-            detectedWeight: weight.toFixed(1),
+            weight: weight.toFixed(2),
+            detectedWeight: weight.toFixed(2),
             rawText: result.rawText || "",
             allAttempts: result.allAttempts || [],
           })

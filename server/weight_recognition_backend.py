@@ -1,169 +1,124 @@
-import os
+import sys
+import json
 import re
 import cv2
 import numpy as np
 import pytesseract
-from flask import Flask, request, jsonify
-from PIL import Image
-
-app = Flask(__name__)
-
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 def clean_weight(text):
     text = text.replace(",", ".")
-    matches = re.findall(r"\d{2,3}\.?\d?", text)
+    text = text.replace("O", "0").replace("o", "0")
 
-    if matches:
+    matches = re.findall(r"\d{2,3}\.\d{1,2}|\d{3,4}|\d{2,3}", text)
+
+    candidates = []
+
+    for m in matches:
         try:
-            return float(matches[0])
-        except:
-            return None
+            if "." in m:
+                value = float(m)
+            else:
+                raw = int(m)
 
-    return None
+                if 300 <= raw <= 999:
+                    value = raw / 10      # 464 -> 46.4
+                elif 3000 <= raw <= 9999:
+                    value = raw / 100     # 6405 -> 64.05
+                else:
+                    value = float(raw)
+
+            if 20 <= value <= 300:
+                candidates.append(value)
+        except:
+            pass
+
+    if not candidates:
+        return None
+
+    return candidates[0]
 
 
 def preprocess_image(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # enlarge image
-    gray = cv2.resize(gray, None, fx=3, fy=3)
+    gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
 
-    # blur
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    blur = cv2.GaussianBlur(gray, (3, 3), 0)
 
-    # threshold
-    thresh = cv2.adaptiveThreshold(
-        blur,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY_INV,
-        11,
-        2,
-    )
+    thresh = cv2.threshold(
+        blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )[1]
 
     return thresh
 
 
-def try_detect_display(image):
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+def extract_weight(image_path):
+    image = cv2.imread(image_path)
 
-    # blue-green display range
-    lower = np.array([60, 20, 20])
-    upper = np.array([120, 255, 255])
+    if image is None:
+        return {
+            "error": True,
+            "message": "Unable to read image"
+        }
 
-    mask = cv2.inRange(hsv, lower, upper)
+    attempts = []
 
-    contours, _ = cv2.findContours(
-        mask,
-        cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE,
+    # Attempt 1: normal OCR
+    processed = preprocess_image(image)
+
+    text = pytesseract.image_to_string(
+        processed,
+        config="--psm 7 -c tessedit_char_whitelist=0123456789."
     )
 
-    if contours:
-        largest = max(contours, key=cv2.contourArea)
+    attempts.append(text)
 
-        x, y, w, h = cv2.boundingRect(largest)
+    weight = clean_weight(text)
 
-        if w > 100 and h > 50:
-            crop = image[y:y+h, x:x+w]
-            return crop
+    if weight is not None:
+        return {
+            "error": False,
+            "weight": round(weight, 2),
+            "rawText": text,
+            "allAttempts": attempts
+        }
 
-    return image
+    # Attempt 2: grayscale fallback
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
+    text2 = pytesseract.image_to_string(
+        gray,
+        config="--psm 7 -c tessedit_char_whitelist=0123456789."
+    )
 
-def extract_weight(image):
-    try:
-        # detect display
-        cropped = try_detect_display(image)
+    attempts.append(text2)
 
-        # preprocess
-        processed = preprocess_image(cropped)
+    weight2 = clean_weight(text2)
 
-        # OCR
-        text = pytesseract.image_to_string(
-            processed,
-            config="--psm 7 -c tessedit_char_whitelist=0123456789."
-        )
+    if weight2 is not None:
+        return {
+            "error": False,
+            "weight": round(weight2, 2),
+            "rawText": text2,
+            "allAttempts": attempts
+        }
 
-        print("OCR TEXT:", text)
-
-        weight = clean_weight(text)
-
-        if weight:
-            return weight
-
-        # fallback original image OCR
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        text2 = pytesseract.image_to_string(
-            gray,
-            config="--psm 7 -c tessedit_char_whitelist=0123456789."
-        )
-
-        print("FALLBACK OCR:", text2)
-
-        weight2 = clean_weight(text2)
-
-        return weight2
-
-    except Exception as e:
-        print("extract_weight error:", e)
-        return None
-
-
-@app.route("/api/ocr/weight", methods=["POST"])
-def scan_weight():
-    try:
-        if "image" not in request.files:
-            return jsonify({
-                "success": False,
-                "message": "No image uploaded"
-            }), 400
-
-        file = request.files["image"]
-
-        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
-        file.save(filepath)
-
-        image = cv2.imread(filepath)
-
-        if image is None:
-            return jsonify({
-                "success": False,
-                "message": "Unable to read image"
-            }), 400
-
-        weight = extract_weight(image)
-
-        if weight is None:
-            return jsonify({
-                "success": False,
-                "message": "Weight not detected. Please enter manually."
-            }), 400
-
-        return jsonify({
-            "success": True,
-            "weight": round(weight, 1)
-        })
-
-    except Exception as e:
-        print("SERVER ERROR:", e)
-
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
-
-
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({
-        "status": "ok"
-    })
+    return {
+        "error": True,
+        "message": "Weight not detected",
+        "rawText": text + "\n" + text2,
+        "allAttempts": attempts
+    }
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    if len(sys.argv) < 2:
+        print(json.dumps({
+            "error": True,
+            "message": "No image path provided"
+        }))
+        sys.exit(1)
+
+    result = extract_weight(sys.argv[1])
+    print(json.dumps(result))
