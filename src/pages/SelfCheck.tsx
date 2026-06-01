@@ -487,7 +487,7 @@ const SelfCheck = () => {
   const adjustWeight = (delta: number) => {
     const current = parseFloat(weightKg) || 60
     const next = Math.round((current + delta) * 10) / 10
-    if (next > 0 && next <= 300) setWeightKg(next.toFixed(1))
+    if (next > 0 && next <= 300) setWeightKg(next.toFixed(2))
   }
 
 
