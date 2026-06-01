@@ -675,10 +675,9 @@ async function generateWithRetry(prompt, systemInstruction) {
 
   const genAI = new GoogleGenerativeAI(apiKey)
 
-  const modelNames = [
-    process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash'
+  const models = [
+    process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    'gemini-2.0-flash-lite'
   ]
 
   let lastError = null
