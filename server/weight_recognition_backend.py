@@ -56,16 +56,22 @@ def find_display(img):
 def prepare_digit_area(display):
     h, w = display.shape[:2]
 
-    # Keep left 72% only, avoid KG / battery / temperature.
     main = display[:, :int(w * 0.72)]
 
     gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
-    _, th = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
+    # Dark display uses lower threshold, light display needs higher threshold
+    if gray.mean() > 100:
+        threshold_value = max(190, np.percentile(gray, 97) - 5)
+    else:
+        threshold_value = 120
+
+    _, th = cv2.threshold(gray, threshold_value, 255, cv2.THRESH_BINARY)
 
     kernel = np.ones((3, 3), np.uint8)
     th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel)
+    th = cv2.dilate(th, kernel, iterations=1)
 
     return th
 
