@@ -60,28 +60,28 @@ def find_display(img):
     contours, _ = cv2.findContours(bright, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     boxes = []
-    H, W = img.shape[:2]
-
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
         area = w * h
 
-        if area > 100 and 10 < w < W * 0.4 and 10 < h < H * 0.3:
+        if area > 300 and w > 5 and h > 10:
             boxes.append((x, y, w, h))
 
-    if boxes:
-        x1 = min(x for x, y, w, h in boxes)
-        y1 = min(y for x, y, w, h in boxes)
-        x2 = max(x + w for x, y, w, h in boxes)
-        y2 = max(y + h for x, y, w, h in boxes)
+    if not boxes:
+        return None
 
-        pad = 60
+    x1 = min(x for x, y, w, h in boxes)
+    y1 = min(y for x, y, w, h in boxes)
+    x2 = max(x + w for x, y, w, h in boxes)
+    y2 = max(y + h for x, y, w, h in boxes)
 
-        return img[
-            max(0, y1 - pad):min(H, y2 + pad),
-            max(0, x1 - pad):min(W, x2 + pad)
-        ]
-    return None
+    pad = 40
+    H, W = img.shape[:2]
+
+    return img[
+        max(0, y1 - pad):min(H, y2 + pad),
+        max(0, x1 - pad):min(W, x2 + pad)
+    ]
 
 def prepare_digit_area(display):
     h, w = display.shape[:2]
@@ -92,7 +92,7 @@ def prepare_digit_area(display):
     gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
-    _, th = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+    _, th = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
 
     kernel = np.ones((3, 3), np.uint8)
     th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel)
@@ -134,7 +134,7 @@ def recognize(display):
         x, y, w, h = cv2.boundingRect(c)
         area = cv2.contourArea(c)
 
-        if area > 300 and h > 30 and w > 8 and x < th.shape[1] * 0.95:
+        if area > 2000 and h > 80 and w > 20 and x < th.shape[1] * 0.95:
             boxes.append((x, y, w, h))
 
     boxes = sorted(boxes, key=lambda b: b[0])

@@ -14,10 +14,7 @@ const processWeightImage = require("./routes/processWeightImage")
 
 // Request logging middleware (moved to top)
 app.use(cors({
-  origin: [
-    "https://myhfguardhost.github.io",
-    "http://localhost:5173"
-  ],
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
   optionsSuccessStatus: 200
@@ -679,9 +676,9 @@ async function generateWithRetry(prompt, systemInstruction) {
   const genAI = new GoogleGenerativeAI(apiKey)
 
   const models = [
-    process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    'gemini-2.0-flash-lite'
-  ]
+  process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  'gemini-2.0-flash-lite'
+]
 
   let lastError = null
 
