@@ -14,7 +14,10 @@ const processWeightImage = require("./routes/processWeightImage")
 
 // Request logging middleware (moved to top)
 app.use(cors({
-  origin: '*',
+  origin: [
+    "https://myhfguardhost.github.io",
+    "http://localhost:5173"
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
   optionsSuccessStatus: 200
