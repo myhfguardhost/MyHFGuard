@@ -1,134 +1,169 @@
-import sys, json, re, cv2, numpy as np, pytesseract
+import os
+import re
+import cv2
+import numpy as np
+import pytesseract
+from flask import Flask, request, jsonify
+from PIL import Image
 
-def parse_weight(text):
-    text = text.replace(",", ".").replace("O", "0").replace("o", "0")
-    nums = re.findall(r"\d{2,3}(?:\.\d{1,2})?|\d{3,4}", text)
+app = Flask(__name__)
 
-    for n in nums:
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+def clean_weight(text):
+    text = text.replace(",", ".")
+    matches = re.findall(r"\d{2,3}\.?\d?", text)
+
+    if matches:
         try:
-            if "." in n:
-                v = float(n)
-            else:
-                raw = int(n)
-                if 300 <= raw <= 999:
-                    v = raw / 10
-                elif 2000 <= raw <= 30000:
-                    v = raw / 100
-                else:
-                    v = float(raw)
-
-            if 20 <= v <= 300:
-                return v
+            return float(matches[0])
         except:
-            pass
+            return None
 
     return None
 
 
-def crop_display_candidates(img):
-    candidates = [img]
-    h, w = img.shape[:2]
+def preprocess_image(image):
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    candidates.append(img[int(h*0.25):int(h*0.85), int(w*0.05):int(w*0.95)])
-    candidates.append(img[int(h*0.35):int(h*0.80), int(w*0.10):int(w*0.90)])
+    # enlarge image
+    gray = cv2.resize(gray, None, fx=3, fy=3)
 
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    # blur
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    masks = [
-        cv2.inRange(hsv, np.array([35, 15, 40]), np.array([120, 255, 255])),
-        cv2.inRange(hsv, np.array([80, 10, 40]), np.array([140, 255, 255])),
-        cv2.inRange(hsv, np.array([0, 0, 40]), np.array([180, 80, 220])),
-    ]
+    # threshold
+    thresh = cv2.adaptiveThreshold(
+        blur,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY_INV,
+        11,
+        2,
+    )
 
-    for mask in masks:
-        kernel = np.ones((9, 9), np.uint8)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        for c in sorted(contours, key=cv2.contourArea, reverse=True)[:3]:
-            x, y, cw, ch = cv2.boundingRect(c)
-            if cw > 80 and ch > 35:
-                pad = 20
-                x1, y1 = max(0, x-pad), max(0, y-pad)
-                x2, y2 = min(w, x+cw+pad), min(h, y+ch+pad)
-                candidates.append(img[y1:y2, x1:x2])
-
-    return candidates
+    return thresh
 
 
-def preprocess_variants(img):
-    out = []
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+def try_detect_display(image):
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
+    # blue-green display range
+    lower = np.array([60, 20, 20])
+    upper = np.array([120, 255, 255])
 
-    for base in [gray, clahe]:
-        blur = cv2.GaussianBlur(base, (3, 3), 0)
+    mask = cv2.inRange(hsv, lower, upper)
 
-        _, th1 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        _, th2 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    contours, _ = cv2.findContours(
+        mask,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
 
-        th3 = cv2.adaptiveThreshold(
-            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY, 31, 5
+    if contours:
+        largest = max(contours, key=cv2.contourArea)
+
+        x, y, w, h = cv2.boundingRect(largest)
+
+        if w > 100 and h > 50:
+            crop = image[y:y+h, x:x+w]
+            return crop
+
+    return image
+
+
+def extract_weight(image):
+    try:
+        # detect display
+        cropped = try_detect_display(image)
+
+        # preprocess
+        processed = preprocess_image(cropped)
+
+        # OCR
+        text = pytesseract.image_to_string(
+            processed,
+            config="--psm 7 -c tessedit_char_whitelist=0123456789."
         )
 
-        th4 = cv2.adaptiveThreshold(
-            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, 31, 5
+        print("OCR TEXT:", text)
+
+        weight = clean_weight(text)
+
+        if weight:
+            return weight
+
+        # fallback original image OCR
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+        text2 = pytesseract.image_to_string(
+            gray,
+            config="--psm 7 -c tessedit_char_whitelist=0123456789."
         )
 
-        out.extend([base, th1, th2, th3, th4])
+        print("FALLBACK OCR:", text2)
 
-    return out
+        weight2 = clean_weight(text2)
 
+        return weight2
 
-def detect_weight(image_path):
-    img = cv2.imread(image_path)
-
-    if img is None:
-        return None, "Unable to read image"
-
-    all_text = ""
-
-    for candidate in crop_display_candidates(img):
-        for processed in preprocess_variants(candidate):
-            for psm in [7, 8, 6, 13]:
-                try:
-                    text = pytesseract.image_to_string(
-                        processed,
-                        config=f"--psm {psm} -c tessedit_char_whitelist=0123456789."
-                    )
-
-                    all_text += " " + text
-                    weight = parse_weight(text)
-
-                    if weight:
-                        return weight, text.strip()
-                except Exception as e:
-                    all_text += " " + str(e)
-
-    return None, all_text.strip()
+    except Exception as e:
+        print("extract_weight error:", e)
+        return None
 
 
-if len(sys.argv) < 2:
-    print(json.dumps({"error": "No image path provided"}))
-    sys.exit(1)
+@app.route("/api/ocr/weight", methods=["POST"])
+def scan_weight():
+    try:
+        if "image" not in request.files:
+            return jsonify({
+                "success": False,
+                "message": "No image uploaded"
+            }), 400
 
-image_path = sys.argv[1]
-weight, raw_text = detect_weight(image_path)
+        file = request.files["image"]
 
-if weight:
-    print(json.dumps({
-        "weight": round(float(weight), 1),
-        "detectedWeight": round(float(weight), 1),
-        "rawText": raw_text
-    }))
-    sys.exit(0)
+        filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(filepath)
 
-print(json.dumps({
-    "error": "Weight not detected",
-    "rawText": raw_text
-}))
-sys.exit(1)
+        image = cv2.imread(filepath)
+
+        if image is None:
+            return jsonify({
+                "success": False,
+                "message": "Unable to read image"
+            }), 400
+
+        weight = extract_weight(image)
+
+        if weight is None:
+            return jsonify({
+                "success": False,
+                "message": "Weight not detected. Please enter manually."
+            }), 400
+
+        return jsonify({
+            "success": True,
+            "weight": round(weight, 1)
+        })
+
+    except Exception as e:
+        print("SERVER ERROR:", e)
+
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 500
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({
+        "status": "ok"
+    })
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
