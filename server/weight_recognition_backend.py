@@ -85,8 +85,8 @@ def find_display(img):
 def prepare_digit_area(display):
     h, w = display.shape[:2]
 
-    # Keep left 72% only, avoid KG / battery / temperature.
-    main = display[:, :int(w * 0.72)]
+    # Keep left 82% only, avoid KG / battery / temperature.
+    main = display[:, :int(w * 0.82)]
 
     gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
