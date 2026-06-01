@@ -134,7 +134,7 @@ def recognize(display):
         x, y, w, h = cv2.boundingRect(c)
         area = cv2.contourArea(c)
 
-        if area > 2000 and h > 80 and w > 20 and x < th.shape[1] * 0.95:
+        if area > 300 and h > 30 and w > 8 and x < th.shape[1] * 0.95:
             boxes.append((x, y, w, h))
 
     boxes = sorted(boxes, key=lambda b: b[0])
@@ -163,7 +163,7 @@ def recognize(display):
                 "cx": cx
             })
 
-    clusters = sorted(clusters, key=lambda c: c["x1"])[:5]
+    clusters = sorted(clusters, key=lambda c: c["x1"])[:4]
 
     chars = []
     for cl in clusters:
