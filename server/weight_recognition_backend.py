@@ -1,142 +1,138 @@
-import os
-import re
-import cv2
-import numpy as np
-import pytesseract
+import os, re, cv2, numpy as np, pytesseract
 from flask import Flask, request, jsonify
-from PIL import Image
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+def parse_weight(text):
+    text = text.replace(",", ".").replace("O", "0").replace("o", "0")
+    nums = re.findall(r"\d{2,3}(?:\.\d{1,2})?|\d{3,4}", text)
 
-def clean_weight(text):
-    text = text.replace(",", ".")
-    matches = re.findall(r"\d{2,3}\.?\d?", text)
-
-    if matches:
+    candidates = []
+    for n in nums:
         try:
-            return float(matches[0])
+            if "." in n:
+                v = float(n)
+            else:
+                raw = int(n)
+                if 300 <= raw <= 999:
+                    v = raw / 10          # 464 -> 46.4
+                elif 2000 <= raw <= 30000:
+                    v = raw / 100         # 4640 -> 46.40
+                else:
+                    v = float(raw)
+
+            if 20 <= v <= 300:
+                candidates.append(v)
         except:
-            return None
+            pass
 
-    return None
-
-
-def preprocess_image(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # enlarge image
-    gray = cv2.resize(gray, None, fx=3, fy=3)
-
-    # blur
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    # threshold
-    thresh = cv2.adaptiveThreshold(
-        blur,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY_INV,
-        11,
-        2,
-    )
-
-    return thresh
+    return candidates[0] if candidates else None
 
 
-def try_detect_display(image):
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+def crop_display_candidates(img):
+    candidates = [img]
 
-    # blue-green display range
-    lower = np.array([60, 20, 20])
-    upper = np.array([120, 255, 255])
+    h, w = img.shape[:2]
+    candidates.append(img[int(h*0.25):int(h*0.85), int(w*0.05):int(w*0.95)])
+    candidates.append(img[int(h*0.35):int(h*0.80), int(w*0.10):int(w*0.90)])
 
-    mask = cv2.inRange(hsv, lower, upper)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    contours, _ = cv2.findContours(
-        mask,
-        cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE,
-    )
+    masks = [
+        cv2.inRange(hsv, np.array([35, 15, 40]), np.array([120, 255, 255])),
+        cv2.inRange(hsv, np.array([80, 10, 40]), np.array([140, 255, 255])),
+        cv2.inRange(hsv, np.array([0, 0, 40]), np.array([180, 80, 220])),
+    ]
 
-    if contours:
-        largest = max(contours, key=cv2.contourArea)
+    for mask in masks:
+        kernel = np.ones((9, 9), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-        x, y, w, h = cv2.boundingRect(largest)
+        for c in sorted(contours, key=cv2.contourArea, reverse=True)[:3]:
+            x, y, cw, ch = cv2.boundingRect(c)
+            if cw > 80 and ch > 35:
+                pad = 20
+                x1, y1 = max(0, x-pad), max(0, y-pad)
+                x2, y2 = min(w, x+cw+pad), min(h, y+ch+pad)
+                candidates.append(img[y1:y2, x1:x2])
 
-        if w > 100 and h > 50:
-            crop = image[y:y+h, x:x+w]
-            return crop
-
-    return image
+    return candidates
 
 
-def extract_weight(image):
-    try:
-        # detect display
-        cropped = try_detect_display(image)
+def preprocess_variants(img):
+    out = []
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.resize(gray, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
 
-        # preprocess
-        processed = preprocess_image(cropped)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
 
-        # OCR
-        text = pytesseract.image_to_string(
-            processed,
-            config="--psm 7 -c tessedit_char_whitelist=0123456789."
+    for base in [gray, clahe]:
+        blur = cv2.GaussianBlur(base, (3, 3), 0)
+
+        _, th1 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        _, th2 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        th3 = cv2.adaptiveThreshold(
+            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY, 31, 5
         )
 
-        print("OCR TEXT:", text)
-
-        weight = clean_weight(text)
-
-        if weight:
-            return weight
-
-        # fallback original image OCR
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        text2 = pytesseract.image_to_string(
-            gray,
-            config="--psm 7 -c tessedit_char_whitelist=0123456789."
+        th4 = cv2.adaptiveThreshold(
+            blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV, 31, 5
         )
 
-        print("FALLBACK OCR:", text2)
+        out.extend([base, th1, th2, th3, th4])
 
-        weight2 = clean_weight(text2)
+    return out
 
-        return weight2
 
-    except Exception as e:
-        print("extract_weight error:", e)
-        return None
+def ocr_read(img):
+    best_text = ""
+
+    for candidate in crop_display_candidates(img):
+        for processed in preprocess_variants(candidate):
+            for psm in [7, 8, 6, 13]:
+                try:
+                    text = pytesseract.image_to_string(
+                        processed,
+                        config=f"--psm {psm} -c tessedit_char_whitelist=0123456789."
+                    )
+                    print("OCR:", repr(text))
+                    weight = parse_weight(text)
+
+                    if weight:
+                        return weight
+
+                    best_text += " " + text
+                except Exception as e:
+                    print("Tesseract error:", e)
+
+    print("ALL OCR TEXT:", best_text)
+    return parse_weight(best_text)
 
 
 @app.route("/api/ocr/weight", methods=["POST"])
 def scan_weight():
     try:
         if "image" not in request.files:
-            return jsonify({
-                "success": False,
-                "message": "No image uploaded"
-            }), 400
+            return jsonify({"success": False, "message": "No image uploaded"}), 400
 
         file = request.files["image"]
-
         filepath = os.path.join(UPLOAD_FOLDER, file.filename)
         file.save(filepath)
 
-        image = cv2.imread(filepath)
+        img = cv2.imread(filepath)
+        if img is None:
+            return jsonify({"success": False, "message": "Unable to read image"}), 400
 
-        if image is None:
-            return jsonify({
-                "success": False,
-                "message": "Unable to read image"
-            }), 400
-
-        weight = extract_weight(image)
+        weight = ocr_read(img)
 
         if weight is None:
             return jsonify({
@@ -146,23 +142,17 @@ def scan_weight():
 
         return jsonify({
             "success": True,
-            "weight": round(weight, 1)
+            "weight": round(float(weight), 1)
         })
 
     except Exception as e:
         print("SERVER ERROR:", e)
-
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "ok"
-    })
+    return jsonify({"status": "ok"})
 
 
 if __name__ == "__main__":
