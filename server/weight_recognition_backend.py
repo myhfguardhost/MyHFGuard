@@ -18,12 +18,10 @@ def output(data, code=0):
     sys.exit(code)
 
 def find_display(img):
-    H, W = img.shape[:2]
-
-    # First try detect blue/dark digital display
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    lower = np.array([75, 20, 20])
-    upper = np.array([170, 255, 255])
+
+    lower = np.array([85, 40, 40])
+    upper = np.array([155, 255, 255])
     mask = cv2.inRange(hsv, lower, upper)
 
     kernel = np.ones((7, 7), np.uint8)
@@ -39,66 +37,35 @@ def find_display(img):
         if area > 800 and w > h:
             boxes.append((x, y, w, h, area))
 
-    if boxes:
-        x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
-        pad_x = int(w * 0.08)
-        pad_y = int(h * 0.25)
+    if not boxes:
+        return None
 
-        x1 = max(0, x - pad_x)
-        y1 = max(0, y - pad_y)
-        x2 = min(W, x + w + pad_x)
-        y2 = min(H, y + h + pad_y)
+    x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
 
-        return img[y1:y2, x1:x2], "dark"
+    pad_x = int(w * 0.08)
+    pad_y = int(h * 0.25)
 
-    # Fallback for light scale: crop area around white LED digits
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, bright = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+    H, W = img.shape[:2]
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - pad_y)
+    x2 = min(W, x + w + pad_x)
+    y2 = min(H, y + h + pad_y)
 
-    contours, _ = cv2.findContours(bright, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    return img[y1:y2, x1:x2]
 
-    digit_boxes = []
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        area = w * h
-
-        if area > 30 and h > 10 and w > 3 and y > H * 0.25:
-            digit_boxes.append((x, y, w, h))
-
-    if digit_boxes:
-        x1 = min(x for x, y, w, h in digit_boxes)
-        y1 = min(y for x, y, w, h in digit_boxes)
-        x2 = max(x + w for x, y, w, h in digit_boxes)
-        y2 = max(y + h for x, y, w, h in digit_boxes)
-
-        pad_x = int((x2 - x1) * 0.8)
-        pad_y = int((y2 - y1) * 1.5)
-
-        x1 = max(0, x1 - pad_x)
-        y1 = max(0, y1 - pad_y)
-        x2 = min(W, x2 + pad_x)
-        y2 = min(H, y2 + pad_y)
-
-        return img[y1:y2, x1:x2], "light"
-
-    return None, None
-
-def prepare_digit_area(display, mode="dark"):
+def prepare_digit_area(display):
     h, w = display.shape[:2]
 
-    main = display[:, :int(w * 0.75)]
+    # Keep left 72% only, avoid KG / battery / temperature.
+    main = display[:, :int(w * 0.72)]
 
     gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
 
-    if mode == "light":
-        _, th = cv2.threshold(gray, 190, 255, cv2.THRESH_BINARY)
-    else:
-        _, th = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
+    _, th = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
 
     kernel = np.ones((3, 3), np.uint8)
     th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel)
-    th = cv2.dilate(th, kernel, iterations=1)
 
     return th
 
@@ -123,8 +90,8 @@ def segment_digit(roi):
 
     return DIGITS.get(tuple(on), "")
 
-def recognize(display, mode="dark"):
-    th = prepare_digit_area(display, mode)
+def recognize(display):
+    th = prepare_digit_area(display)
 
     y_start = int(th.shape[0] * 0.25)
     y_end = int(th.shape[0] * 0.75)
@@ -200,7 +167,7 @@ img = cv2.imread(sys.argv[1])
 if img is None:
     output({"error": "Image not found"}, 1)
 
-display, mode = find_display(img)
+display = find_display(img)
 
 if display is None:
     output({
@@ -209,7 +176,7 @@ if display is None:
         "allAttempts": []
     }, 1)
 
-weight = recognize(display, mode)
+weight = recognize(display)
 
 if weight and 20 <= weight <= 300:
     output({
