@@ -18,55 +18,87 @@ def output(data, code=0):
     sys.exit(code)
 
 def find_display(img):
+    H, W = img.shape[:2]
+    # Strategy 1: Blue/cyan backlit display (dark scales)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    for lower, upper in [
+        (np.array([85, 40, 40]),  np.array([155, 255, 255])),   # blue
+        (np.array([75, 20, 20]),  np.array([165, 255, 255])),   # wider blue
+    ]:
+        mask = cv2.inRange(hsv, lower, upper)
+        kernel = np.ones((7, 7), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        mask = cv2.dilate(mask, kernel, iterations=2)
+        box = _largest_wide_box(mask, min_area=800)
+        if box:
+            return _crop_with_padding(img, box)
+        
+    # Strategy 2: White/bright digit region on any background
+    # Look for a high-brightness rectangular region
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    _, bright = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
+    kernel = np.ones((5, 5), np.uint8)
+    bright = cv2.morphologyEx(bright, cv2.MORPH_CLOSE, kernel)
+    bright = cv2.dilate(bright, kernel, iterations=3)
+    box = _largest_wide_box(bright, min_area=500)
+    if box:
+        return _crop_with_padding(img, box)
+    # Strategy 3: Use bottom half only (display usually sits there)
+    # and try adaptive threshold on grayscale
+    bottom = img[H//2:, :]
+    gray_bottom = cv2.cvtColor(bottom, cv2.COLOR_BGR2GRAY)
+    adapted = cv2.adaptiveThreshold(
+        gray_bottom, 255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY, 31, 10
+    )
+    kernel = np.ones((5, 5), np.uint8)
+    adapted = cv2.morphologyEx(adapted, cv2.MORPH_CLOSE, kernel)
+    box = _largest_wide_box(adapted, min_area=400)
+    if box:
+        x, y, w, h, _ = box
+        # offset y back to full image coordinates
+        return _crop_with_padding(img, (x, y + H//2, w, h, w*h))
+    return None
 
-    lower = np.array([85, 40, 40])
-    upper = np.array([155, 255, 255])
-    mask = cv2.inRange(hsv, lower, upper)
-
-    kernel = np.ones((7, 7), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    mask = cv2.dilate(mask, kernel, iterations=2)
-
+def _largest_wide_box(mask, min_area=800):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
     boxes = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
         area = w * h
-        if area > 800 and w > h:
+        if area > min_area and w > h:
             boxes.append((x, y, w, h, area))
-
     if not boxes:
         return None
+    return sorted(boxes, key=lambda b: b[4], reverse=True)[0]
 
-    x, y, w, h, _ = sorted(boxes, key=lambda b: b[4], reverse=True)[0]
-
+def _crop_with_padding(img, box):
+    x, y, w, h, _ = box
     pad_x = int(w * 0.08)
     pad_y = int(h * 0.25)
-
     H, W = img.shape[:2]
     x1 = max(0, x - pad_x)
     y1 = max(0, y - pad_y)
     x2 = min(W, x + w + pad_x)
     y2 = min(H, y + h + pad_y)
-
     return img[y1:y2, x1:x2]
 
 def prepare_digit_area(display):
     h, w = display.shape[:2]
-
-    # Keep left 72% only, avoid KG / battery / temperature.
     main = display[:, :int(w * 0.72)]
-
     gray = cv2.cvtColor(main, cv2.COLOR_BGR2GRAY)
     gray = cv2.resize(gray, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
-
-    _, th = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
-
+    # Try both normal and inverted — pick whichever has more digit-like contours
+    _, th_normal = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, th_invert = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    # Heuristic: digit pixels are usually < 40% of area
+    ratio_n = cv2.countNonZero(th_normal) / th_normal.size
+    ratio_i = cv2.countNonZero(th_invert) / th_invert.size
+    # Pick the one where white pixels are the minority (the digits)
+    th = th_normal if ratio_n < ratio_i else th_invert
     kernel = np.ones((3, 3), np.uint8)
     th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, kernel)
-
     return th
 
 def segment_digit(roi):
