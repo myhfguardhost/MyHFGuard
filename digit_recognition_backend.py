@@ -164,6 +164,10 @@ def process_image(image_path):
                     except: digit = None
 
                 if digit is not None:
+                    # ignore tiny/noisy detections
+                    if bh < 35 or bw < 8:
+                        continue
+
                     line_digits += str(digit)
                     # Draw on the full resized image with the proper offset
                     cv2.rectangle(out, (bx+x, by+y), (bx+x+bw, by+y+bh), (0,255,0), 2)
@@ -176,10 +180,12 @@ def process_image(image_path):
         _, buf = cv2.imencode('.jpg', out)
         encoded = base64.b64encode(buf).decode('utf-8')
 
+        valid_readings = [r for r in readings if len(r) >= 2]
+
         print(json.dumps({
-            "sys": readings[0] if len(readings)>0 else "",
-            "dia": readings[1] if len(readings)>1 else "",
-            "pulse": readings[2] if len(readings)>2 else "",
+            "sys": valid_readings[0] if len(valid_readings)>0 else "",
+            "dia": valid_readings[1] if len(valid_readings)>1 else "",
+            "pulse": valid_readings[2] if len(valid_readings)>2 else "",
             "annotatedImage": encoded
         }))
 
