@@ -28,41 +28,31 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 1, 0, 1, 1): 9
 }
 
-DIGITS_LOOKUP.update({
-    (1, 1, 1, 0, 0, 1, 1): 9,
-    (1, 1, 1, 1, 0, 0, 1): 9,
-    (0, 1, 1, 1, 0, 1, 1): 4,
-    (0, 1, 1, 0, 0, 1, 1): 4,
-})
-
 def process_image(image_path):
     try:
         # --- Roboflow automatic detection ---
         rf = Roboflow(api_key=os.environ.get("ROBOFLOW_API_KEY"))
         project = rf.workspace().project(os.environ.get("ROBOFLOW_PROJECT_ID"))
         model = project.version(int(os.environ.get("ROBOFLOW_VERSION_NUMBER"))).model
-        prediction = model.predict(image_path, confidence=20, overlap=30).json()
+        prediction = model.predict(image_path, confidence=40, overlap=30).json()
 
+        if not prediction['predictions']:
+            print(json.dumps({"error": "Roboflow model could not detect a screen."}))
+            return
+
+        best = max(prediction['predictions'], key=lambda p: p['confidence'])
+        orig_crop_x = int(best['x'] - best['width'] / 2)
+        orig_crop_y = int(best['y'] - best['height'] / 2)
+        orig_crop_w = int(best['width'])
+        orig_crop_h = int(best['height'])
+
+        # --- Load full image and resize ---
         full = cv2.imread(image_path)
         if full is None:
             print(json.dumps({"error": "Could not load image"}))
             return
 
         (orig_h, orig_w) = full.shape[:2]
-
-        if not prediction['predictions']:
-            # fallback crop: center LCD area
-            orig_crop_x = int(orig_w * 0.28)
-            orig_crop_y = int(orig_h * 0.25)
-            orig_crop_w = int(orig_w * 0.45)
-            orig_crop_h = int(orig_h * 0.48)
-        else:
-            best = max(prediction['predictions'], key=lambda p: p['confidence'])
-            orig_crop_x = int(best['x'] - best['width'] / 2)
-            orig_crop_y = int(best['y'] - best['height'] / 2)
-            orig_crop_w = int(best['width'])
-            orig_crop_h = int(best['height'])
-
         resized = imutils.resize(full, height=500)
         (resized_h, resized_w) = resized.shape[:2]
         ratio = resized_h / float(orig_h)
@@ -72,15 +62,6 @@ def process_image(image_path):
         y = int(orig_crop_y * ratio)
         w = int(orig_crop_w * ratio)
         h = int(orig_crop_h * ratio)
-        
-        x = max(0, x)
-        y = max(0, y)
-        w = min(w, resized_w - x)
-        h = min(h, resized_h - y)
-
-        if w <= 0 or h <= 0:
-            print(json.dumps({"error": "Invalid screen crop area"}))
-            return
 
         gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
         roi_gray = gray[y:y+h, x:x+w]
@@ -99,8 +80,8 @@ def process_image(image_path):
                                        cv2.THRESH_BINARY_INV, 21, 10)
 
         # 4. **CRITICAL FIX**: Use a slightly stronger Closing kernel to heal breaks
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 2))
-        thresh = cv2.dilate(thresh, kernel, iterations=1)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
         # --- Find digit contours ---
         cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -108,7 +89,7 @@ def process_image(image_path):
         digitCnts = []
         for c in cnts:
             bx, by, bw, bh = cv2.boundingRect(c)
-            if bh > 20 and (bw / float(bh) > 0.08 and bw / float(bh) < 0.8):
+            if bh > 20 and (bw/float(bh) > 0.1 and bw/float(bh) < 1.0):
                 digitCnts.append(c)
 
         if not digitCnts:
@@ -126,7 +107,7 @@ def process_image(image_path):
         base_y = boxes[0][1]
 
         for (c, (bx, by, bw, bh)) in zip(digitCnts, boxes):
-            if abs(by - base_y) < 40:
+            if by < base_y + bh:
                 current.append((c, (bx, by, bw, bh)))
             else:
                 current.sort(key=lambda it: it[1][0])
@@ -139,124 +120,53 @@ def process_image(image_path):
 
         # --- Recognize digits and annotate ---
         out = resized.copy()
-        detections = []
+        readings = []
 
         for line in groups:
+            line_digits = ""
             for (c, (bx, by, bw, bh)) in line:
                 roi = thresh[by:by+bh, bx:bx+bw]
                 aspect = bw / float(bh)
                 digit = None
 
-                # ignore very tiny noise
-                if bh < 20 or bw < 3:
-                    continue
-
-                if aspect < 0.28:
+                if aspect < 0.4:
                     digit = 1
                 else:
-                    on = [0] * 7
+                    on = [0]*7
                     (roiH, roiW) = roi.shape
-                    (dW, dH) = (int(roiW * 0.25), int(roiH * 0.15))
+                    (dW, dH) = (int(roiW*0.25), int(roiH*0.15))
                     dHC = int(roiH * 0.05)
-
                     segments = [
-                        ((0, 0), (roiW, dH)),
-                        ((0, 0), (dW, roiH // 2)),
-                        ((roiW - dW, 0), (roiW, roiH // 2)),
-                        ((0, (roiH // 2) - dHC), (roiW, (roiH // 2) + dHC)),
-                        ((0, roiH // 2), (dW, roiH)),
-                        ((roiW - dW, roiH // 2), (roiW, roiH)),
-                        ((0, roiH - dH), (roiW, roiH))
+                        ((0, 0), (bw, dH)), ((0, 0), (dW, bh//2)), ((bw - dW, 0), (bw, bh//2)),
+                        ((0, (bh//2)-dHC), (bw, (bh//2)+dHC)), ((0, bh//2), (dW, bh)),
+                        ((bw - dW, bh//2), (bw, bh)), ((0, bh-dH), (bw, bh))
                     ]
-
                     for i, ((xA, yA), (xB, yB)) in enumerate(segments):
                         seg = roi[yA:yB, xA:xB]
-                        if seg.size == 0:
-                            continue
-
+                        if seg.size == 0: continue
                         total = cv2.countNonZero(seg)
-                        area = seg.shape[0] * seg.shape[1]
-
-                        if area > 0 and total / area > 0.28:
-                            on[i] = 1
-
-                    digit = DIGITS_LOOKUP.get(tuple(on), None)
+                        area = seg.shape[0]*seg.shape[1]
+                        if area > 0 and total/area > 0.45: on[i] = 1
+                    try: digit = DIGITS_LOOKUP[tuple(on)]
+                    except: digit = None
 
                 if digit is not None:
-                    detections.append({
-                        "digit": str(digit),
-                        "x": bx,
-                        "y": by,
-                        "w": bw,
-                        "h": bh,
-                        "cy": by + bh / 2
-                    })
-
+                    line_digits += str(digit)
+                    # Draw on the full resized image with the proper offset
                     cv2.rectangle(out, (bx+x, by+y), (bx+x+bw, by+y+bh), (0,255,0), 2)
                     cv2.putText(out, str(digit), (bx+x-10, by+y-10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0,255,0), 2)
 
-
-        # --- Better row grouping by BP monitor rows ---
-        # remove floating noise above the real LCD number area
-        detections = [
-            d for d in detections
-            if d["cy"] > h * 0.22 and d["x"] > w * 0.25
-        ]
-
-        # expected row zones inside LCD crop
-        row_zones = {
-            "sys": (h * 0.18, h * 0.40),
-            "dia": (h * 0.38, h * 0.62),
-            "pulse": (h * 0.58, h * 0.82),
-        }
-
-        cleaned = []
-
-        for label, (y_min, y_max) in row_zones.items():
-            row_digits = [
-                d for d in detections
-                if y_min <= d["cy"] <= y_max
-            ]
-
-            row_digits = sorted(row_digits, key=lambda d: d["x"])
-            
-            # remove left-side floating noise like fake "7"
-            if len(row_digits) >= 2:
-                xs = [d["x"] for d in row_digits]
-                median_x = sorted(xs)[len(xs)//2]
-                row_digits = [
-                    d for d in row_digits
-                    if d["x"] > median_x - 35
-                ]
-
-            if not row_digits:
-                cleaned.append("")
-                continue
-
-            value_text = "".join(d["digit"] for d in row_digits)
-
-            # remove leading zero: 089 -> 89
-            if value_text.isdigit():
-                value_text = str(int(value_text))
-                value = int(value_text)
-
-                if 40 <= value <= 260:
-                    cleaned.append(value_text)
-                else:
-                    cleaned.append("")
-            else:
-                cleaned.append("")
-
+            readings.append(line_digits)
 
         # --- Encode annotated image ---
         _, buf = cv2.imencode('.jpg', out)
         encoded = base64.b64encode(buf).decode('utf-8')
 
         print(json.dumps({
-            "sys": cleaned[0] if len(cleaned) > 0 else "",
-            "dia": cleaned[1] if len(cleaned) > 1 else "",
-            "pulse": cleaned[2] if len(cleaned) > 2 else "",
+            "sys": readings[0] if len(readings)>0 else "",
+            "dia": readings[1] if len(readings)>1 else "",
+            "pulse": readings[2] if len(readings)>2 else "",
             "annotatedImage": encoded
         }))
 
