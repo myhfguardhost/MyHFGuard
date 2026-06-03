@@ -92,8 +92,8 @@ def process_image(image_path):
                                        cv2.THRESH_BINARY_INV, 21, 10)
 
         # 4. **CRITICAL FIX**: Use a slightly stronger Closing kernel to heal breaks
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        thresh = cv2.dilate(thresh, kernel, iterations=1)
 
         # --- Find digit contours ---
         cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -101,7 +101,7 @@ def process_image(image_path):
         digitCnts = []
         for c in cnts:
             bx, by, bw, bh = cv2.boundingRect(c)
-            if bh > 15 and (bw/float(bh) > 0.05 and bw/float(bh) < 1.2):
+            if bh > 20 and (bw / float(bh) > 0.08 and bw / float(bh) < 0.8):
                 digitCnts.append(c)
 
         if not digitCnts:
