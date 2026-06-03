@@ -28,13 +28,6 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 1, 0, 1, 1): 9
 }
 
-DIGITS_LOOKUP.update({
-    (1, 1, 1, 0, 0, 1, 1): 9,
-    (1, 1, 1, 1, 0, 0, 1): 9,
-    (0, 1, 1, 1, 0, 1, 1): 4,
-    (0, 1, 1, 0, 0, 1, 1): 4,
-})
-
 def process_image(image_path):
     try:
         # --- Roboflow automatic detection ---
@@ -86,110 +79,125 @@ def process_image(image_path):
                                        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                        cv2.THRESH_BINARY_INV, 21, 10)
 
-        # 4. **CRITICAL FIX**: Use a slightly stronger Closing kernel to heal breaks
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+        # 4. Try multiple preprocessing strategies
+        strategies = []
 
-        # --- Find digit contours ---
-        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        digitCnts = []
-        for c in cnts:
-            bx, by, bw, bh = cv2.boundingRect(c)
-            if bh > 20 and (bw/float(bh) > 0.1 and bw/float(bh) < 1.0):
-                digitCnts.append(c)
+        # Strategy A: good for darker/clear LCD
+        kernel1 = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
+        t1 = cv2.morphologyEx(thresh.copy(), cv2.MORPH_CLOSE, kernel1)
+        strategies.append(t1)
 
-        if not digitCnts:
-            print(json.dumps({"error": "No valid digit contours found"}))
-            return
+        # Strategy B: good for thin digits, less merging
+        kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        t2 = cv2.morphologyEx(thresh.copy(), cv2.MORPH_CLOSE, kernel2)
+        strategies.append(t2)
 
-        (digitCnts, boxes) = contours.sort_contours(digitCnts, method="top-to-bottom")
+        # Strategy C: good for large reflective LCD, keeps digits separated
+        kernel3 = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 2))
+        t3 = cv2.dilate(thresh.copy(), kernel3, iterations=1)
+        strategies.append(t3)
 
-        # --- Group digits into lines ---
-        groups = []
-        current = []
-        if not boxes:
-            print(json.dumps({"error": "Sorting contours failed."}))
-            return
-        base_y = boxes[0][1]
+        best_result = None
+        best_score = -1
 
-        for (c, (bx, by, bw, bh)) in zip(digitCnts, boxes):
-            if by < base_y + bh:
-                current.append((c, (bx, by, bw, bh)))
-            else:
-                current.sort(key=lambda it: it[1][0])
-                groups.append(current)
-                current = [(c, (bx, by, bw, bh))]
-                base_y = by
+        for thresh in strategies:
+            # --- Find digit contours ---
+            cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cnts = imutils.grab_contours(cnts)
+            digitCnts = []
+            for c in cnts:
+                bx, by, bw, bh = cv2.boundingRect(c)
+                if bh > 20 and (bw/float(bh) > 0.1 and bw/float(bh) < 1.0):
+                    digitCnts.append(c)
 
-        current.sort(key=lambda it: it[1][0])
-        groups.append(current)
+            if not digitCnts:
+                print(json.dumps({"error": "No valid digit contours found"}))
+                return
 
-        # --- Recognize digits and annotate ---
-        out = resized.copy()
-        readings = []
+            (digitCnts, boxes) = contours.sort_contours(digitCnts, method="top-to-bottom")
 
-        for line in groups:
-            line_digits = ""
-            for (c, (bx, by, bw, bh)) in line:
-                roi = thresh[by:by+bh, bx:bx+bw]
-                aspect = bw / float(bh)
-                digit = None
+            # --- Group digits into lines ---
+            groups = []
+            current = []
+            if not boxes:
+                print(json.dumps({"error": "Sorting contours failed."}))
+                return
+            base_y = boxes[0][1]
 
-                if aspect < 0.23:
-                    digit = 1
+            for (c, (bx, by, bw, bh)) in zip(digitCnts, boxes):
+                if by < base_y + bh:
+                    current.append((c, (bx, by, bw, bh)))
                 else:
-                    on = [0]*7
-                    (roiH, roiW) = roi.shape
-                    (dW, dH) = (int(roiW*0.25), int(roiH*0.15))
-                    dHC = int(roiH * 0.05)
-                    segments = [
-                        ((0, 0), (bw, dH)), ((0, 0), (dW, bh//2)), ((bw - dW, 0), (bw, bh//2)),
-                        ((0, (bh//2)-dHC), (bw, (bh//2)+dHC)), ((0, bh//2), (dW, bh)),
-                        ((bw - dW, bh//2), (bw, bh)), ((0, bh-dH), (bw, bh))
-                    ]
-                    for i, ((xA, yA), (xB, yB)) in enumerate(segments):
-                        seg = roi[yA:yB, xA:xB]
-                        if seg.size == 0: continue
-                        total = cv2.countNonZero(seg)
-                        area = seg.shape[0]*seg.shape[1]
-                        if area > 0 and total/area > 0.45: on[i] = 1
-                    try: digit = DIGITS_LOOKUP[tuple(on)]
-                    except: digit = None
+                    current.sort(key=lambda it: it[1][0])
+                    groups.append(current)
+                    current = [(c, (bx, by, bw, bh))]
+                    base_y = by
 
-                if digit is not None:
-                    line_digits += str(digit)
-                    # Draw on the full resized image with the proper offset
-                    cv2.rectangle(out, (bx+x, by+y), (bx+x+bw, by+y+bh), (0,255,0), 2)
-                    cv2.putText(out, str(digit), (bx+x-10, by+y-10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0,255,0), 2)
+            current.sort(key=lambda it: it[1][0])
+            groups.append(current)
 
-            # remove fake single digit like floating 7
-            if len(line_digits) >= 2:
-                readings.append(line_digits)
+            # --- Recognize digits and annotate ---
+            out = resized.copy()
+            readings = []
 
-        # --- Encode annotated image ---
-        _, buf = cv2.imencode('.jpg', out)
-        encoded = base64.b64encode(buf).decode('utf-8')
+            for line in groups:
+                line_digits = ""
+                for (c, (bx, by, bw, bh)) in line:
+                    roi = thresh[by:by+bh, bx:bx+bw]
+                    aspect = bw / float(bh)
+                    digit = None
 
-        cleaned = []
+                    if aspect < 0.23:
+                        digit = 1
+                    else:
+                        on = [0]*7
+                        (roiH, roiW) = roi.shape
+                        (dW, dH) = (int(roiW*0.25), int(roiH*0.15))
+                        dHC = int(roiH * 0.05)
+                        segments = [
+                            ((0, 0), (bw, dH)), ((0, 0), (dW, bh//2)), ((bw - dW, 0), (bw, bh//2)),
+                            ((0, (bh//2)-dHC), (bw, (bh//2)+dHC)), ((0, bh//2), (dW, bh)),
+                            ((bw - dW, bh//2), (bw, bh)), ((0, bh-dH), (bw, bh))
+                        ]
+                        for i, ((xA, yA), (xB, yB)) in enumerate(segments):
+                            seg = roi[yA:yB, xA:xB]
+                            if seg.size == 0: continue
+                            total = cv2.countNonZero(seg)
+                            area = seg.shape[0]*seg.shape[1]
+                            if area > 0 and total/area > 0.45: on[i] = 1
+                        try: digit = DIGITS_LOOKUP[tuple(on)]
+                        except: digit = None
 
-        for r in readings:
-            try:
-                value = int(r)
+                    if digit is not None:
+                        line_digits += str(digit)
+                        # Draw on the full resized image with the proper offset
+                        cv2.rectangle(out, (bx+x, by+y), (bx+x+bw, by+y+bh), (0,255,0), 2)
+                        cv2.putText(out, str(digit), (bx+x-10, by+y-10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0,255,0), 2)
 
-                if 40 <= value <= 260:
-                    cleaned.append(r)
+                if len(line_digits) >= 2:
+                    readings.append(line_digits)
 
-            except:
-                pass
+            # --- Encode annotated image ---
+            _, buf = cv2.imencode('.jpg', out)
+            encoded = base64.b64encode(buf).decode('utf-8')
 
-        print(json.dumps({
-            "sys": cleaned[0] if len(cleaned)>0 else "",
-            "dia": cleaned[1] if len(cleaned)>1 else "",
-            "pulse": cleaned[2] if len(cleaned)>2 else "",
-            "annotatedImage": encoded
-        }))
+            score = sum(len(r) for r in readings)
+
+            if score > best_score:
+                best_score = score
+                best_result = {
+                    "sys": readings[0] if len(readings)>0 else "",
+                    "dia": readings[1] if len(readings)>1 else "",
+                    "pulse": readings[2] if len(readings)>2 else "",
+                    "annotatedImage": encoded
+                }
+        if best_result:
+            print(json.dumps(best_result))
+        else:
+            print(json.dumps({"error": "OCR failed"}))
+            
+            
 
     except Exception as e:
         import traceback
