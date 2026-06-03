@@ -158,7 +158,8 @@ def process_image(image_path):
                         if seg.size == 0: continue
                         total = cv2.countNonZero(seg)
                         area = seg.shape[0]*seg.shape[1]
-                        if area > 0 and total/area > 0.35: on[i] = 1
+                        if area > 0 and total / area > 0.35: 
+                            on[i] = 1
                     try: digit = DIGITS_LOOKUP[tuple(on)]
                     except: digit = None
 
