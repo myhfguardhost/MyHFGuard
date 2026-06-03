@@ -34,25 +34,28 @@ def process_image(image_path):
         rf = Roboflow(api_key=os.environ.get("ROBOFLOW_API_KEY"))
         project = rf.workspace().project(os.environ.get("ROBOFLOW_PROJECT_ID"))
         model = project.version(int(os.environ.get("ROBOFLOW_VERSION_NUMBER"))).model
-        prediction = model.predict(image_path, confidence=40, overlap=30).json()
+        prediction = model.predict(image_path, confidence=20, overlap=30).json()
 
-        if not prediction['predictions']:
-            print(json.dumps({"error": "Roboflow model could not detect a screen."}))
-            return
-
-        best = max(prediction['predictions'], key=lambda p: p['confidence'])
-        orig_crop_x = int(best['x'] - best['width'] / 2)
-        orig_crop_y = int(best['y'] - best['height'] / 2)
-        orig_crop_w = int(best['width'])
-        orig_crop_h = int(best['height'])
-
-        # --- Load full image and resize ---
         full = cv2.imread(image_path)
         if full is None:
             print(json.dumps({"error": "Could not load image"}))
             return
 
         (orig_h, orig_w) = full.shape[:2]
+
+        if not prediction['predictions']:
+            # fallback crop: center LCD area
+            orig_crop_x = int(orig_w * 0.28)
+            orig_crop_y = int(orig_h * 0.25)
+            orig_crop_w = int(orig_w * 0.45)
+            orig_crop_h = int(orig_h * 0.48)
+        else:
+            best = max(prediction['predictions'], key=lambda p: p['confidence'])
+            orig_crop_x = int(best['x'] - best['width'] / 2)
+            orig_crop_y = int(best['y'] - best['height'] / 2)
+            orig_crop_w = int(best['width'])
+            orig_crop_h = int(best['height'])
+
         resized = imutils.resize(full, height=500)
         (resized_h, resized_w) = resized.shape[:2]
         ratio = resized_h / float(orig_h)
@@ -62,6 +65,15 @@ def process_image(image_path):
         y = int(orig_crop_y * ratio)
         w = int(orig_crop_w * ratio)
         h = int(orig_crop_h * ratio)
+        
+        x = max(0, x)
+        y = max(0, y)
+        w = min(w, resized_w - x)
+        h = min(h, resized_h - y)
+
+        if w <= 0 or h <= 0:
+            print(json.dumps({"error": "Invalid screen crop area"}))
+            return
 
         gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
         roi_gray = gray[y:y+h, x:x+w]

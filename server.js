@@ -7,7 +7,7 @@ const fs = require('fs');
 const multer = require('multer');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY || null
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 const cors = require('cors');
 const app = express()
 const processWeightImage = require("./routes/processWeightImage")
@@ -670,8 +670,8 @@ async function generateWithRetry(prompt, systemInstruction) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
   const modelNames = [
-    process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    'gemini-2.0-flash'
+    process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+    'gemini-2.5-flash'
   ]
 
   let lastError = null
@@ -709,9 +709,9 @@ async function generateWithRetry(prompt, systemInstruction) {
   throw lastError || new Error('Gemini request failed')
 }
 
-// AI Symptom Checker Route
+// AI MyChat Route - smarter patient question answering
 app.post('/api/chat/symptoms', async (req, res) => {
-  console.log('[symptomChecker] Request received', { body: req.body })
+  console.log('[MyChat] Request received', { body: req.body })
 
   try {
     const { message, patientId } = req.body
@@ -725,73 +725,124 @@ app.post('/api/chat/symptoms', async (req, res) => {
     }
 
     const userMessage = String(message).trim()
+    const lowerMsg = userMessage.toLowerCase()
 
-    // Strict topic filter
-    const allowedKeywords = [
-      'heart failure', 'hf', 'symptom', 'symptoms',
-      'blood pressure', 'bp', 'systolic', 'diastolic',
-      'heart rate', 'pulse', 'spo2', 'oxygen', 'o2',
-      'weight', 'weight gain', 'swelling', 'leg swelling',
-      'breathless', 'shortness of breath', 'breathing',
-      'orthopnea', 'cough', 'abdomen', 'abdominal discomfort',
-      'medication', 'medicine', 'drug', 'tablet', 'pill',
-      'reminder', 'appointment', 'doctor', 'clinic', 'hospital',
-      'chest pain', 'dizzy', 'fatigue', 'tired',
-      'steps', 'walking', 'exercise', 'vitals', 'health data',
-      'log', 'record', 'reading'
+    const unrelatedPatterns = [
+      'math', 'calculate', 'coding', 'programming', 'javascript', 'python',
+      'celebrity', 'movie', 'drama', 'game', 'homework', 'assignment',
+      'weather', 'stock', 'bitcoin', 'recipe', 'joke', 'song', 'lyrics'
     ]
 
-    const lowerMsg = userMessage.toLowerCase()
-    const isAllowed = allowedKeywords.some((keyword) => lowerMsg.includes(keyword))
+    const healthPatterns = [
+      'heart', 'heart failure', 'hf', 'cardiac', 'jantung',
+      'symptom', 'symptoms', 'gejala', 'simptom',
+      'breath', 'breathing', 'shortness of breath', 'breathless', 'hard to breathe',
+      'cannot breathe', 'cant breathe', 'sesak nafas', 'nafas',
+      'chest pain', 'chest tightness', 'sakit dada',
+      'swelling', 'swollen', 'bengkak', 'ankle', 'leg', 'feet', 'kaki',
+      'cough', 'batuk', 'tired', 'fatigue', 'weak', 'penat', 'letih', 'lemah',
+      'dizzy', 'pening', 'faint', 'pitam', 'palpitation', 'jantung laju',
+      'sleep', 'pillow', 'lie flat', 'orthopnea', 'tidur',
+      'abdomen', 'stomach', 'perut',
+      'blood pressure', 'bp', 'systolic', 'diastolic', 'tekanan darah',
+      'darah tinggi', 'darah rendah', 'heart rate', 'pulse', 'bpm', 'nadi',
+      'spo2', 'oxygen', 'o2', 'oksigen', 'temperature', 'fever', 'demam',
+      'weight', 'body weight', 'kg', 'berat', 'berat badan',
+      'water', 'fluid', 'air', 'cecair', 'salt', 'sodium', 'garam',
+      'diet', 'food', 'makanan', 'exercise', 'walk', 'walking', 'steps',
+      'activity', 'senaman', 'berjalan', 'langkah',
+      'medication', 'medicine', 'drug', 'pill', 'tablet', 'capsule', 'ubat',
+      'dose', 'dosage', 'side effect', 'makan ubat',
+      'reminder', 'appointment', 'doctor', 'clinic', 'hospital',
+      'peringatan', 'janji temu', 'doktor', 'klinik',
+      'reading', 'readings', 'vitals', 'result', 'results', 'summary', 'trend',
+      'record', 'history', 'log', 'my health', 'my data', 'my record',
+      'bacaan', 'rekod', 'kesihatan saya', 'data saya',
+      'normal', 'abnormal', 'danger', 'dangerous', 'risk', 'safe',
+      'what should i do', 'should i', 'can i', 'is this normal',
+      'apa perlu saya buat', 'boleh ke', 'normal ke', 'bahaya', 'risiko',
+      'help', 'tolong', 'why', 'kenapa', 'mean', 'means', 'maksud'
+    ]
 
-    if (!isAllowed) {
-      return res.status(200).json({
-        reply:
-          "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard. Please ask about your health records, symptoms, blood pressure, SpO2, weight, exercise, or medication.",
+    const hasHealthSignal = healthPatterns.some((keyword) => lowerMsg.includes(keyword))
+    const hasUnrelatedSignal = unrelatedPatterns.some((keyword) => lowerMsg.includes(keyword))
+
+    if ((hasUnrelatedSignal && !hasHealthSignal) || !hasHealthSignal) {
+      return res.json({
+        reply: 'I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard.',
         timestamp: new Date().toISOString()
       })
     }
 
     const healthData = await fetchPatientHealthData(patientId)
 
-    const systemInstruction = `You are MyHFGuard AI, a STRICT heart-failure support assistant.
+    const systemInstruction = `You are MyHFGuard AI, a STRICT heart-failure support assistant for patients.
 
-    VERY IMPORTANT RULES:
-    1. ONLY answer questions related to heart failure, symptoms, blood pressure, heart rate, SpO2, weight, medication, reminders, exercise, patient health logs, and when to contact a doctor or emergency services.
-    2. If outside those topics, say: "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard."
-    3. Do not answer maths, celebrity, entertainment, school homework, coding, general knowledge, or unrelated chat.
-    4. Use simple language.
-    5. Keep answers short and clear.
-    6. Do not diagnose.
-    7. If symptoms sound dangerous, tell the user to seek emergency help immediately.
+VERY IMPORTANT RULES:
+1. ONLY answer questions related to heart failure, symptoms, blood pressure, heart rate, SpO2, weight, medication, reminders, exercise, water/fluid, salt/diet, patient health logs, and when to contact a doctor or emergency services.
+2. If outside those topics, say exactly: "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard."
+3. Do not answer maths, celebrity, entertainment, school homework, coding, general knowledge, jokes, or unrelated chat.
+4. Use simple language. Avoid medical jargon.
+5. Keep answers short and clear.
+6. Do not diagnose.
+7. Do not change medication dose. Tell the patient to follow doctor instructions or contact the clinic.
+8. If patient data is missing, say there is no recent data in the app and suggest logging it.
+9. If the patient asks about their readings, use the provided recent vitals and symptoms.
+10. If symptoms sound dangerous, tell the patient to seek emergency help immediately.
 
-    PATIENT CONTEXT:
-    ${healthData.summary}
+DANGER SIGNS - advise emergency help immediately if the patient mentions:
+- chest pain or chest tightness
+- severe shortness of breath or cannot breathe
+- fainting, collapse, confusion, or blue lips
+- SpO2 below 90%
+- blood pressure 180/120 or higher
+- very fast or very slow heart rate with symptoms
 
-    RECENT VITALS:
-    - Heart Rate: ${healthData.hr}
-    - Blood Pressure: ${healthData.bp}
-    - SpO2: ${healthData.spo2}
-    - Weight: ${healthData.weight}
-    - Steps: ${healthData.steps}
-    - Recent Symptoms: ${healthData.symptoms}
-    - Current Medications: ${healthData.medications}`
+WARNING SIGNS - advise contacting doctor/clinic soon if:
+- increasing breathlessness
+- leg/ankle/feet swelling
+- needing more pillows or sitting up to sleep
+- sudden weight gain
+- SpO2 below 95%
+- blood pressure is high or low
+- heart rate is unusually high or low
+- symptoms are getting worse
 
-    const text = await generateWithRetry(userMessage, systemInstruction)
+PATIENT CONTEXT:
+${healthData.summary}
+
+RECENT VITALS:
+- Heart Rate: ${healthData.hr}
+- Blood Pressure: ${healthData.bp}
+- SpO2: ${healthData.spo2}
+- Weight: ${healthData.weight}
+- Steps: ${healthData.steps}
+- Recent Symptoms: ${healthData.symptoms}
+- Current Medications: ${healthData.medications}
+
+ANSWER STYLE:
+- Start with the direct answer.
+- Then give 1 to 3 short actions.
+- Mention emergency help only when needed.
+- If the user uses Malay/BM, answer in simple Malay/BM. Otherwise answer in simple English.`
+
+    const prompt = `Patient question:\n"${userMessage}"\n\nAnswer using the rules and patient data above.`
+
+    const text = await generateWithRetry(prompt, systemInstruction)
 
     return res.status(200).json({
       reply: text,
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Symptom checker error:', error)
+    console.error('MyChat error:', error)
     return res.status(200).json({
       reply:
-        "AI service is currently busy. Please try again later.\n\nIf you have chest pain, severe shortness of breath, fainting, or stroke symptoms, please seek emergency help immediately.",
+        'AI service is currently busy. Please try again later.\n\nIf you have chest pain, severe shortness of breath, fainting, or stroke symptoms, please seek emergency help immediately.',
       timestamp: new Date().toISOString()
     })
   }
-}) //update
+})
 
 // Helper function to fetch patient health data
 async function fetchPatientHealthData(patientId) {
