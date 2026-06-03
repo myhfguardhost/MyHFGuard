@@ -132,60 +132,124 @@ def process_image(image_path):
 
         # --- Recognize digits and annotate ---
         out = resized.copy()
-        readings = []
+        detections = []
 
         for line in groups:
-            line_digits = ""
             for (c, (bx, by, bw, bh)) in line:
                 roi = thresh[by:by+bh, bx:bx+bw]
                 aspect = bw / float(bh)
                 digit = None
 
-                if aspect < 0.4:
+                # ignore very tiny noise
+                if bh < 25 or bw < 6:
+                    continue
+
+                if aspect < 0.32:
                     digit = 1
                 else:
-                    on = [0]*7
+                    on = [0] * 7
                     (roiH, roiW) = roi.shape
-                    (dW, dH) = (int(roiW*0.25), int(roiH*0.15))
+                    (dW, dH) = (int(roiW * 0.25), int(roiH * 0.15))
                     dHC = int(roiH * 0.05)
+
                     segments = [
-                        ((0, 0), (bw, dH)), ((0, 0), (dW, bh//2)), ((bw - dW, 0), (bw, bh//2)),
-                        ((0, (bh//2)-dHC), (bw, (bh//2)+dHC)), ((0, bh//2), (dW, bh)),
-                        ((bw - dW, bh//2), (bw, bh)), ((0, bh-dH), (bw, bh))
+                        ((0, 0), (roiW, dH)),
+                        ((0, 0), (dW, roiH // 2)),
+                        ((roiW - dW, 0), (roiW, roiH // 2)),
+                        ((0, (roiH // 2) - dHC), (roiW, (roiH // 2) + dHC)),
+                        ((0, roiH // 2), (dW, roiH)),
+                        ((roiW - dW, roiH // 2), (roiW, roiH)),
+                        ((0, roiH - dH), (roiW, roiH))
                     ]
+
                     for i, ((xA, yA), (xB, yB)) in enumerate(segments):
                         seg = roi[yA:yB, xA:xB]
-                        if seg.size == 0: continue
+                        if seg.size == 0:
+                            continue
+
                         total = cv2.countNonZero(seg)
-                        area = seg.shape[0]*seg.shape[1]
-                        if area > 0 and total / area > 0.35: 
+                        area = seg.shape[0] * seg.shape[1]
+
+                        if area > 0 and total / area > 0.35:
                             on[i] = 1
-                    try: digit = DIGITS_LOOKUP[tuple(on)]
-                    except: digit = None
+
+                    digit = DIGITS_LOOKUP.get(tuple(on), None)
 
                 if digit is not None:
-                    # ignore tiny/noisy detections
-                    if bh < 35 or bw < 8:
-                        continue
+                    detections.append({
+                        "digit": str(digit),
+                        "x": bx,
+                        "y": by,
+                        "w": bw,
+                        "h": bh,
+                        "cy": by + bh / 2
+                    })
 
-                    line_digits += str(digit)
-                    # Draw on the full resized image with the proper offset
                     cv2.rectangle(out, (bx+x, by+y), (bx+x+bw, by+y+bh), (0,255,0), 2)
                     cv2.putText(out, str(digit), (bx+x-10, by+y-10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0,255,0), 2)
 
-            readings.append(line_digits)
+
+        # --- Better row grouping ---
+        detections = sorted(detections, key=lambda d: d["cy"])
+
+        rows = []
+
+        for d in detections:
+            added = False
+
+            for row in rows:
+                row_cy = sum(item["cy"] for item in row) / len(row)
+
+                if abs(d["cy"] - row_cy) < 35:
+                    row.append(d)
+                    added = True
+                    break
+
+            if not added:
+                rows.append([d])
+
+
+        # sort each row left-to-right and convert to number
+        readings = []
+
+        for row in rows:
+            row = sorted(row, key=lambda d: d["x"])
+
+            # remove tiny row with only 1 digit, example floating artifact "7"
+            if len(row) < 2:
+                continue
+
+            value_text = "".join(d["digit"] for d in row)
+
+            if not value_text.isdigit():
+                continue
+
+            # remove leading zero, example 089 -> 89
+            value_text = str(int(value_text))
+            value = int(value_text)
+
+            # keep only realistic BP / pulse values
+            if 40 <= value <= 260:
+                readings.append({
+                    "value": value_text,
+                    "y": sum(d["cy"] for d in row) / len(row)
+                })
+
+
+        # keep top-to-bottom order: SYS, DIA, PULSE
+        readings = sorted(readings, key=lambda r: r["y"])
+        cleaned = [r["value"] for r in readings]
+
 
         # --- Encode annotated image ---
         _, buf = cv2.imencode('.jpg', out)
         encoded = base64.b64encode(buf).decode('utf-8')
 
-        valid_readings = [r for r in readings if len(r) >= 2]
-
         print(json.dumps({
-            "sys": valid_readings[0] if len(valid_readings)>0 else "",
-            "dia": valid_readings[1] if len(valid_readings)>1 else "",
-            "pulse": valid_readings[2] if len(valid_readings)>2 else "",
+            "sys": cleaned[0] if len(cleaned) > 0 else "",
+            "dia": cleaned[1] if len(cleaned) > 1 else "",
+            "pulse": cleaned[2] if len(cleaned) > 2 else "",
             "annotatedImage": encoded
         }))
 
