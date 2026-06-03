@@ -28,6 +28,13 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 1, 0, 1, 1): 9
 }
 
+DIGITS_LOOKUP.update({
+    (1, 1, 1, 0, 0, 1, 1): 9,
+    (1, 1, 1, 1, 0, 0, 1): 9,
+    (0, 1, 1, 1, 0, 1, 1): 4,
+    (0, 1, 1, 0, 0, 1, 1): 4,
+})
+
 def process_image(image_path):
     try:
         # --- Roboflow automatic detection ---
@@ -144,7 +151,7 @@ def process_image(image_path):
                 if bh < 20 or bw < 3:
                     continue
 
-                if aspect < 0.45:
+                if aspect < 0.28:
                     digit = 1
                 else:
                     on = [0] * 7
@@ -170,7 +177,7 @@ def process_image(image_path):
                         total = cv2.countNonZero(seg)
                         area = seg.shape[0] * seg.shape[1]
 
-                        if area > 0 and total / area > 0.35:
+                        if area > 0 and total / area > 0.28:
                             on[i] = 1
 
                     digit = DIGITS_LOOKUP.get(tuple(on), None)
@@ -190,56 +197,56 @@ def process_image(image_path):
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0,255,0), 2)
 
 
-        # --- Better row grouping ---
-        detections = sorted(detections, key=lambda d: d["cy"])
+        # --- Better row grouping by BP monitor rows ---
+        # remove floating noise above the real LCD number area
+        detections = [
+            d for d in detections
+            if d["cy"] > h * 0.22 and d["x"] > w * 0.25
+        ]
 
-        rows = []
+        # expected row zones inside LCD crop
+        row_zones = {
+            "sys": (h * 0.18, h * 0.40),
+            "dia": (h * 0.38, h * 0.62),
+            "pulse": (h * 0.58, h * 0.82),
+        }
 
-        for d in detections:
-            added = False
+        cleaned = []
 
-            for row in rows:
-                row_cy = sum(item["cy"] for item in row) / len(row)
+        for label, (y_min, y_max) in row_zones.items():
+            row_digits = [
+                d for d in detections
+                if y_min <= d["cy"] <= y_max
+            ]
 
-                if abs(d["cy"] - row_cy) < 35:
-                    row.append(d)
-                    added = True
-                    break
+            row_digits = sorted(row_digits, key=lambda d: d["x"])
+            
+            # remove left-side floating noise like fake "7"
+            if len(row_digits) >= 2:
+                xs = [d["x"] for d in row_digits]
+                median_x = sorted(xs)[len(xs)//2]
+                row_digits = [
+                    d for d in row_digits
+                    if d["x"] > median_x - 35
+                ]
 
-            if not added:
-                rows.append([d])
-
-
-        # sort each row left-to-right and convert to number
-        readings = []
-
-        for row in rows:
-            row = sorted(row, key=lambda d: d["x"])
-
-            # remove tiny row with only 1 digit, example floating artifact "7"
-            if len(row) < 2:
+            if not row_digits:
+                cleaned.append("")
                 continue
 
-            value_text = "".join(d["digit"] for d in row)
+            value_text = "".join(d["digit"] for d in row_digits)
 
-            if not value_text.isdigit():
-                continue
+            # remove leading zero: 089 -> 89
+            if value_text.isdigit():
+                value_text = str(int(value_text))
+                value = int(value_text)
 
-            # remove leading zero, example 089 -> 89
-            value_text = str(int(value_text))
-            value = int(value_text)
-
-            # keep only realistic BP / pulse values
-            if 40 <= value <= 260:
-                readings.append({
-                    "value": value_text,
-                    "y": sum(d["cy"] for d in row) / len(row)
-                })
-
-
-        # keep top-to-bottom order: SYS, DIA, PULSE
-        readings = sorted(readings, key=lambda r: r["y"])
-        cleaned = [r["value"] for r in readings]
+                if 40 <= value <= 260:
+                    cleaned.append(value_text)
+                else:
+                    cleaned.append("")
+            else:
+                cleaned.append("")
 
 
         # --- Encode annotated image ---
