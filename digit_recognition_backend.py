@@ -36,23 +36,27 @@ def process_image(image_path):
         model = project.version(int(os.environ.get("ROBOFLOW_VERSION_NUMBER"))).model
         prediction = model.predict(image_path, confidence=40, overlap=30).json()
 
-        if not prediction['predictions']:
-            print(json.dumps({"error": "Roboflow model could not detect a screen."}))
-            return
-
-        best = max(prediction['predictions'], key=lambda p: p['confidence'])
-        orig_crop_x = int(best['x'] - best['width'] / 2)
-        orig_crop_y = int(best['y'] - best['height'] / 2)
-        orig_crop_w = int(best['width'])
-        orig_crop_h = int(best['height'])
-
-        # --- Load full image and resize ---
+        # Load full image first
         full = cv2.imread(image_path)
         if full is None:
             print(json.dumps({"error": "Could not load image"}))
             return
 
         (orig_h, orig_w) = full.shape[:2]
+
+        if not prediction['predictions']:
+            # fallback crop for Omron BP monitor screen
+            orig_crop_x = int(orig_w * 0.25)
+            orig_crop_y = int(orig_h * 0.25)
+            orig_crop_w = int(orig_w * 0.45)
+            orig_crop_h = int(orig_h * 0.50)
+        else:
+            best = max(prediction['predictions'], key=lambda p: p['confidence'])
+            orig_crop_x = int(best['x'] - best['width'] / 2)
+            orig_crop_y = int(best['y'] - best['height'] / 2)
+            orig_crop_w = int(best['width'])
+            orig_crop_h = int(best['height'])
+
         resized = imutils.resize(full, height=500)
         (resized_h, resized_w) = resized.shape[:2]
         ratio = resized_h / float(orig_h)
