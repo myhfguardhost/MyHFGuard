@@ -101,7 +101,7 @@ def process_image(image_path):
         digitCnts = []
         for c in cnts:
             bx, by, bw, bh = cv2.boundingRect(c)
-            if bh > 20 and (bw/float(bh) > 0.1 and bw/float(bh) < 1.0):
+            if bh > 15 and (bw/float(bh) > 0.05 and bw/float(bh) < 1.2):
                 digitCnts.append(c)
 
         if not digitCnts:
@@ -119,7 +119,7 @@ def process_image(image_path):
         base_y = boxes[0][1]
 
         for (c, (bx, by, bw, bh)) in zip(digitCnts, boxes):
-            if by < base_y + bh:
+            if abs(by - base_y) < 40:
                 current.append((c, (bx, by, bw, bh)))
             else:
                 current.sort(key=lambda it: it[1][0])
@@ -158,7 +158,7 @@ def process_image(image_path):
                         if seg.size == 0: continue
                         total = cv2.countNonZero(seg)
                         area = seg.shape[0]*seg.shape[1]
-                        if area > 0 and total/area > 0.45: on[i] = 1
+                        if area > 0 and total/area > 0.35: on[i] = 1
                     try: digit = DIGITS_LOOKUP[tuple(on)]
                     except: digit = None
 
