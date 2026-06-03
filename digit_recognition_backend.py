@@ -28,6 +28,13 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 1, 0, 1, 1): 9
 }
 
+DIGITS_LOOKUP.update({
+    (1, 1, 1, 0, 0, 1, 1): 9,
+    (1, 1, 1, 1, 0, 0, 1): 9,
+    (0, 1, 1, 1, 0, 1, 1): 4,
+    (0, 1, 1, 0, 0, 1, 1): 4,
+})
+
 def process_image(image_path):
     try:
         # --- Roboflow automatic detection ---
@@ -80,7 +87,7 @@ def process_image(image_path):
                                        cv2.THRESH_BINARY_INV, 21, 10)
 
         # 4. **CRITICAL FIX**: Use a slightly stronger Closing kernel to heal breaks
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
         thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
         # --- Find digit contours ---
@@ -129,7 +136,7 @@ def process_image(image_path):
                 aspect = bw / float(bh)
                 digit = None
 
-                if aspect < 0.4:
+                if aspect < 0.23:
                     digit = 1
                 else:
                     on = [0]*7
@@ -157,16 +164,30 @@ def process_image(image_path):
                     cv2.putText(out, str(digit), (bx+x-10, by+y-10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0,255,0), 2)
 
-            readings.append(line_digits)
+            # remove fake single digit like floating 7
+            if len(line_digits) >= 2:
+                readings.append(line_digits)
 
         # --- Encode annotated image ---
         _, buf = cv2.imencode('.jpg', out)
         encoded = base64.b64encode(buf).decode('utf-8')
 
+        cleaned = []
+
+        for r in readings:
+            try:
+                value = int(r)
+
+                if 40 <= value <= 260:
+                    cleaned.append(r)
+
+            except:
+                pass
+
         print(json.dumps({
-            "sys": readings[0] if len(readings)>0 else "",
-            "dia": readings[1] if len(readings)>1 else "",
-            "pulse": readings[2] if len(readings)>2 else "",
+            "sys": cleaned[0] if len(cleaned)>0 else "",
+            "dia": cleaned[1] if len(cleaned)>1 else "",
+            "pulse": cleaned[2] if len(cleaned)>2 else "",
             "annotatedImage": encoded
         }))
 
