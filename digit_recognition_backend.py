@@ -92,7 +92,7 @@ def process_image(image_path):
                                        cv2.THRESH_BINARY_INV, 21, 10)
 
         # 4. **CRITICAL FIX**: Use a slightly stronger Closing kernel to heal breaks
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 2))
         thresh = cv2.dilate(thresh, kernel, iterations=1)
 
         # --- Find digit contours ---
@@ -141,10 +141,10 @@ def process_image(image_path):
                 digit = None
 
                 # ignore very tiny noise
-                if bh < 25 or bw < 6:
+                if bh < 20 or bw < 3:
                     continue
 
-                if aspect < 0.32:
+                if aspect < 0.45:
                     digit = 1
                 else:
                     on = [0] * 7
