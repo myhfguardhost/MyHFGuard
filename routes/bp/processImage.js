@@ -139,11 +139,11 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
                         return res.status(400).json({ error: 'Invalid numeric values received from OCR.' });
                     }
 
-                    if (sys < 70 || sys > 260) {
-                        return res.status(400).json({ error: 'SYS value is out of range (70-260).' });
+                    if (sys < 50 || sys > 260) {
+                        return res.status(400).json({ error: 'SYS value is out of range (50-260).' });
                     }
-                    if (dia < 40 || dia > 160) {
-                        return res.status(400).json({ error: 'DIA value is out of range (40-160).' });
+                    if (dia < 30 || dia > 160) {
+                        return res.status(400).json({ error: 'DIA value is out of range (30-160).' });
                     }
                     if (pulse < 30 || pulse > 240) {
                         return res.status(400).json({ error: 'PULSE value is out of range (30-240).' });
