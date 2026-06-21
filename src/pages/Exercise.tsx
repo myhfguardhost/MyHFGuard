@@ -5,8 +5,6 @@ import StableChart from "@/components/StableChart"
 import { Button } from "@/components/ui/button"
 import {
   Footprints,
-  MapPinned,
-  Timer,
   Activity,
   Target,
   BellRing,
@@ -83,9 +81,7 @@ const Exercise = () => {
   const vitals = vitalsQuery.data?.vitals || {}
 
   const stepCount = summary.stepsToday || 0
-  const distanceKm = summary.distanceToday || 0
-  const exerciseMinutes = stepCount > 0 ? Math.max(10, Math.round(stepCount / 100)) : 0
-  const spo2 = vitals.spo2?.length ? Math.round(vitals.spo2[vitals.spo2.length - 1].avg || 0) : 98
+  const spo2 = vitals.spo2?.length ? Math.round(vitals.spo2[vitals.spo2.length - 1].avg || 0) : 0
 
   const stepTarget = 3000
   const baselineSteps = 2000
@@ -258,7 +254,7 @@ const Exercise = () => {
           </div>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4">
+        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
           <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
             <div className="mb-4 flex items-center gap-2">
               <Footprints className="text-primary" />
@@ -266,24 +262,6 @@ const Exercise = () => {
             </div>
             <div className="text-3xl font-bold">{stepCount}</div>
             <p className="mt-2 text-muted-foreground">{t("todaySteps")}</p>
-          </Card>
-
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <MapPinned className="text-green-600 dark:text-green-400" />
-              <h3 className="font-semibold">{t("distance")}</h3>
-            </div>
-            <div className="text-3xl font-bold">{distanceKm} km</div>
-            <p className="mt-2 text-muted-foreground">{t("distanceDesc")}</p>
-          </Card>
-
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Timer className="text-purple-600 dark:text-purple-400" />
-              <h3 className="font-semibold">{t("exerciseTime")}</h3>
-            </div>
-            <div className="text-3xl font-bold">{exerciseMinutes} min</div>
-            <p className="mt-2 text-muted-foreground">{t("exerciseTimeDesc")}</p>
           </Card>
 
           <Card>
