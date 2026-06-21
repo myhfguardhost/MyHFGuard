@@ -70,9 +70,11 @@ const Exercise = () => {
     refetchOnWindowFocus: false,
   })
 
+  const todayKey = format(new Date(), "yyyy-MM-dd")
+
   const vitalsQuery = useQuery({
-    queryKey: ["patient-vitals-exercise", patientId],
-    queryFn: () => getPatientVitals(patientId, "hourly"),
+    queryKey: ["patient-vitals-exercise-weekly", patientId, todayKey],
+    queryFn: () => getPatientVitals(patientId, "weekly", todayKey),
     enabled: !!patientId,
     refetchOnWindowFocus: false,
   })
@@ -102,25 +104,28 @@ const Exercise = () => {
     return t("exerciseRecommendationSlow")
   }, [targetReached, toleratedWell, t])
 
-  const weeklyStepsData = [
-    { day: "Mon", steps: 0 },
-    { day: "Tue", steps: 0 },
-    { day: "Wed", steps: 0 },
-    { day: "Thu", steps: 0 },
-    { day: "Fri", steps: 0 },
-    { day: "Sat", steps: 0 },
-    { day: "Sun", steps: 0 },
-  ]
+  const weeklyStepsData = useMemo(() => {
+    const days = [
+      { day: "Mon", steps: 0 },
+      { day: "Tue", steps: 0 },
+      { day: "Wed", steps: 0 },
+      { day: "Thu", steps: 0 },
+      { day: "Fri", steps: 0 },
+      { day: "Sat", steps: 0 },
+      { day: "Sun", steps: 0 },
+    ]
 
-  ;(vitals.steps || []).forEach((item: any) => {
-    const day = format(new Date(item.time), "EEE")
+    ;(vitals.steps || []).forEach((item: any) => {
+      const day = format(new Date(item.time), "EEE")
+      const row = days.find((d) => d.day === day)
 
-    const row = weeklyStepsData.find((d) => d.day === day)
+      if (row) {
+        row.steps += Number(item.count ?? item.steps ?? item.value ?? 0)
+      }
+    })
 
-    if (row) {
-      row.steps += Number(item.count || item.steps || item.value || 0)
-    }
-  })
+    return days
+  }, [vitals.steps])
 
   const handleSaveGoal = () => {
     if (!patientId) {
