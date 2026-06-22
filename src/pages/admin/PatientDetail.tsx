@@ -307,6 +307,11 @@ export default function PatientDetail() {
     const hasSpo2 = vitals.spo2.some((r: any) => r.avg !== null || r.min !== null || r.max !== null);
     const hasBp = vitals.bp.length > 0;
 
+    const stepsChartData = vitals.steps.filter((r: any) => r.count !== null && r.count !== undefined);
+    const hrChartData = vitals.hr.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null);
+    const spo2ChartData = vitals.spo2.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null);
+    const bpChartData = vitals.bp;
+
     return (
         <>
             <div className="container mx-auto py-8 space-y-8">
@@ -419,7 +424,7 @@ export default function PatientDetail() {
                                 ) : (
                                     <div className="h-[300px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={vitals.steps}>
+                                            <BarChart data={stepsChartData}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                 <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
                                                 <YAxis fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
@@ -428,7 +433,7 @@ export default function PatientDetail() {
                                                     labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
                                                     cursor={{ fill: '#f4f4f5' }}
                                                 />
-                                                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Steps" minPointSize={4} />
+                                                <Bar dataKey="count" fill="#2563eb" radius={[6, 6, 0, 0]} name="Steps" minPointSize={12} maxBarSize={80} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -481,7 +486,7 @@ export default function PatientDetail() {
                                 ) : (
                                     <div className="h-[300px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <LineChart data={vitals.bp}>
+                                            <LineChart data={bpChartData}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                 <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} angle={-15} textAnchor="end" height={50} />
                                                 <YAxis domain={['dataMin - 10', 'dataMax + 10']} fontSize={12} tickLine={false} axisLine={false} />
@@ -492,9 +497,9 @@ export default function PatientDetail() {
                                                 <Legend verticalAlign="top" />
                                                 <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
                                                 <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
-                                                <Line type="linear" dataKey="systolic" stroke="#8884d8" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Systolic" connectNulls />
-                                                <Line type="linear" dataKey="diastolic" stroke="#82ca9d" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Diastolic" connectNulls />
-                                                <Line type="linear" dataKey="pulse" stroke="#ffc658" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Pulse" connectNulls />
+                                                <Line type="linear" dataKey="systolic" stroke="#7c3aed" strokeWidth={4} dot={{ r: 8, fill: "#7c3aed" }} activeDot={{ r: 10 }} name="Systolic" connectNulls />
+                                                <Line type="linear" dataKey="diastolic" stroke="#16a34a" strokeWidth={4} dot={{ r: 8, fill: "#16a34a" }} activeDot={{ r: 10 }} name="Diastolic" connectNulls />
+                                                <Line type="linear" dataKey="pulse" stroke="#f59e0b" strokeWidth={4} dot={{ r: 8, fill: "#f59e0b" }} activeDot={{ r: 10 }} name="Pulse" connectNulls />
                                             </LineChart>
                                         </ResponsiveContainer>
                                     </div>
