@@ -98,7 +98,7 @@ const Login = () => {
               Welcome back to your care companion
             </h2>
             <p className="text-lg text-white/90 leading-8 max-w-xl">
-              Log in to monitor your health, review reminders, and stay connected
+              Log in to monitor your health, review reminders and stay connected
               with your daily heart failure care tools.
             </p>
           </div>

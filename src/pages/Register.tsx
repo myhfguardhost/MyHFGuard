@@ -108,7 +108,7 @@ const Register = () => {
               Create your heart care account
             </h2>
             <p className="text-lg text-white/90 leading-8 max-w-xl">
-              Register to start tracking your health, managing reminders, and
+              Register to start tracking your health, managing reminders and
               staying connected with your daily heart failure care tools.
             </p>
           </div>

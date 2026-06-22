@@ -56,147 +56,223 @@ export default function PatientDetail() {
                 setProfile(profileData);
             }
 
-            // Format dates for Supabase (YYYY-MM-DD)
-            const startStr = format(startOfDay(startDate), 'yyyy-MM-dd');
-            const endStr = format(endOfDay(endDate), 'yyyy-MM-dd');
+            const start = startOfDay(startDate);
+            const end = endOfDay(endDate);
+            const startStr = format(start, 'yyyy-MM-dd');
+            const endStr = format(end, 'yyyy-MM-dd');
+            const startIso = start.toISOString();
+            const endIso = end.toISOString();
 
-            console.log("Fetching data for range:", startStr, "to", endStr);
+            console.log("Fetching admin patient data for range:", startStr, "to", endStr);
 
-            // 2. FETCH DATA WITH DATE FILTER
-            const { data: hrData, error: hrError } = await supabase
-                .from('hr_day')
-                .select('*')
-                .eq('patient_id', patientId)
-                .gte('date', startStr)
-                .lte('date', endStr)
-                .order('date', { ascending: false });
+            // Main daily tables used by the mobile app/backend sync.
+            const [hrRes, spo2Res, stepsRes, bpRes, hrSampleRes, spo2SampleRes, stepsEventRes] = await Promise.all([
+                supabase
+                    .from('hr_day')
+                    .select('*')
+                    .eq('patient_id', patientId)
+                    .gte('date', startStr)
+                    .lte('date', endStr)
+                    .order('date', { ascending: false }),
 
-            const { data: spo2Data, error: spo2Error } = await supabase
-                .from('spo2_day')
-                .select('*')
-                .eq('patient_id', patientId)
-                .gte('date', startStr)
-                .lte('date', endStr)
-                .order('date', { ascending: false });
+                supabase
+                    .from('spo2_day')
+                    .select('*')
+                    .eq('patient_id', patientId)
+                    .gte('date', startStr)
+                    .lte('date', endStr)
+                    .order('date', { ascending: false }),
 
-            const { data: stepsData, error: stepsError } = await supabase
-                .from('steps_day')
-                .select('*')
-                .eq('patient_id', patientId)
-                .gte('date', startStr)
-                .lte('date', endStr)
-                .order('date', { ascending: false });
+                supabase
+                    .from('steps_day')
+                    .select('*')
+                    .eq('patient_id', patientId)
+                    .gte('date', startStr)
+                    .lte('date', endStr)
+                    .order('date', { ascending: false }),
 
-            const { data: bpData, error: bpError } = await supabase
-                .from('bp_readings')
-                .select('*')
-                .eq('patient_id', patientId)
-                .gte('reading_date', startStr)
-                .lte('reading_date', endStr)
-                .order('reading_date', { ascending: false })
-                .order('reading_time', { ascending: false });
+                supabase
+                    .from('bp_readings')
+                    .select('*')
+                    .eq('patient_id', patientId)
+                    .gte('reading_date', startStr)
+                    .lte('reading_date', endStr)
+                    .order('reading_date', { ascending: false })
+                    .order('reading_time', { ascending: false }),
 
-            if (hrError) console.error("HR Error:", hrError);
-            if (spo2Error) console.error("SpO2 Error:", spo2Error);
-            if (stepsError) console.error("Steps Error:", stepsError);
-            if (bpError) console.error("BP Error:", bpError);
+                // Fallback raw tables. These make the admin graph still show collected data
+                // even when the daily aggregate table is empty or has different column names.
+                supabase
+                    .from('hr_sample')
+                    .select('*')
+                    .eq('patient_id', patientId)
+                    .gte('time_ts', startIso)
+                    .lte('time_ts', endIso),
 
-            // Helper function to fill missing dates
-            const fillMissingDates = (data: any[], dateField: string) => {
-                // Create a map of existing data by date
-                const dataMap = new Map();
-                data.forEach(item => {
-                    dataMap.set(item[dateField], item);
-                });
+                supabase
+                    .from('spo2_sample')
+                    .select('*')
+                    .eq('patient_id', patientId)
+                    .gte('time_ts', startIso)
+                    .lte('time_ts', endIso),
 
-                // Generate all dates in the range
-                const allDates = eachDayOfInterval({ start: startDate, end: endDate });
+                supabase
+                    .from('steps_event')
+                    .select('*')
+                    .eq('patient_id', patientId)
+                    .gte('end_ts', startIso)
+                    .lte('end_ts', endIso),
+            ]);
 
-                // Fill in missing dates with null values
-                return allDates.map(date => {
-                    const dateStr = format(date, 'yyyy-MM-dd');
-                    return dataMap.get(dateStr) || { [dateField]: dateStr };
-                });
+            if (hrRes.error) console.error("HR day error:", hrRes.error);
+            if (spo2Res.error) console.error("SpO2 day error:", spo2Res.error);
+            if (stepsRes.error) console.error("Steps day error:", stepsRes.error);
+            if (bpRes.error) console.error("BP error:", bpRes.error);
+            if (hrSampleRes.error) console.warn("HR sample fallback not available:", hrSampleRes.error.message);
+            if (spo2SampleRes.error) console.warn("SpO2 sample fallback not available:", spo2SampleRes.error.message);
+            if (stepsEventRes.error) console.warn("Steps event fallback not available:", stepsEventRes.error.message);
+
+            const hrData = hrRes.data || [];
+            const spo2Data = spo2Res.data || [];
+            const stepsData = stepsRes.data || [];
+            const bpData = bpRes.data || [];
+            const hrSamples = hrSampleRes.data || [];
+            const spo2Samples = spo2SampleRes.data || [];
+            const stepsEvents = stepsEventRes.data || [];
+
+            const toNumber = (...values: any[]) => {
+                for (const value of values) {
+                    if (value === null || value === undefined || value === '') continue;
+                    const n = Number(value);
+                    if (Number.isFinite(n)) return n;
+                }
+                return null;
             };
 
-            // Transform data
-            const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const dateOnly = (value: any) => {
+                if (!value) return null;
+                if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+                const d = new Date(value);
+                return Number.isNaN(d.getTime()) ? null : format(d, 'yyyy-MM-dd');
+            };
 
-            // Fill missing dates for daily vitals
-            const hrDataFilled = fillMissingDates(hrData || [], 'date');
-            const spo2DataFilled = fillMissingDates(spo2Data || [], 'date');
-            const stepsDataFilled = fillMissingDates(stepsData || [], 'date');
+            const formatDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            const aggregateSamples = (rows: any[], timeFields: string[], valueFields: string[], mode: 'stats' | 'sum') => {
+                const grouped = new Map<string, number[]>();
+                rows.forEach((row) => {
+                    const ts = timeFields.map((field) => row[field]).find(Boolean);
+                    const day = dateOnly(ts);
+                    const value = toNumber(...valueFields.map((field) => row[field]));
+                    if (!day || value === null) return;
+                    const arr = grouped.get(day) || [];
+                    arr.push(value);
+                    grouped.set(day, arr);
+                });
+
+                const result = new Map<string, any>();
+                grouped.forEach((values, day) => {
+                    if (mode === 'sum') {
+                        result.set(day, { count: values.reduce((sum, value) => sum + value, 0) });
+                    } else {
+                        const min = Math.min(...values);
+                        const max = Math.max(...values);
+                        const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
+                        result.set(day, { min, avg, max });
+                    }
+                });
+                return result;
+            };
+
+            const hrSampleByDate = aggregateSamples(hrSamples, ['time_ts', 'time', 'created_at'], ['bpm', 'hr', 'heart_rate', 'value'], 'stats');
+            const spo2SampleByDate = aggregateSamples(spo2Samples, ['time_ts', 'time', 'created_at'], ['spo2_pct', 'spo2', 'percentage', 'oxygen', 'value'], 'stats');
+            const stepsEventByDate = aggregateSamples(stepsEvents, ['end_ts', 'endTime', 'time_ts', 'created_at'], ['count', 'steps', 'steps_total', 'value'], 'sum');
+
+            const allDates = eachDayOfInterval({ start, end });
+            const dailyMap = (rows: any[], dateField: string) => {
+                const map = new Map<string, any>();
+                rows.forEach((row) => {
+                    const day = dateOnly(row[dateField]);
+                    if (day) map.set(day, row);
+                });
+                return map;
+            };
+
+            const hrDayByDate = dailyMap(hrData, 'date');
+            const spo2DayByDate = dailyMap(spo2Data, 'date');
+            const stepsDayByDate = dailyMap(stepsData, 'date');
 
             const newVitals = {
-                hr: hrDataFilled.map(r => ({
-                    fullDate: r.date,
-                    date: formatDate(r.date),
-                    min: r.hr_min || null,
-                    avg: r.hr_avg || null,
-                    max: r.hr_max || null,
-                })),
+                hr: allDates.map((date) => {
+                    const day = format(date, 'yyyy-MM-dd');
+                    const r = hrDayByDate.get(day) || {};
+                    const fallback = hrSampleByDate.get(day) || {};
+                    const min = toNumber(r.hr_min, r.min, r.bpm_min, fallback.min);
+                    const avg = toNumber(r.hr_avg, r.avg, r.bpm_avg, r.bpm, r.heart_rate, fallback.avg);
+                    const max = toNumber(r.hr_max, r.max, r.bpm_max, fallback.max);
+                    return {
+                        fullDate: day,
+                        date: formatDate(day),
+                        min,
+                        avg,
+                        max,
+                    };
+                }),
 
-                spo2: spo2DataFilled.map(r => ({
-                    fullDate: r.date,
-                    date: formatDate(r.date),
-                    min: r.spo2_min || null,
-                    avg: r.spo2_avg || null,
-                    max: r.spo2_max || null
-                })),
+                spo2: allDates.map((date) => {
+                    const day = format(date, 'yyyy-MM-dd');
+                    const r = spo2DayByDate.get(day) || {};
+                    const fallback = spo2SampleByDate.get(day) || {};
+                    const min = toNumber(r.spo2_min, r.min, r.oxygen_min, fallback.min);
+                    const avg = toNumber(r.spo2_avg, r.avg, r.spo2_pct, r.spo2, r.oxygen, fallback.avg);
+                    const max = toNumber(r.spo2_max, r.max, r.oxygen_max, fallback.max);
+                    return {
+                        fullDate: day,
+                        date: formatDate(day),
+                        min,
+                        avg,
+                        max,
+                    };
+                }),
 
-                steps: stepsDataFilled.map(r => ({
-                    fullDate: r.date,
-                    date: formatDate(r.date),
-                    count: r.steps_total || null
-                })),
+                steps: allDates.map((date) => {
+                    const day = format(date, 'yyyy-MM-dd');
+                    const r = stepsDayByDate.get(day) || {};
+                    const fallback = stepsEventByDate.get(day) || {};
+                    return {
+                        fullDate: day,
+                        date: formatDate(day),
+                        count: toNumber(r.steps_total, r.count, r.steps, fallback.count),
+                    };
+                }),
 
-                // BP readings are event-based, but we want to show the full timeline
-                bp: (() => {
-                    // 1. Group existing BP data by date
-                    const bpByDate = new Map<string, any[]>();
-                    (bpData || []).forEach(r => {
-                        const d = r.reading_date;
-                        if (!bpByDate.has(d)) bpByDate.set(d, []);
-                        bpByDate.get(d)?.push(r);
-                    });
-
-                    // 2. Generate full date range
-                    const allDates = eachDayOfInterval({ start: startDate, end: endDate });
-
-                    // 3. Flatten into a list for the chart
-                    const bpDataFilled: any[] = [];
-
-                    allDates.forEach(dateObj => {
-                        const dateStr = format(dateObj, 'yyyy-MM-dd');
-                        const readings = bpByDate.get(dateStr);
-
-                        if (readings && readings.length > 0) {
-                            // Sort readings by time ascending
-                            const sortedReadings = [...readings].sort((a, b) => a.reading_time.localeCompare(b.reading_time));
-
-                            sortedReadings.forEach(r => {
-                                bpDataFilled.push({
-                                    fullDate: r.reading_date,
-                                    time: `${formatDate(r.reading_date)} ${r.reading_time.substring(0, 5)}`,
-                                    systolic: r.systolic,
-                                    diastolic: r.diastolic,
-                                    pulse: r.pulse
-                                });
-                            });
-                        } else {
-                            // No readings for this day -> Add a placeholder
-                            bpDataFilled.push({
-                                fullDate: dateStr,
-                                time: formatDate(dateStr), // Just the date label
-                                systolic: null,
-                                diastolic: null,
-                                pulse: null
-                            });
-                        }
-                    });
-                    return bpDataFilled;
-                })()
+                bp: (bpData || [])
+                    .map((r: any) => {
+                        const day = dateOnly(r.reading_date || r.date || r.created_at);
+                        const systolic = toNumber(r.systolic, r.sys, r.sbp, r.systolic_bp, r.latest_systolic);
+                        const diastolic = toNumber(r.diastolic, r.dia, r.dbp, r.diastolic_bp, r.latest_diastolic);
+                        const pulse = toNumber(r.pulse, r.pulse_rate, r.hr, r.heart_rate);
+                        if (!day || systolic === null || diastolic === null) return null;
+                        const rawTime = r.reading_time || r.time || (r.created_at ? format(new Date(r.created_at), 'HH:mm') : '');
+                        const displayTime = rawTime ? String(rawTime).substring(0, 5) : '';
+                        return {
+                            fullDate: day,
+                            time: `${formatDate(day)}${displayTime ? ` ${displayTime}` : ''}`,
+                            systolic,
+                            diastolic,
+                            pulse,
+                        };
+                    })
+                    .filter(Boolean)
+                    .sort((a: any, b: any) => a.fullDate.localeCompare(b.fullDate) || a.time.localeCompare(b.time)),
             };
+
+            console.log("Admin chart points:", {
+                steps: newVitals.steps.filter((r: any) => r.count !== null).length,
+                hr: newVitals.hr.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null).length,
+                spo2: newVitals.spo2.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null).length,
+                bp: newVitals.bp.length,
+            });
 
             setVitals(newVitals);
 
@@ -225,6 +301,11 @@ export default function PatientDetail() {
 
     if (loading && !profile) return <div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>;
     if (!profile && !loading) return null;
+
+    const hasSteps = vitals.steps.some((r: any) => r.count !== null && r.count !== undefined);
+    const hasHr = vitals.hr.some((r: any) => r.avg !== null || r.min !== null || r.max !== null);
+    const hasSpo2 = vitals.spo2.some((r: any) => r.avg !== null || r.min !== null || r.max !== null);
+    const hasBp = vitals.bp.length > 0;
 
     return (
         <>
@@ -331,21 +412,27 @@ export default function PatientDetail() {
                                 <CardTitle>Daily Steps</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={vitals.steps}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                                labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                                cursor={{ fill: '#f4f4f5' }}
-                                            />
-                                            <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Steps" />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
+                                {!hasSteps ? (
+                                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                                        No steps data available for this period
+                                    </div>
+                                ) : (
+                                    <div className="h-[300px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={vitals.steps}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                    labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
+                                                    cursor={{ fill: '#f4f4f5' }}
+                                                />
+                                                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Steps" minPointSize={4} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
 
@@ -355,23 +442,29 @@ export default function PatientDetail() {
                                 <CardTitle>Heart Rate (BPM)</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={vitals.hr}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                            <YAxis domain={[40, 180]} fontSize={12} tickLine={false} axisLine={false} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                                labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                            />
-                                            <Legend />
-                                            <Line type="monotone" dataKey="max" stroke="#ef4444" strokeWidth={2} dot={false} name="Max" connectNulls />
-                                            <Line type="monotone" dataKey="avg" stroke="#f97316" strokeWidth={2} dot={false} name="Avg" connectNulls />
-                                            <Line type="monotone" dataKey="min" stroke="#22c55e" strokeWidth={2} dot={false} name="Min" connectNulls />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
+                                {!hasHr ? (
+                                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                                        No heart rate data available for this period
+                                    </div>
+                                ) : (
+                                    <div className="h-[300px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={vitals.hr}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis domain={[40, 180]} fontSize={12} tickLine={false} axisLine={false} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                    labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
+                                                />
+                                                <Legend />
+                                                <Line type="monotone" dataKey="max" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="Max" connectNulls />
+                                                <Line type="monotone" dataKey="avg" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} name="Avg" connectNulls />
+                                                <Line type="monotone" dataKey="min" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} name="Min" connectNulls />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
 
@@ -381,7 +474,7 @@ export default function PatientDetail() {
                                 <CardTitle>Blood Pressure</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {vitals.bp.length === 0 ? (
+                                {!hasBp ? (
                                     <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                                         No data available for this period
                                     </div>
@@ -399,9 +492,9 @@ export default function PatientDetail() {
                                                 <Legend verticalAlign="top" />
                                                 <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
                                                 <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
-                                                <Line type="monotone" dataKey="systolic" stroke="#8884d8" strokeWidth={3} name="Systolic" />
-                                                <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} name="Diastolic" />
-                                                <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} name="Pulse" />
+                                                <Line type="monotone" dataKey="systolic" stroke="#8884d8" strokeWidth={3} dot={{ r: 3 }} name="Systolic" connectNulls />
+                                                <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} dot={{ r: 3 }} name="Diastolic" connectNulls />
+                                                <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} dot={{ r: 3 }} name="Pulse" connectNulls />
                                             </LineChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -415,20 +508,26 @@ export default function PatientDetail() {
                                 <CardTitle>SpO2 (%)</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="h-[300px] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart data={vitals.spo2}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                            <YAxis domain={[80, 100]} fontSize={12} tickLine={false} axisLine={false} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                                labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                            />
-                                            <Line type="monotone" dataKey="avg" stroke="#06b6d4" strokeWidth={3} activeDot={{ r: 8 }} name="Avg %" connectNulls />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
+                                {!hasSpo2 ? (
+                                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                                        No SpO2 data available for this period
+                                    </div>
+                                ) : (
+                                    <div className="h-[300px] w-full">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={vitals.spo2}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis domain={[80, 100]} fontSize={12} tickLine={false} axisLine={false} />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                    labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
+                                                />
+                                                <Line type="monotone" dataKey="avg" stroke="#06b6d4" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 8 }} name="Avg %" connectNulls />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -458,7 +557,7 @@ export default function PatientDetail() {
                         <Card className="max-h-[300px] overflow-auto">
                             <CardHeader><CardTitle>BP Log</CardTitle></CardHeader>
                             <CardContent>
-                                {vitals.bp.length === 0 ? (
+                                {!hasBp ? (
                                     <p className="text-muted-foreground text-center py-4">No data</p>
                                 ) : (
                                     <Table>

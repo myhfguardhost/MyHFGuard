@@ -91,7 +91,7 @@ export default function AdminLogin() {
               Welcome to the admin monitoring portal
             </h2>
             <p className="text-lg text-white/90 leading-8 max-w-xl">
-              Log in to monitor patient alerts, review reports, and manage the
+              Log in to monitor patient alerts, review reports and manage the
               MyHFGuard healthcare dashboard.
             </p>
           </div>
@@ -107,7 +107,7 @@ export default function AdminLogin() {
             <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-4 backdrop-blur-sm border border-white/10">
               <ActivitySquare className="w-6 h-6" />
               <span className="text-base">
-                Review patient alerts, analytics, and exported reports
+                Review patient alerts, analytics and exported reports
               </span>
             </div>
           </div>
