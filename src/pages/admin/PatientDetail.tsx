@@ -13,12 +13,13 @@ import { DateScrollPicker } from "@/components/ui/date-scroll-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
-
 import {
   LineChart,
   Line,
   BarChart,
   Bar,
+  ComposedChart,
+  Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -522,18 +523,43 @@ export default function PatientDetail() {
                 ) : (
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={bpChartData}>
-                        <CartesianGrid stroke="#cbd5e1" strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} angle={-15} textAnchor="end" height={50} stroke="#334155" />
-                        <YAxis domain={["dataMin - 10", "dataMax + 10"]} fontSize={12} tickLine={false} axisLine={false} stroke="#334155" />
-                        <Tooltip contentStyle={strongTooltip} labelStyle={{ color: "#0f172a", fontWeight: "bold" }} />
-                        <Legend verticalAlign="top" />
-                        <ReferenceLine y={120} label="Sys Limit" stroke="#dc2626" strokeWidth={2} strokeDasharray="4 4" />
-                        <ReferenceLine y={80} label="Dia Limit" stroke="#475569" strokeWidth={2} strokeDasharray="4 4" />
-                        <Line type="linear" dataKey="systolic" stroke="#4f46e5" strokeWidth={5} dot={{ r: 8, fill: "#4f46e5" }} activeDot={{ r: 10 }} name="Systolic" connectNulls />
-                        <Line type="linear" dataKey="diastolic" stroke="#16a34a" strokeWidth={5} dot={{ r: 8, fill: "#16a34a" }} activeDot={{ r: 10 }} name="Diastolic" connectNulls />
-                        <Line type="linear" dataKey="pulse" stroke="#f97316" strokeWidth={5} dot={{ r: 8, fill: "#f97316" }} activeDot={{ r: 10 }} name="Pulse" connectNulls />
-                      </LineChart>
+                      <ComposedChart data={bpChartData} margin={{ top: 20, right: 30, left: 10, bottom: 30 }}>
+                        <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
+                        <XAxis
+                            dataKey="time"
+                            fontSize={12}
+                            tickLine={true}
+                            axisLine={true}
+                            stroke="#0f172a"
+                        />
+                        <YAxis
+                            domain={[40, 170]}
+                            fontSize={12}
+                            tickLine={true}
+                            axisLine={true}
+                            stroke="#0f172a"
+                        />
+                        <Tooltip
+                            contentStyle={{
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #0f172a",
+                            color: "#0f172a",
+                            }}
+                            labelStyle={{ color: "#0f172a", fontWeight: "bold" }}
+                        />
+                        <Legend />
+
+                        <ReferenceLine y={120} stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" />
+                        <ReferenceLine y={80} stroke="#64748b" strokeWidth={2} strokeDasharray="5 5" />
+
+                        <Line type="linear" dataKey="systolic" stroke="#4f46e5" strokeWidth={5} dot={false} name="Systolic" />
+                        <Line type="linear" dataKey="diastolic" stroke="#16a34a" strokeWidth={5} dot={false} name="Diastolic" />
+                        <Line type="linear" dataKey="pulse" stroke="#f97316" strokeWidth={5} dot={false} name="Pulse" />
+
+                        <Scatter dataKey="systolic" fill="#4f46e5" shape="circle" name="Systolic Point" />
+                        <Scatter dataKey="diastolic" fill="#16a34a" shape="circle" name="Diastolic Point" />
+                        <Scatter dataKey="pulse" fill="#f97316" shape="circle" name="Pulse Point" />
+                        </ComposedChart>
                     </ResponsiveContainer>
                   </div>
                 )}
