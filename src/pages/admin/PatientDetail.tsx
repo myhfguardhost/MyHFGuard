@@ -492,9 +492,7 @@ export default function PatientDetail() {
                                                 <Legend verticalAlign="top" />
                                                 <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
                                                 <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
-                                                <Line type="monotone" dataKey="systolic" stroke="#8884d8" strokeWidth={3} dot={{ r: 3 }} name="Systolic" connectNulls />
-                                                <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} dot={{ r: 3 }} name="Diastolic" connectNulls />
-                                                <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} dot={{ r: 3 }} name="Pulse" connectNulls /><Line type="linear" dataKey="systolic" stroke="#8884d8" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Systolic" connectNulls />
+                                                <Line type="linear" dataKey="systolic" stroke="#8884d8" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Systolic" connectNulls />
                                                 <Line type="linear" dataKey="diastolic" stroke="#82ca9d" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Diastolic" connectNulls />
                                                 <Line type="linear" dataKey="pulse" stroke="#ffc658" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Pulse" connectNulls />
                                             </LineChart>
