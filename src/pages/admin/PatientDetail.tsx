@@ -484,7 +484,7 @@ export default function PatientDetail() {
                                             <LineChart data={vitals.bp}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                 <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} angle={-15} textAnchor="end" height={50} />
-                                                <YAxis domain={[40, 200]} fontSize={12} tickLine={false} axisLine={false} />
+                                                <YAxis domain={['dataMin - 10', 'dataMax + 10']} fontSize={12} tickLine={false} axisLine={false} />
                                                 <Tooltip
                                                     contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                                                     labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
@@ -494,7 +494,9 @@ export default function PatientDetail() {
                                                 <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
                                                 <Line type="monotone" dataKey="systolic" stroke="#8884d8" strokeWidth={3} dot={{ r: 3 }} name="Systolic" connectNulls />
                                                 <Line type="monotone" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} dot={{ r: 3 }} name="Diastolic" connectNulls />
-                                                <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} dot={{ r: 3 }} name="Pulse" connectNulls />
+                                                <Line type="monotone" dataKey="pulse" stroke="#ffc658" strokeWidth={3} dot={{ r: 3 }} name="Pulse" connectNulls /><Line type="linear" dataKey="systolic" stroke="#8884d8" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Systolic" connectNulls />
+                                                <Line type="linear" dataKey="diastolic" stroke="#82ca9d" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Diastolic" connectNulls />
+                                                <Line type="linear" dataKey="pulse" stroke="#ffc658" strokeWidth={4} dot={{ r: 7 }} activeDot={{ r: 9 }} name="Pulse" connectNulls />
                                             </LineChart>
                                         </ResponsiveContainer>
                                     </div>
