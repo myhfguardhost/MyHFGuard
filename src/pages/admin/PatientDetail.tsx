@@ -364,7 +364,14 @@ export default function PatientDetail() {
   const stepsChartData = addSinglePointPadding(stepsChartDataRaw, ["count"]);
   const hrChartData = addSinglePointPadding(hrChartDataRaw, ["min", "avg", "max"]);
   const spo2ChartData = addSinglePointPadding(spo2ChartDataRaw, ["avg"]);
-  const bpChartData = addSinglePointPadding(bpChartDataRaw, ["systolic", "diastolic", "pulse"]);
+  const bpChartData = vitals.bp.filter((r: any) => {
+    return (
+      Number.isFinite(Number(r.systolic)) &&
+      Number.isFinite(Number(r.diastolic)) &&
+      Number(r.systolic) > 0 &&
+      Number(r.diastolic) > 0
+    );
+  });
 
   const hasSteps = stepsChartDataRaw.length > 0;
   const hasHr = hrChartDataRaw.length > 0;
@@ -560,7 +567,10 @@ export default function PatientDetail() {
                 ) : (
                 <div className="h-[360px] w-full min-w-0">
                   <ResponsiveContainer width="100%" height={360}>
-                    <LineChart data={bpChartData} margin={{ top: 20, right: 30, left: 10, bottom: 50 }}>
+                    <LineChart
+                      data={bpChartData}
+                      margin={{ top: 20, right: 30, left: 10, bottom: 50 }}
+                    >
                       <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
 
                       <XAxis
@@ -601,7 +611,7 @@ export default function PatientDetail() {
                         dataKey="systolic"
                         stroke="#dc2626"
                         strokeWidth={6}
-                        dot={{ r: 9, fill: "#dc2626", stroke: "#ffffff", strokeWidth: 2 }}
+                        dot={{ r: 10, fill: "#dc2626", stroke: "#ffffff", strokeWidth: 2 }}
                         activeDot={{ r: 8 }}
                         name="Systolic"
                         connectNulls
@@ -613,7 +623,7 @@ export default function PatientDetail() {
                         dataKey="diastolic"
                         stroke="#2563eb"
                         strokeWidth={6}
-                        dot={{ r: 9, fill: "#2563eb", stroke: "#ffffff", strokeWidth: 2 }}
+                        dot={{ r: 10, fill: "#2563eb", stroke: "#ffffff", strokeWidth: 2 }}
                         activeDot={{ r: 8 }}
                         name="Diastolic"
                         connectNulls
@@ -625,7 +635,7 @@ export default function PatientDetail() {
                         dataKey="pulse"
                         stroke="#f97316"
                         strokeWidth={6}
-                        dot={{ r: 9, fill: "#f97316", stroke: "#ffffff", strokeWidth: 2 }}
+                        dot={{ r: 10, fill: "#f97316", stroke: "#ffffff", strokeWidth: 2 }}
                         activeDot={{ r: 8 }}
                         name="Pulse"
                         connectNulls
