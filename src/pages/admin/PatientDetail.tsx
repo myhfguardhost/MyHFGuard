@@ -18,7 +18,6 @@ import {
   Line,
   BarChart,
   Bar,
-  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -354,18 +353,16 @@ export default function PatientDetail() {
   };
 
   const getBpDomain = () => {
-    const values = bpChartData.flatMap((r: any) =>
-        [r.systolic, r.diastolic, r.pulse].filter(
-        (v) => v !== null && v !== undefined && Number.isFinite(Number(v))
-        )
-    );
+      const values = bpChartData.flatMap((r: any) =>
+        [r.systolic, r.diastolic, r.pulse].filter((v) => v !== null && v !== undefined)
+      );
 
-    if (values.length === 0) return [40, 200];
+      if (values.length === 0) return [40, 180];
 
-    const min = Math.max(30, Math.floor(Math.min(...values) - 10));
-    const max = Math.ceil(Math.max(...values) + 10);
-
-    return [min, max];
+      return [
+        Math.max(30, Math.min(...values) - 10),
+        Math.max(...values) + 10,
+      ];
     };
 
   return (
@@ -535,85 +532,79 @@ export default function PatientDetail() {
                     No blood pressure data available for this period
                   </div>
                 ) : (
-                  <div className="h-[360px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={bpChartData} margin={{ top: 20, right: 35, left: 10, bottom: 45 }}>
-                            <CartesianGrid stroke="#64748b" strokeDasharray="3 3" opacity={0.8} />
+                <div className="h-[360px] w-full min-w-0">
+                  <ResponsiveContainer width="100%" height={360}>
+                    <LineChart data={bpChartData} margin={{ top: 20, right: 30, left: 10, bottom: 50 }}>
+                      <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
 
-                            <XAxis
-                                dataKey="time"
-                                fontSize={12}
-                                tickLine={true}
-                                axisLine={true}
-                                stroke="#0f172a"
-                                tick={{ fill: "#0f172a", fontWeight: 600 }}
-                                angle={-25}
-                                textAnchor="end"
-                                height={60}
-                            />
+                      <XAxis
+                        dataKey="time"
+                        fontSize={12}
+                        tickLine={true}
+                        axisLine={true}
+                        stroke="#0f172a"
+                        tick={{ fill: "#0f172a", fontWeight: 600 }}
+                      />
 
-                            <YAxis
-                                type="number"
-                                domain={getBpDomain()}
-                                fontSize={12}
-                                tickLine={true}
-                                axisLine={true}
-                                stroke="#0f172a"
-                                tick={{ fill: "#0f172a", fontWeight: 600 }}
-                                allowDecimals={false}
-                            />
+                      <YAxis
+                        domain={getBpDomain()}
+                        fontSize={12}
+                        tickLine={true}
+                        axisLine={true}
+                        stroke="#0f172a"
+                        tick={{ fill: "#0f172a", fontWeight: 600 }}
+                        allowDecimals={false}
+                      />
 
-                            <Tooltip
-                                contentStyle={{
-                                backgroundColor: "#ffffff",
-                                border: "1px solid #0f172a",
-                                borderRadius: "8px",
-                                color: "#0f172a",
-                                fontWeight: 600,
-                                }}
-                                labelStyle={{ color: "#0f172a", fontWeight: "bold" }}
-                            />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #0f172a",
+                          color: "#0f172a",
+                        }}
+                        labelStyle={{ color: "#0f172a", fontWeight: "bold" }}
+                      />
 
-                            <Legend wrapperStyle={{ color: "#0f172a", fontWeight: 600 }} />
+                      <Legend />
 
-                            <ReferenceLine y={120} stroke="#dc2626" strokeWidth={3} strokeDasharray="6 6" />
-                            <ReferenceLine y={80} stroke="#475569" strokeWidth={3} strokeDasharray="6 6" />
+                      <ReferenceLine y={120} stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" />
+                      <ReferenceLine y={80} stroke="#64748b" strokeWidth={2} strokeDasharray="5 5" />
 
-                            <Line
-                                type="monotone"
-                                dataKey="systolic"
-                                stroke="#dc2626"
-                                strokeWidth={4}
-                                dot={{ r: 6, fill: "#dc2626", stroke: "#ffffff", strokeWidth: 2 }}
-                                activeDot={{ r: 8 }}
-                                name="Systolic"
-                                connectNulls
-                            />
+                      <Line
+                        type="linear"
+                        dataKey="systolic"
+                        stroke="#dc2626"
+                        strokeWidth={6}
+                        dot={{ r: 9, fill: "#dc2626", stroke: "#ffffff", strokeWidth: 2 }}
+                        activeDot={{ r: 8 }}
+                        name="Systolic"
+                        connectNulls
+                      />
 
-                            <Line
-                                type="monotone"
-                                dataKey="diastolic"
-                                stroke="#2563eb"
-                                strokeWidth={4}
-                                dot={{ r: 6, fill: "#2563eb", stroke: "#ffffff", strokeWidth: 2 }}
-                                activeDot={{ r: 8 }}
-                                name="Diastolic"
-                                connectNulls
-                            />
+                      <Line
+                        type="linear"
+                        dataKey="diastolic"
+                        stroke="#2563eb"
+                        strokeWidth={6}
+                        dot={{ r: 9, fill: "#2563eb", stroke: "#ffffff", strokeWidth: 2 }}
+                        activeDot={{ r: 8 }}
+                        name="Diastolic"
+                        connectNulls
+                      />
 
-                            <Line
-                                type="monotone"
-                                dataKey="pulse"
-                                stroke="#f97316"
-                                strokeWidth={4}
-                                dot={{ r: 6, fill: "#f97316", stroke: "#ffffff", strokeWidth: 2 }}
-                                activeDot={{ r: 8 }}
-                                name="Pulse"
-                                connectNulls
-                            />
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
+                      <Line
+                        type="linear"
+                        dataKey="pulse"
+                        stroke="#f97316"
+                        strokeWidth={6}
+                        dot={{ r: 9, fill: "#f97316", stroke: "#ffffff", strokeWidth: 2 }}
+                        activeDot={{ r: 8 }}
+                        name="Pulse"
+                        connectNulls
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>  
                 )}
               </CardContent>
             </Card>
