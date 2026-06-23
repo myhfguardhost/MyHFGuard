@@ -334,25 +334,15 @@ export default function PatientDetail() {
   }
   if (!profile && !loading) return null;
 
-  const addSinglePointPadding = (data: any[], valueKeys: string[]) => {
+  const addSinglePointPadding = (data: any[]) => {
     if (data.length !== 1) return data;
 
     const item = data[0];
 
     return [
-      {
-        ...item,
-        date: item.date ? `${item.date} Start` : "",
-        time: item.time ? `${item.time} Start` : "",
-        ...Object.fromEntries(valueKeys.map((key) => [key, null])),
-      },
+      { ...item, date: "Before", time: "Before" },
       item,
-      {
-        ...item,
-        date: item.date ? `${item.date} End` : "",
-        time: item.time ? `${item.time} End` : "",
-        ...Object.fromEntries(valueKeys.map((key) => [key, null])),
-      },
+      { ...item, date: "After", time: "After" },
     ];
   };
 
@@ -361,10 +351,10 @@ export default function PatientDetail() {
   const spo2ChartDataRaw = vitals.spo2.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null);
   const bpChartDataRaw = vitals.bp;
 
-  const stepsChartData = addSinglePointPadding(stepsChartDataRaw, ["count"]);
-  const hrChartData = addSinglePointPadding(hrChartDataRaw, ["min", "avg", "max"]);
-  const spo2ChartData = addSinglePointPadding(spo2ChartDataRaw, ["avg"]);
-  const bpChartData = addSinglePointPadding(bpChartDataRaw, ["systolic", "diastolic", "pulse"]);
+  const stepsChartData = addSinglePointPadding(stepsChartDataRaw);
+  const hrChartData = addSinglePointPadding(hrChartDataRaw);
+  const spo2ChartData = addSinglePointPadding(spo2ChartDataRaw);
+  const bpChartData = addSinglePointPadding(bpChartDataRaw);
 
   const hasSteps = stepsChartDataRaw.length > 0;
   const hasHr = hrChartDataRaw.length > 0;
@@ -501,8 +491,8 @@ export default function PatientDetail() {
                     No steps data available for this period
                   </div>
                 ) : (
-                  <div className="h-[360px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div style={{ width: "100%", height: 360, minHeight: 360 }}>
+                    <ResponsiveContainer width="100%" height={360}>
                       <BarChart data={stepsChartData}>
                         <CartesianGrid stroke="#cbd5e1" strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} stroke="#334155" />
@@ -530,8 +520,8 @@ export default function PatientDetail() {
                     No heart rate data available for this period
                   </div>
                 ) : (
-                  <div className="h-[360px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div style={{ width: "100%", height: 360, minHeight: 360 }}>
+                    <ResponsiveContainer width="100%" height={360}>
                       <LineChart data={hrChartData}>
                         <CartesianGrid stroke="#cbd5e1" strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} stroke="#334155" />
@@ -558,7 +548,7 @@ export default function PatientDetail() {
                     No blood pressure data available for this period
                   </div>
                 ) : (
-                <div className="h-[360px] w-full min-w-0">
+                <div style={{ width: "100%", height: 360, minHeight: 360 }}>
                   <ResponsiveContainer width="100%" height={360}>
                     <LineChart data={bpChartData} margin={{ top: 20, right: 30, left: 10, bottom: 50 }}>
                       <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
@@ -648,8 +638,8 @@ export default function PatientDetail() {
                     No SpO2 data available for this period
                   </div>
                 ) : (
-                  <div className="h-[360px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                  <div style={{ width: "100%", height: 360, minHeight: 360 }}>
+                    <ResponsiveContainer width="100%" height="360%">
                       <LineChart data={spo2ChartData}>
                         <CartesianGrid stroke="#cbd5e1" strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} stroke="#334155" />
