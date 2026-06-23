@@ -332,18 +332,44 @@ export default function PatientDetail() {
       </div>
     );
   }
-
   if (!profile && !loading) return null;
 
-  const stepsChartData = vitals.steps.filter((r: any) => r.count !== null && r.count !== undefined);
-  const hrChartData = vitals.hr.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null);
-  const spo2ChartData = vitals.spo2.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null);
-  const bpChartData = vitals.bp;
+  const addSinglePointPadding = (data: any[], valueKeys: string[]) => {
+    if (data.length !== 1) return data;
 
-  const hasSteps = stepsChartData.length > 0;
-  const hasHr = hrChartData.length > 0;
-  const hasSpo2 = spo2ChartData.length > 0;
-  const hasBp = bpChartData.length > 0;
+    const item = data[0];
+
+    return [
+      {
+        ...item,
+        date: item.date ? `${item.date} Start` : "",
+        time: item.time ? `${item.time} Start` : "",
+        ...Object.fromEntries(valueKeys.map((key) => [key, null])),
+      },
+      item,
+      {
+        ...item,
+        date: item.date ? `${item.date} End` : "",
+        time: item.time ? `${item.time} End` : "",
+        ...Object.fromEntries(valueKeys.map((key) => [key, null])),
+      },
+    ];
+  };
+
+  const stepsChartDataRaw = vitals.steps.filter((r: any) => r.count !== null && r.count !== undefined);
+  const hrChartDataRaw = vitals.hr.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null);
+  const spo2ChartDataRaw = vitals.spo2.filter((r: any) => r.avg !== null || r.min !== null || r.max !== null);
+  const bpChartDataRaw = vitals.bp;
+
+  const stepsChartData = addSinglePointPadding(stepsChartDataRaw, ["count"]);
+  const hrChartData = addSinglePointPadding(hrChartDataRaw, ["min", "avg", "max"]);
+  const spo2ChartData = addSinglePointPadding(spo2ChartDataRaw, ["avg"]);
+  const bpChartData = addSinglePointPadding(bpChartDataRaw, ["systolic", "diastolic", "pulse"]);
+
+  const hasSteps = stepsChartDataRaw.length > 0;
+  const hasHr = hrChartDataRaw.length > 0;
+  const hasSpo2 = spo2ChartDataRaw.length > 0;
+  const hasBp = bpChartDataRaw.length > 0;
 
   const strongTooltip = {
     backgroundColor: "#ffffff",
@@ -579,6 +605,7 @@ export default function PatientDetail() {
                         activeDot={{ r: 8 }}
                         name="Systolic"
                         connectNulls
+                        isAnimationActive={false}
                       />
 
                       <Line
@@ -590,6 +617,7 @@ export default function PatientDetail() {
                         activeDot={{ r: 8 }}
                         name="Diastolic"
                         connectNulls
+                        isAnimationActive={false}
                       />
 
                       <Line
@@ -601,6 +629,7 @@ export default function PatientDetail() {
                         activeDot={{ r: 8 }}
                         name="Pulse"
                         connectNulls
+                        isAnimationActive={false}
                       />
                     </LineChart>
                   </ResponsiveContainer>
