@@ -555,21 +555,22 @@ export default function PatientDetail() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="h-[360px] overflow-visible">
               <CardHeader>
                 <CardTitle>Blood Pressure</CardTitle>
               </CardHeader>
-              <CardContent>
+
+              <CardContent className="h-[290px] overflow-visible">
                 {!hasBp ? (
                   <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                     No blood pressure data available for this period
                   </div>
                 ) : (
-                <div className="h-[360px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height={360}>
+                <div className="h-full w-full">
+                  <ResponsiveContainer width="100%" height="100%">
                     <LineChart
                       data={bpChartData}
-                      margin={{ top: 20, right: 30, left: 10, bottom: 50 }}
+                      margin={{ top: 10, right: 30, left: 10, bottom: 20 }}
                     >
                       <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
 

@@ -55,119 +55,101 @@ export default function PatientAdminCharts({ vitals }: Props) {
         date: formatDateLabel(r.time)
     }));
 
-    const bpData = (vitals.bp || []).map(r => ({
-        ...r,
-        timeLabel: formatTimeLabel(r.time)
-    }));
+    const bpData = (vitals.bp || [])
+        .filter(r =>
+            Number(r.systolic) > 0 &&
+            Number(r.diastolic) > 0 &&
+            Number(r.pulse) > 0
+        )
+        .map(r => ({
+            ...r,
+            systolic: Number(r.systolic),
+            diastolic: Number(r.diastolic),
+            pulse: Number(r.pulse),
+            timeLabel: formatTimeLabel(r.time)
+        }));
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             {/* 1. Steps Chart */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Daily Steps</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stepsData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                    labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                    cursor={{ fill: '#f4f4f5' }}
-                                />
-                                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Steps" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
+            <Card className="h-[380px] overflow-visible">
+            <CardHeader className="pb-2">
+                <CardTitle>Daily Steps</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[310px] overflow-visible">
+                <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stepsData} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
+                    <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
+                    <XAxis dataKey="date" stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} />
+                    <YAxis stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#2563eb" radius={[6, 6, 0, 0]} name="Steps" />
+                </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
             </Card>
 
             {/* 2. Heart Rate Chart */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Heart Rate (BPM)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={hrData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis domain={[40, 180]} fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                    labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                />
-                                <Legend />
-                                <Line type="linear" dataKey="max" stroke="#ef4444" strokeWidth={2} dot={false} name="Max" connectNulls />
-                                <Line type="linear" dataKey="avg" stroke="#f97316" strokeWidth={2} dot={false} name="Avg" connectNulls />
-                                <Line type="linear" dataKey="min" stroke="#22c55e" strokeWidth={2} dot={false} name="Min" connectNulls />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
+            <Card className="h-[380px] overflow-visible">
+            <CardHeader className="pb-2">
+                <CardTitle>Heart Rate (BPM)</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[310px] overflow-visible">
+                <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={hrData} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
+                    <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
+                    <XAxis dataKey="date" stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} />
+                    <YAxis domain={["dataMin - 10", "dataMax + 10"]} stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="linear" dataKey="max" stroke="#dc2626" strokeWidth={5} dot={{ r: 7, fill: "#dc2626" }} name="Max" connectNulls />
+                    <Line type="linear" dataKey="avg" stroke="#f97316" strokeWidth={5} dot={{ r: 7, fill: "#f97316" }} name="Avg" connectNulls />
+                    <Line type="linear" dataKey="min" stroke="#16a34a" strokeWidth={5} dot={{ r: 7, fill: "#16a34a" }} name="Min" connectNulls />
+                </LineChart>
+                </ResponsiveContainer>
+            </CardContent>
             </Card>
 
             {/* 3. Blood Pressure Chart */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>Blood Pressure</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {bpData.length === 0 ? (
-                        <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                            No data available for this period
-                        </div>
-                    ) : (
-                        <div className="h-[300px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={bpData}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="timeLabel" fontSize={10} tickLine={false} axisLine={false} angle={-15} textAnchor="end" height={50} />
-                                    <YAxis domain={[40, 200]} fontSize={12} tickLine={false} axisLine={false} />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                        labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                    />
-                                    <Legend verticalAlign="top" />
-                                    <ReferenceLine y={120} label="Sys Limit" stroke="red" strokeDasharray="3 3" />
-                                    <ReferenceLine y={80} label="Dia Limit" stroke="gray" strokeDasharray="3 3" />
-                                    <Line type="linear" dataKey="systolic" stroke="#8884d8" strokeWidth={3} name="Systolic" />
-                                    <Line type="linear" dataKey="diastolic" stroke="#82ca9d" strokeWidth={3} name="Diastolic" />
-                                    <Line type="linear" dataKey="pulse" stroke="#ffc658" strokeWidth={3} name="Pulse" />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    )}
-                </CardContent>
+            <Card className="h-[380px] overflow-visible">
+            <CardHeader className="pb-2">
+                <CardTitle>Blood Pressure</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[310px] overflow-visible">
+                <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={bpData} margin={{ top: 10, right: 35, left: 10, bottom: 25 }}>
+                    <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
+                    <XAxis dataKey="timeLabel" fontSize={11} stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} angle={-15} textAnchor="end" height={55} />
+                    <YAxis domain={["dataMin - 10", "dataMax + 10"]} stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Legend verticalAlign="bottom" height={20} />
+                    <ReferenceLine y={120} stroke="#dc2626" strokeWidth={2} strokeDasharray="5 5" />
+                    <ReferenceLine y={80} stroke="#64748b" strokeWidth={2} strokeDasharray="5 5" />
+                    <Line type="linear" dataKey="systolic" stroke="#dc2626" strokeWidth={5} dot={{ r: 8, fill: "#dc2626" }} name="Systolic" connectNulls />
+                    <Line type="linear" dataKey="diastolic" stroke="#2563eb" strokeWidth={5} dot={{ r: 8, fill: "#2563eb" }} name="Diastolic" connectNulls />
+                    <Line type="linear" dataKey="pulse" stroke="#f97316" strokeWidth={5} dot={{ r: 8, fill: "#f97316" }} name="Pulse" connectNulls />
+                </LineChart>
+                </ResponsiveContainer>
+            </CardContent>
             </Card>
 
             {/* 4. SpO2 Chart */}
-            <Card>
-                <CardHeader>
-                    <CardTitle>SpO2 (%)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="h-[300px] w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={spo2Data}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis domain={[80, 100]} fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                                    labelStyle={{ color: '#1e293b', fontWeight: 'bold', marginBottom: '4px' }}
-                                />
-                                <Line type="linear" dataKey="avg" stroke="#06b6d4" strokeWidth={3} activeDot={{ r: 8 }} name="Avg %" connectNulls />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                </CardContent>
+            <Card className="h-[380px] overflow-visible">
+            <CardHeader className="pb-2">
+                <CardTitle>SpO2 (%)</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[310px] overflow-visible">
+                <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={spo2Data} margin={{ top: 10, right: 30, left: 10, bottom: 25 }}>
+                    <CartesianGrid stroke="#94a3b8" strokeDasharray="3 3" />
+                    <XAxis dataKey="date" stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} />
+                    <YAxis domain={[80, 100]} stroke="#0f172a" tick={{ fill: "#0f172a", fontWeight: 600 }} />
+                    <Tooltip />
+                    <Line type="linear" dataKey="avg" stroke="#0891b2" strokeWidth={5} dot={{ r: 8, fill: "#0891b2" }} activeDot={{ r: 10 }} name="Avg %" connectNulls />
+                </LineChart>
+                </ResponsiveContainer>
+            </CardContent>
             </Card>
         </div>
     );
