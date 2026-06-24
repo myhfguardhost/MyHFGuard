@@ -3,7 +3,6 @@ import { Bell, CircleAlert, Mail, TriangleAlert, ChevronDown, ChevronUp } from "
 
 export default function AdminRecentAlerts({
   alertsToShow,
-  acknowledgeAlert,
   goToPatient,
   sendAlertEmail,
   summary = [],
@@ -81,11 +80,6 @@ export default function AdminRecentAlerts({
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      onClick={() => acknowledgeAlert(alert.id)}
-                      className="px-3 py-1 rounded-md bg-slate-700 text-white text-xs font-semibold hover:bg-slate-800"                    >
-                      Acknowledge
-                    </button>
 
                     <button
                       onClick={() => goToPatient(alert.patientId)}
@@ -96,7 +90,8 @@ export default function AdminRecentAlerts({
 
                     <button
                       onClick={() => sendAlertEmail(alert)}
-                      className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"                    >
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"
+                      >
                       <Mail size={12} />
                       Send Email
                     </button>
