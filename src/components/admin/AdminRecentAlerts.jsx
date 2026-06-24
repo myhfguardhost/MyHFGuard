@@ -83,22 +83,20 @@ export default function AdminRecentAlerts({
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       onClick={() => acknowledgeAlert(alert.id)}
-                      className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
-                    >
+                      className="px-3 py-1 rounded-md bg-slate-700 text-white text-xs font-semibold hover:bg-slate-800"                    >
                       Acknowledge
                     </button>
 
                     <button
                       onClick={() => goToPatient(alert.patientId)}
-                      className="rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-cyan-400"
+                      className="px-3 py-1 rounded-md bg-cyan-500 text-white text-xs font-semibold hover:bg-cyan-400"
                     >
                       View Profile
                     </button>
 
                     <button
                       onClick={() => sendAlertEmail(alert)}
-                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500"
-                    >
+                      className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700"                    >
                       <Mail size={12} />
                       Send Email
                     </button>
