@@ -1442,9 +1442,39 @@ app.get('/patient/summary', async (req, res) => {
   const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (hr.error) return res.status(400).json({ error: hr.error.message })
   const row = (hr.data && hr.data[0]) || null
-  const st = await supabase.from('steps_day').select('date,steps_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
-  if (st.error) return res.status(400).json({ error: st.error.message })
-  const srow = (st.data && st.data[0]) || null
+  const todayMY = toDateWithOffset(new Date().toISOString(), 480)
+
+  let stepsToday = null
+
+  const stToday = await supabase
+    .from('steps_day')
+    .select('date,steps_total')
+    .eq('patient_id', pid)
+    .eq('date', todayMY)
+    .limit(1)
+
+  if (stToday.error) return res.status(400).json({ error: stToday.error.message })
+
+  if (stToday.data && stToday.data.length > 0) {
+    stepsToday = Math.round(Number(stToday.data[0].steps_total || 0))
+  } else {
+    const startMY = `${todayMY}T00:00:00.000Z`
+    const endMY = `${todayMY}T23:59:59.999Z`
+
+    const stHour = await supabase
+      .from('steps_hour')
+      .select('steps_total')
+      .eq('patient_id', pid)
+      .gte('hour_ts', startMY)
+      .lte('hour_ts', endMY)
+
+    if (stHour.error) return res.status(400).json({ error: stHour.error.message })
+
+    stepsToday = (stHour.data || []).reduce(
+      (sum, row) => sum + Number(row.steps_total || 0),
+      0
+    )
+  }
   const dist = await supabase.from('distance_day').select('date,meters_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   const drow = (dist.data && dist.data[0]) || null
   const bp = await supabase.from('bp_readings').select('systolic,diastolic,pulse').eq('patient_id', pid).order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(1)
@@ -1482,7 +1512,7 @@ app.get('/patient/summary', async (req, res) => {
     bpPulse: bpRow ? bpRow.pulse : null,
     weightKg: wRow ? wRow.kg_avg : null,
     nextAppointmentDate: null,
-    stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
+    stepsToday,
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
     lastSyncTs,
   }
