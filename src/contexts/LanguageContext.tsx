@@ -1,13 +1,16 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import i18n from "@/lib/i18n"
 
+
 type Language = "BI" | "BM"
+
 
 type LanguageContextType = {
   language: Language
   setLanguage: (lang: Language) => void
   t: (key: string) => string
 }
+
 
 const translations: Record<Language, Record<string, string>> = {
   BI: {
@@ -31,6 +34,7 @@ const translations: Record<Language, Record<string, string>> = {
     saveProfile: "Save Profile",
     backToDashboard: "Back to Dashboard",
 
+
     // profile
     profileDesc: "Manage your personal details, baseline health data, medication and preferences.",
     baselineLocked: "Baseline Locked",
@@ -49,6 +53,7 @@ const translations: Record<Language, Record<string, string>> = {
     enterIcNumber: "Enter IC number",
     enterCurrentMedication: "Enter current medication...",
     saving: "Saving...",
+
 
     // dashboard
     dashboardWelcome: "Welcome Back",
@@ -71,7 +76,8 @@ const translations: Record<Language, Record<string, string>> = {
     patient: "Patient",
     lastSynced: "Last Synced",
 
-    // exercise 
+
+    // exercise
     exerciseTitle: "My Exercise",
     exerciseDesc: "Track your activity, monitor smart band data and improve safely over time.",
     weeklyGoal: "Weekly Goal",
@@ -115,6 +121,12 @@ const translations: Record<Language, Record<string, string>> = {
     weekOf: "Week of",
     weeklyStepTrend: "Weekly Step Trend",
     notSyncedYet: "not synced yet",
+    goalLoadFailed: "Unable to load weekly goal from Supabase. Please check your connection.",
+    goalSaveFailed: "Unable to save weekly goal. Please check your connection and Supabase table.",
+    goalAlreadySavedInfo: "You can only choose one goal each week. A new goal can be selected next week.",
+    goalAlreadyExistsInSupabase: "This week's goal already exists in Supabase.",
+    alreadySavedThisWeek: "Already Saved This Week",
+
 
     // medication
     medicationReminderDesc: "Medication entered in profile will appear here automatically.",
@@ -150,6 +162,7 @@ const translations: Record<Language, Record<string, string>> = {
     edit: "Edit",
     delete: "Delete",
 
+
     //ai chat
     myChatTitle: "My Chat",
     myChatWelcome: "Hello! I'm your MyHFGuard AI Chat Assistant. I can help answer questions based on your symptoms, reminders, medication and health data.\n\n**Important:** I am not a doctor and cannot diagnose conditions. If you have chest pain, severe breathing difficulty or stroke symptoms, please seek emergency help immediately.\n\nHow can I help you today?",
@@ -175,6 +188,7 @@ const translations: Record<Language, Record<string, string>> = {
     noUpcomingReminder: "No upcoming reminder",
   },
 
+
   BM: {
     dashboard: "Papan Pemuka",
     profile: "Profil",
@@ -196,6 +210,7 @@ const translations: Record<Language, Record<string, string>> = {
     saveProfile: "Simpan Profil",
     backToDashboard: "Kembali ke Papan Pemuka",
 
+
     // profile
     profileDesc: "Urus maklumat peribadi, data kesihatan asas, ubat dan keutamaan anda.",
     baselineLocked: "Asas Dikunci",
@@ -214,6 +229,7 @@ const translations: Record<Language, Record<string, string>> = {
     enterIcNumber: "Masukkan nombor IC",
     enterCurrentMedication: "Masukkan ubat semasa...",
     saving: "Menyimpan...",
+
 
     // dashboard
     dashboardWelcome: "Selamat Kembali",
@@ -235,6 +251,7 @@ const translations: Record<Language, Record<string, string>> = {
     myChatDesc: "Berbual dengan pembantu AI untuk sokongan, panduan dan soalan kesihatan jantung.",
     patient: "Pesakit",
     lastSynced: "Terakhir Disegerakkan",
+
 
     // exercise
     exerciseTitle: "Senaman Saya",
@@ -277,6 +294,12 @@ const translations: Record<Language, Record<string, string>> = {
     exerciseRecommendationReached: "Syabas. Anda telah mencapai sasaran hari ini.",
     exerciseRecommendationGood: "Anda menunjukkan kemajuan yang baik. Tingkatkan secara beransur-ansur.",
     exerciseRecommendationSlow: "Lakukan perlahan-lahan dan kekal konsisten.",
+    goalLoadFailed: "Tidak dapat memuatkan matlamat mingguan daripada Supabase. Sila periksa sambungan anda.",
+    goalSaveFailed: "Tidak dapat menyimpan matlamat mingguan. Sila periksa sambungan dan jadual Supabase.",
+    goalAlreadySavedInfo: "Anda hanya boleh memilih satu matlamat setiap minggu. Matlamat baharu boleh dipilih minggu depan.",
+    goalAlreadyExistsInSupabase: "Matlamat minggu ini telah wujud di Supabase.",
+    alreadySavedThisWeek: "Telah Disimpan Minggu Ini",
+
 
     //medication
     medicationReminderDesc: "Ubat yang dimasukkan dalam profil akan dipaparkan di sini secara automatik.",
@@ -315,6 +338,7 @@ const translations: Record<Language, Record<string, string>> = {
     weeklyStepTrend: "Trend Langkah Mingguan",
     notSyncedYet: "belum disegerakkan",
 
+
     //ai chat
     myChatTitle: "Sembang Saya",
     myChatWelcome: "Hai! Saya pembantu AI MyHFGuard anda. Saya boleh membantu menjawab soalan berdasarkan simptom, peringatan, ubat dan data kesihatan anda.\n\n**Penting:** Saya bukan doktor dan tidak boleh membuat diagnosis. Jika anda mengalami sakit dada, kesukaran bernafas yang teruk, atau simptom strok, sila dapatkan bantuan kecemasan segera.\n\nBagaimana saya boleh membantu anda hari ini?",
@@ -341,10 +365,13 @@ const translations: Record<Language, Record<string, string>> = {
   },
 }
 
+
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
+
 
 export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
   const [language, setLanguageState] = useState<Language>("BI")
+
 
   useEffect(() => {
     const saved = localStorage.getItem("appLanguage") as Language | null
@@ -355,9 +382,11 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
       setLanguageState(langFromI18n)
     }
 
+
     const handleSync = () => {
       setLanguageState(i18n.language === "ms" ? "BM" : "BI")
     }
+
 
     window.addEventListener("app-language-sync", handleSync)
     i18n.on("languageChanged", handleSync)
@@ -367,6 +396,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     }
   }, [])
 
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang)
     localStorage.setItem("appLanguage", lang)
@@ -375,9 +405,11 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     i18n.changeLanguage(i18nLang)
   }
 
+
   const t = (key: string) => {
     return translations[language][key] || key
   }
+
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>
@@ -385,6 +417,7 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
     </LanguageContext.Provider>
   )
 }
+
 
 export const useLanguage = () => {
   const context = useContext(LanguageContext)

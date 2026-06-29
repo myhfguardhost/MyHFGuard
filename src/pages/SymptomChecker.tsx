@@ -18,12 +18,14 @@ import { toast } from "sonner"
 import Markdown from "react-markdown"
 import { useLanguage } from "@/contexts/LanguageContext"
 
+
 type Message = {
   id: string
   role: "user" | "assistant"
   content: string
   timestamp: string
 }
+
 
 type PatientSummary = {
   full_name?: string | null
@@ -38,11 +40,14 @@ type PatientSummary = {
   latest_bp_date?: string | null
 }
 
+
 export default function SymptomChecker() {
   const { t } = useLanguage()
 
+
   const getText = (key: string, fallback: string) =>
     t(key) !== key ? t(key) : fallback
+
 
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
@@ -51,11 +56,13 @@ export default function SymptomChecker() {
   const [patientSummary, setPatientSummary] = useState<PatientSummary | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+
   useEffect(() => {
     async function init() {
       const { data } = await supabase.auth.getSession()
       const userId = data?.session?.user?.id
       if (!userId) return
+
 
       const { data: patientData } = await supabase
         .from("patients")
@@ -63,7 +70,9 @@ export default function SymptomChecker() {
         .eq("patient_id", userId)
         .maybeSingle()
 
+
       setPatientId(patientData?.patient_id || userId)
+
 
       const { data: profileData } = await supabase
         .from("profiles")
@@ -71,7 +80,9 @@ export default function SymptomChecker() {
         .eq("user_id", userId)
         .maybeSingle()
 
+
       const effectivePatientId = patientData?.patient_id || userId
+
 
       const [{ data: latestWeight }, { data: latestBp }] = await Promise.all([
         supabase
@@ -91,10 +102,12 @@ export default function SymptomChecker() {
           .maybeSingle(),
       ])
 
+
       const dryWeight = Number(profileData?.dry_weight)
       const latestWeightValue = Number(
         latestWeight?.kg_avg ?? latestWeight?.kg_max ?? latestWeight?.kg_min
       )
+
 
       if (profileData) {
         setPatientSummary({
@@ -114,6 +127,7 @@ export default function SymptomChecker() {
         })
       }
 
+
       setMessages([
         {
           id: "1",
@@ -126,6 +140,7 @@ export default function SymptomChecker() {
         },
       ])
 
+
       try {
         const res = await fetch(`${serverUrl()}/health`)
         if (!res.ok) throw new Error(String(res.status))
@@ -136,8 +151,10 @@ export default function SymptomChecker() {
       }
     }
 
+
     init()
   }, [])
+
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -145,8 +162,10 @@ export default function SymptomChecker() {
     }
   }, [messages])
 
+
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
+
 
     if (!input.trim() || !patientId || loading) {
       if (!patientId) {
@@ -155,6 +174,7 @@ export default function SymptomChecker() {
       return
     }
 
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -162,9 +182,11 @@ export default function SymptomChecker() {
       timestamp: new Date().toISOString(),
     }
 
+
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setLoading(true)
+
 
     try {
       const res = await fetch(`${serverUrl()}/api/chat/symptoms`, {
@@ -177,7 +199,9 @@ export default function SymptomChecker() {
         }),
       })
 
+
       let data: any = null
+
 
       try {
         data = await res.json()
@@ -185,14 +209,17 @@ export default function SymptomChecker() {
         data = null
       }
 
+
       if (!res.ok) {
         const errMsg =
           data?.details ||
           data?.error ||
           `AI request failed: ${res.status}`
 
+
         throw new Error(errMsg)
       }
+
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -208,10 +235,12 @@ export default function SymptomChecker() {
         timestamp: data?.timestamp || new Date().toISOString(),
       }
 
+
       setMessages((prev) => [...prev, assistantMessage])
     } catch (err: any) {
       console.error("[My Chat] AI failed:", err)
       toast.error("AI is currently busy. Please try again shortly.")
+
 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -221,11 +250,13 @@ export default function SymptomChecker() {
         timestamp: new Date().toISOString(),
       }
 
+
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setLoading(false)
     }
   }
+
 
   const suggestedQuestions = [
     getText("chatPromptVitals", "What do my recent vitals indicate?"),
@@ -234,14 +265,17 @@ export default function SymptomChecker() {
     getText("chatPromptDoctor", "What signs mean I should call my doctor?"),
   ]
 
+
   const meds =
     patientSummary?.current_medication
       ?.split(/\n|;/)
       .map((m) => m.trim())
       .filter(Boolean) || []
 
+
   const formatKg = (value?: number | null) =>
     typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(1)}kg` : "-"
+
 
   const formatWeightChange = (value?: number | null) => {
     if (typeof value !== "number" || !Number.isFinite(value)) return "-"
@@ -249,10 +283,12 @@ export default function SymptomChecker() {
     return `${sign}${value.toFixed(1)}kg from baseline`
   }
 
+
   const latestBp =
     patientSummary?.latest_systolic && patientSummary?.latest_diastolic
       ? `${patientSummary.latest_systolic}/${patientSummary.latest_diastolic}`
       : "-"
+
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6 h-screen flex flex-col">
@@ -269,8 +305,9 @@ export default function SymptomChecker() {
         </p>
       </div>
 
+
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 flex-1 min-h-0">
-        <Card className="min-h-0 shadow-md">
+        <Card className="min-h-0 overflow-hidden shadow-md">
           <CardHeader>
             <CardTitle>{getText("patientSummary", "Patient Summary")}</CardTitle>
             <CardDescription>
@@ -278,7 +315,8 @@ export default function SymptomChecker() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-4">
+
+          <CardContent className="space-y-4 overflow-y-auto pb-4">
             <div className="border p-3 rounded-xl">
               <p className="font-medium mb-2">{getText("basicInfo", "Basic Info")}</p>
               <div className="space-y-1 text-sm">
@@ -298,6 +336,7 @@ export default function SymptomChecker() {
                 </p>
               </div>
             </div>
+
 
             <div className="border p-3 rounded-xl">
               <p className="font-medium flex gap-2 items-center mb-2">
@@ -324,16 +363,21 @@ export default function SymptomChecker() {
               </div>
             </div>
 
-            <div className="border p-3 rounded-xl">
+
+            <div className="border p-3 rounded-xl overflow-hidden">
               <p className="font-medium flex gap-2 items-center mb-2">
-                <Pill className="w-4 h-4" />
+                <Pill className="w-4 h-4 shrink-0" />
                 {getText("medicationReminder", "Medication Reminder")}
               </p>
 
+
               {meds.length > 0 ? (
-                <div className="space-y-2">
+                <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
                   {meds.map((m, i) => (
-                    <div key={i} className="text-sm rounded-lg bg-muted/40 px-3 py-2">
+                    <div
+                      key={i}
+                      className="text-sm rounded-lg bg-muted/40 px-3 py-2 break-words"
+                    >
                       {m}
                     </div>
                   ))}
@@ -347,6 +391,7 @@ export default function SymptomChecker() {
           </CardContent>
         </Card>
 
+
         <Card className="flex flex-col min-h-0 overflow-hidden shadow-md">
           <CardHeader>
             <CardTitle>{getText("chatWithAssistant", "Chat with AI Assistant")}</CardTitle>
@@ -357,6 +402,7 @@ export default function SymptomChecker() {
               )}
             </CardDescription>
           </CardHeader>
+
 
           <CardContent className="flex-1 flex flex-col p-0 min-h-0 overflow-hidden">
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -370,6 +416,7 @@ export default function SymptomChecker() {
                       <Bot className="w-5 h-5 text-primary" />
                     </div>
                   )}
+
 
                   <div
                     className={`relative max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm shadow-sm ${
@@ -395,6 +442,7 @@ export default function SymptomChecker() {
                     </p>
                   </div>
 
+
                   {m.role === "user" && (
                     <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 mt-1">
                       <User className="w-5 h-5 text-primary-foreground" />
@@ -402,6 +450,7 @@ export default function SymptomChecker() {
                   )}
                 </div>
               ))}
+
 
               {loading && (
                 <div className="flex gap-3 justify-start w-full animate-pulse">
@@ -418,11 +467,13 @@ export default function SymptomChecker() {
               )}
             </div>
 
+
             {messages.length === 1 && (
               <div className="p-3 border-t">
                 <p className="text-xs mb-2">
                   {getText("suggestedQuestions", "Suggested Questions")}
                 </p>
+
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {suggestedQuestions.map((q, i) => (
@@ -439,6 +490,7 @@ export default function SymptomChecker() {
               </div>
             )}
 
+
             <div className="px-4 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-t border-b border-amber-100 dark:border-amber-900/50 flex justify-center">
               <div className="flex items-center gap-1.5 text-center">
                 <AlertCircle className="w-3 h-3 text-amber-600 dark:text-amber-500 flex-shrink-0" />
@@ -450,6 +502,7 @@ export default function SymptomChecker() {
                 </p>
               </div>
             </div>
+
 
             <form onSubmit={handleSend} className="p-3 border-t flex gap-2">
               <Input
