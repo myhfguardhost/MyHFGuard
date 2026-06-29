@@ -310,7 +310,7 @@ export default function AdminReports() {
               title="Analytics & Reports"
               subtitle="Real patient health data, alerts, vitals and exportable reports."
               onRefresh={fetchReports}
-              onMenuClick={() => setSidebarOpen(true)}
+              onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
             />
 

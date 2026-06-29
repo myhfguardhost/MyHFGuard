@@ -228,7 +228,7 @@ export default function AdminAlerts() {
               title="Alert Center"
               subtitle="Review latest warning and critical patient alerts."
               onRefresh={fetchAlerts}
-              onMenuClick={() => setSidebarOpen(true)}
+              onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
             />
 

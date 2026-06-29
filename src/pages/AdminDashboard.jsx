@@ -434,7 +434,7 @@ export default function AdminDashboard() {
                 exportPDF={exportPDF}
                 exportExcel={exportExcel}
                 onRefresh={fetchAll}
-                onMenuClick={() => setSidebarOpen(true)}
+                onMenuClick={() => setSidebarOpen((prev) => !prev)}
               />
 
 

@@ -90,7 +90,7 @@ export default function AdminSettings() {
             <AdminTopBar
               title="Account Settings"
               subtitle="Manage admin profile, alerts, security and system information."
-              onMenuClick={() => setSidebarOpen(true)}
+              onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
               showRefresh={false}
             />
