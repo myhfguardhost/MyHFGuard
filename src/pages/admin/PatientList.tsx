@@ -77,7 +77,7 @@ export default function PatientList() {
               title="Patient List"
               subtitle="View registered patients and open their health records."
               onRefresh={fetchPatients}
-              onMenuClick={() => setSidebarOpen((prev) => !prev)}
+              onMenuClick={() => setSidebarOpen(true)}
               showExport={false}
             />
 
@@ -207,3 +207,4 @@ export default function PatientList() {
     </div>
   );
 }
+

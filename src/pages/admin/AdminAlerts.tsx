@@ -228,7 +228,7 @@ export default function AdminAlerts() {
               title="Alert Center"
               subtitle="Review latest warning and critical patient alerts."
               onRefresh={fetchAlerts}
-              onMenuClick={() => setSidebarOpen((prev) => !prev)}
+              onMenuClick={() => setSidebarOpen(true)}
               showExport={false}
             />
 
@@ -374,3 +374,4 @@ export default function AdminAlerts() {
     </div>
   );
 }
+

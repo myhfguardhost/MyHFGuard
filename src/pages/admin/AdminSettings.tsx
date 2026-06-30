@@ -90,7 +90,7 @@ export default function AdminSettings() {
             <AdminTopBar
               title="Account Settings"
               subtitle="Manage admin profile, alerts, security and system information."
-              onMenuClick={() => setSidebarOpen((prev) => !prev)}
+              onMenuClick={() => setSidebarOpen(true)}
               showExport={false}
               showRefresh={false}
             />
@@ -304,3 +304,4 @@ function InfoRow({ label, value }: any) {
     </div>
   );
 }
+

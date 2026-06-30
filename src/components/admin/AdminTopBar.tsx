@@ -1,3 +1,4 @@
+import { Dispatch, SetStateAction } from "react";
 import {
   Download,
   FileSpreadsheet,
@@ -6,6 +7,21 @@ import {
   RefreshCw,
 } from "lucide-react";
 import logo from "@/assets/loginlogo.jpg";
+
+
+type AdminTopBarProps = {
+  title?: string;
+  subtitle?: string;
+  showExportBox?: boolean;
+  setShowExportBox?: Dispatch<SetStateAction<boolean>>;
+  exportPDF?: () => void;
+  exportExcel?: () => void;
+  onRefresh?: () => void;
+  onMenuClick?: () => void;
+  showExport?: boolean;
+  showRefresh?: boolean;
+};
+
 
 export default function AdminTopBar({
   title = "Dashboard",
@@ -18,7 +34,7 @@ export default function AdminTopBar({
   onMenuClick,
   showExport = true,
   showRefresh = true,
-}) {
+}: AdminTopBarProps) {
   return (
     <header className="mb-5 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-slate-900 shadow-sm sm:px-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -29,6 +45,7 @@ export default function AdminTopBar({
             className="h-12 w-12 shrink-0 rounded-xl object-cover shadow-sm"
           />
 
+
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold text-slate-900 sm:text-3xl">
               {title}
@@ -38,6 +55,7 @@ export default function AdminTopBar({
             </p>
           </div>
         </div>
+
 
         <div className="relative flex flex-wrap items-center justify-end gap-2">
           {showRefresh && onRefresh && (
@@ -51,6 +69,7 @@ export default function AdminTopBar({
             </button>
           )}
 
+
           {showExport && setShowExportBox && (
             <button
               type="button"
@@ -62,14 +81,16 @@ export default function AdminTopBar({
             </button>
           )}
 
+
           <button
             type="button"
             onClick={onMenuClick}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50"
-            aria-label="Toggle admin menu"
+            aria-label="Open admin menu"
           >
             <Menu size={21} />
           </button>
+
 
           {showExport && showExportBox && (
             <div className="absolute right-0 top-12 z-20 w-64 rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-2xl">
@@ -77,6 +98,7 @@ export default function AdminTopBar({
               <p className="mb-3 text-sm text-slate-500">
                 Choose export format
               </p>
+
 
               <div className="space-y-2">
                 <button
@@ -87,6 +109,7 @@ export default function AdminTopBar({
                   <FileText size={16} />
                   Download as PDF
                 </button>
+
 
                 <button
                   type="button"
@@ -104,3 +127,4 @@ export default function AdminTopBar({
     </header>
   );
 }
+

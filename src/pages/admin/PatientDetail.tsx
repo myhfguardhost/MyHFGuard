@@ -337,7 +337,7 @@ export default function PatientDetail() {
             <AdminTopBar
               title="Patient Details"
               subtitle="View patient health charts, vitals and raw data logs."
-              onMenuClick={() => setSidebarOpen((prev) => !prev)}
+              onMenuClick={() => setSidebarOpen(true)}
               onRefresh={refreshPatient}
               showExport={false}
             />
@@ -924,3 +924,4 @@ export default function PatientDetail() {
     </div>
   );
 }
+

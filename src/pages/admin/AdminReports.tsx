@@ -310,7 +310,7 @@ export default function AdminReports() {
               title="Analytics & Reports"
               subtitle="Real patient health data, alerts, vitals and exportable reports."
               onRefresh={fetchReports}
-              onMenuClick={() => setSidebarOpen((prev) => !prev)}
+              onMenuClick={() => setSidebarOpen(true)}
               showExport={false}
             />
 
@@ -685,3 +685,4 @@ function getWeeklySpo2(summary: any[]) {
     dailyCounts[index] ? Math.round(total / dailyCounts[index]) : 0
   );
 }
+
