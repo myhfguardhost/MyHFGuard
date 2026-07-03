@@ -371,8 +371,6 @@ export default function PatientDetail() {
         .map((name: string, index: number) => ({ id: `profile-med-${index}`, name, schedule: "Saved in patient profile", active: true }))
     : [];
   const medicationRows = hasRows(medications) ? medications : fallbackMedicationRows;
-  const reminders = fullData?.logs?.reminders || [];
-  const devices = fullData?.devices || [];
   const deviceSync = fullData?.deviceSync || [];
   const errors = fullData?.errors || {};
   const latestSync = summary.lastSyncTs || deviceSync[0]?.last_sync_ts || deviceSync[0]?.updated_at;
@@ -782,50 +780,6 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Reminders / Appointments</CardTitle></CardHeader>
-                      <CardContent>
-                        {!hasRows(reminders) ? <MiniEmpty /> : (
-                          <Table>
-                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Title</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                            <TableBody>{reminders.map((row: any, index: number) => (
-                              <TableRow key={row.id || index}>
-                                <TableCell>{formatFullDateTime(row.due_ts || row.date || row.reminder_date)}</TableCell>
-                                <TableCell>{row.title || row.type || "-"}</TableCell>
-                                <TableCell>{row.status || row.notes || "-"}</TableCell>
-                              </TableRow>
-                            ))}</TableBody>
-                          </Table>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm xl:col-span-2">
-                      <CardHeader><CardTitle className="text-slate-900">Connected Devices and Sync Status</CardTitle></CardHeader>
-                      <CardContent>
-                        {!hasRows(devices) && !hasRows(deviceSync) ? <MiniEmpty /> : (
-                          <Table>
-                            <TableHeader><TableRow><TableHead>Device</TableHead><TableHead>Model / Platform</TableHead><TableHead>Last Sync</TableHead></TableRow></TableHeader>
-                            <TableBody>
-                              {devices.map((row: any, index: number) => (
-                                <TableRow key={`device-${row.device_id || index}`}>
-                                  <TableCell className="break-all">{row.device_id || row.id || "-"}</TableCell>
-                                  <TableCell>{row.model || row.platform || row.device_type || "-"}</TableCell>
-                                  <TableCell>{formatFullDateTime(row.last_sync_ts || row.updated_at || row.created_at)}</TableCell>
-                                </TableRow>
-                              ))}
-                              {deviceSync.map((row: any, index: number) => (
-                                <TableRow key={`sync-${row.device_id || index}`}>
-                                  <TableCell className="break-all">{row.device_id || "device_sync_status"}</TableCell>
-                                  <TableCell>Sync status</TableCell>
-                                  <TableCell>{formatFullDateTime(row.last_sync_ts || row.updated_at)}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        )}
-                      </CardContent>
-                    </Card>
                   </div>
                 </div>
 
