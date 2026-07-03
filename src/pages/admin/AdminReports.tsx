@@ -419,20 +419,47 @@ export default function AdminReports() {
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
-                      <h2 className="mb-4 font-bold text-slate-900">Patient Alert Distribution</h2>
-
-                      <div className="space-y-4">
-                        <Bar label="Blood Pressure Alerts" value={alertData.bp} total={reportData.totalPatients} />
-                        <Bar label="Weight Alerts" value={alertData.weight} total={reportData.totalPatients} />
-                        <Bar label="SpO₂ Alerts" value={alertData.spo2} total={reportData.totalPatients} />
-                        <Bar label="Symptom Alerts" value={alertData.symptoms} total={reportData.totalPatients} />
-                        <Bar label="Step Alerts" value={alertData.steps} total={reportData.totalPatients} />
-                        <Bar label="Missing Log Alerts" value={alertData.missingLogs} total={reportData.totalPatients} />
-                      </div>
-
-                      <p className="mt-4 text-sm text-slate-500">
-                        This chart shows how many patients triggered each alert category.
+                      <h2 className="mb-1 font-bold text-slate-900">Patient Alert Distribution</h2>
+                      <p className="mb-4 text-sm text-slate-500">
+                        Number of patients triggered by each alert category.
                       </p>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {[
+                          ["Blood Pressure", alertData.bp, "BP"],
+                          ["Weight", alertData.weight, "KG"],
+                          ["SpO₂", alertData.spo2, "O₂"],
+                          ["Symptoms", alertData.symptoms, "SYM"],
+                          ["Steps", alertData.steps, "STEP"],
+                          ["Missing Logs", alertData.missingLogs, "MISS"],
+                        ].map(([label, value, tag]) => (
+                          <div
+                            key={label}
+                            className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                          >
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="text-xs font-bold text-slate-500">{tag}</span>
+                              <span className="text-2xl font-bold text-blue-600">{value}</span>
+                            </div>
+
+                            <p className="text-sm font-semibold text-slate-800">{label} Alerts</p>
+
+                            <div className="mt-3 h-2 rounded-full bg-slate-200">
+                              <div
+                                className="h-2 rounded-full bg-blue-500"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    reportData.totalPatients > 0
+                                      ? (Number(value) / reportData.totalPatients) * 100
+                                      : 0
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
