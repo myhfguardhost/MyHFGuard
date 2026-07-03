@@ -96,7 +96,6 @@ const SelfCheck = () => {
   )
 
   const [dryWeight, setDryWeight] = useState<number | null>(null)
-  const [trendPatientId, setTrendPatientId] = useState<string | undefined>(undefined)
 
   const [weightKg, setWeightKg] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
@@ -110,7 +109,7 @@ const SelfCheck = () => {
     has_bp: false,
     has_symptoms: false,
   })
-  const [weeklyStatus, setWeeklyStatus] = useState<Record<string, { has_weight: boolean; has_symptoms: boolean; has_bp?: boolean; has_water_diet?: boolean }>>(
+  const [weeklyStatus, setWeeklyStatus] = useState<Record<string, { has_weight: boolean; has_symptoms: boolean }>>(
     {}
   )
 
@@ -224,34 +223,6 @@ const SelfCheck = () => {
 
 
   useEffect(() => {
-    if (!patientId) {
-      setTrendPatientId(undefined)
-      return
-    }
-
-    let mounted = true
-
-    async function resolveTrendPatientId() {
-      const { data: mapped } = await supabase
-        .from("user_map")
-        .select("patient_id")
-        .eq("user_id", patientId)
-        .maybeSingle()
-
-      if (mounted) {
-        setTrendPatientId(mapped?.patient_id || patientId)
-      }
-    }
-
-    resolveTrendPatientId()
-
-    return () => {
-      mounted = false
-    }
-  }, [patientId])
-
-
-  useEffect(() => {
     if (!patientId) return
 
 
@@ -268,9 +239,9 @@ const SelfCheck = () => {
 
 
   useEffect(() => {
-    if (!trendPatientId) return
+    if (!patientId) return
     fetchWeeklyTrend()
-  }, [trendPatientId, selectedDate, submitting])
+  }, [patientId, selectedDate, submitting])
 
 
   useEffect(() => {
@@ -304,7 +275,7 @@ const SelfCheck = () => {
 
 
   async function fetchWeeklyTrend() {
-    if (!trendPatientId) return
+    if (!patientId) return
 
     const endDate = selectedDate
     const startDate = subDays(endDate, 6)
@@ -350,7 +321,7 @@ const SelfCheck = () => {
       const { data: weightRows } = await supabase
         .from("weight_day")
         .select("date, kg_avg, kg_min, kg_max")
-        .eq("patient_id", trendPatientId)
+        .eq("patient_id", patientId)
         .gte("date", startStr)
         .lte("date", endStr)
         .order("date", { ascending: true })
@@ -367,7 +338,7 @@ const SelfCheck = () => {
       const { data: bpRows } = await supabase
         .from("bp_readings")
         .select("reading_date, reading_time, systolic, diastolic, pulse")
-        .eq("patient_id", trendPatientId)
+        .eq("patient_id", patientId)
         .gte("reading_date", startStr)
         .lte("reading_date", endStr)
         .order("reading_date", { ascending: true })
@@ -386,7 +357,7 @@ const SelfCheck = () => {
       const { data: symptomRows, error } = await supabase
         .from("symptom_log")
         .select("date, cough, sob_activity, leg_swelling, abd_discomfort, orthopnea")
-        .eq("patient_id", trendPatientId)
+        .eq("patient_id", patientId)
         .gte("date", startStr)
         .lte("date", endStr)
         .order("date", { ascending: true })
@@ -1084,22 +1055,20 @@ const SelfCheck = () => {
                           <Legend />
                           <Line
                             type="monotone"
+                            dataKey="weight"
+                            name={t("selfCheck.weeklyTrend.weightKg")}
+                            stroke="#2563eb"
+                            strokeWidth={2}
+                            connectNulls
+                          />
+                          <Line
+                            type="monotone"
                             dataKey="dryWeight"
                             name={t("selfCheck.weeklyTrend.originalDryWeight")}
                             stroke="#64748b"
                             strokeWidth={2}
                             strokeDasharray="6 6"
                             dot={false}
-                            connectNulls
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="weight"
-                            name={t("selfCheck.weeklyTrend.weightKg")}
-                            stroke="#2563eb"
-                            strokeWidth={3}
-                            dot={{ r: 5 }}
-                            activeDot={{ r: 7 }}
                             connectNulls
                           />
                         </LineChart>
@@ -1167,7 +1136,7 @@ const SelfCheck = () => {
                         <LineChart data={weeklyTrend}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="day" />
-                          <YAxis domain={[-1, 25]} ticks={[0, 5, 10, 15, 20, 25]} />
+                          <YAxis domain={[0, 25]} />
                           <Tooltip />
                           <Legend />
 
@@ -1180,9 +1149,7 @@ const SelfCheck = () => {
                             dataKey="symptomScore"
                             name={t("selfCheck.weeklyTrend.symptomScore")}
                             stroke="#9333ea"
-                            strokeWidth={3}
-                            dot={{ r: 5 }}
-                            activeDot={{ r: 7 }}
+                            strokeWidth={2}
                             connectNulls
                           />
                         </LineChart>
