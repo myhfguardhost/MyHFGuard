@@ -633,7 +633,7 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm xl:col-span-2">
+                    <Card className="overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
                       <CardHeader><CardTitle className="text-slate-900">Weight Trend</CardTitle></CardHeader>
                       <CardContent>
                         {!hasWeightData(vitals.weight) ? (
