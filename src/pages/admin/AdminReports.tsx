@@ -247,7 +247,6 @@ export default function AdminReports() {
       return {
         "Patient ID": item.patientId,
         Name: getName(patient, item.patientId),
-        "Heart Rate": s.heartRate ?? "",
         "SpO2": s.spo2 ?? "",
         "BP Systolic": s.bpSystolic ?? "",
         "BP Diastolic": s.bpDiastolic ?? "",
@@ -257,9 +256,6 @@ export default function AdminReports() {
         "Water Intake (ml)": valueOf(latestWaterSalt, ["water_intake_ml", "water_intake"]) ?? "",
         "Salt Score": valueOf(latestWaterSalt, ["salt_score", "salt_intake"]) ?? "",
         "Symptom Score": latestSymptomScore(logs.symptoms || []),
-        "Medication Count": (logs.medications || []).length,
-        "Reminder / Appointment Count": (logs.reminders || []).length,
-        "Device Count": (item.fullData?.devices || []).length,
         "Last Sync": s.lastSyncTs ?? "",
         Status: item.status,
         "Primary Alert": item.alerts?.[0]?.title || "",
@@ -420,21 +416,17 @@ export default function AdminReports() {
                   <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
                     <h2 className="mb-4 font-bold text-slate-900">Complete Patient Report Table</h2>
                     <div className="overflow-x-auto rounded-xl border border-slate-200">
-                      <table className="min-w-[1250px] w-full text-sm text-slate-900">
+                      <table className="min-w-[950px] w-full text-sm text-slate-900">
                         <thead className="bg-slate-100 text-slate-700">
                           <tr>
                             <th className="px-4 py-3 text-left font-semibold">Patient ID</th>
                             <th className="px-4 py-3 text-left font-semibold">Name</th>
                             <th className="px-4 py-3 text-left font-semibold">SpO₂</th>
-                            <th className="px-4 py-3 text-left font-semibold">Heart Rate</th>
                             <th className="px-4 py-3 text-left font-semibold">BP</th>
                             <th className="px-4 py-3 text-left font-semibold">Steps</th>
                             <th className="px-4 py-3 text-left font-semibold">Weight</th>
                             <th className="px-4 py-3 text-left font-semibold">Water/Salt</th>
                             <th className="px-4 py-3 text-left font-semibold">Symptoms</th>
-                            <th className="px-4 py-3 text-left font-semibold">Med</th>
-                            <th className="px-4 py-3 text-left font-semibold">Reminder</th>
-                            <th className="px-4 py-3 text-left font-semibold">Devices</th>
                             <th className="px-4 py-3 text-left font-semibold">Status</th>
                           </tr>
                         </thead>
@@ -442,7 +434,7 @@ export default function AdminReports() {
                         <tbody className="bg-white text-slate-800">
                           {summary.length === 0 ? (
                             <tr>
-                              <td colSpan={13} className="px-4 py-8 text-center text-slate-500">
+                              <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
                                 No report data found.
                               </td>
                             </tr>
@@ -460,15 +452,11 @@ export default function AdminReports() {
                                   <td className="break-all px-4 py-3 text-slate-700">{item.patientId}</td>
                                   <td className="px-4 py-3 font-medium text-slate-900">{getName(patient, item.patientId)}</td>
                                   <td className="px-4 py-3 text-slate-700">{s.spo2 ? `${s.spo2}%` : "-"}</td>
-                                  <td className="px-4 py-3 text-slate-700">{s.heartRate ? `${s.heartRate} bpm` : "-"}</td>
                                   <td className="px-4 py-3 text-slate-700">{s.bpSystolic && s.bpDiastolic ? `${s.bpSystolic}/${s.bpDiastolic}` : "-"}</td>
                                   <td className="px-4 py-3 text-slate-700">{s.stepsToday ?? s.latestSteps ?? "-"}</td>
                                   <td className="px-4 py-3 text-slate-700">{s.weightKg ? `${s.weightKg} kg` : "-"}</td>
                                   <td className="px-4 py-3 text-slate-700">{water ? `${water} ml` : "-"}{salt ? ` / Salt ${salt}` : ""}</td>
                                   <td className="px-4 py-3 text-slate-700">{latestSymptomScore(logs.symptoms || [])}</td>
-                                  <td className="px-4 py-3 text-slate-700">{(logs.medications || []).length}</td>
-                                  <td className="px-4 py-3 text-slate-700">{(logs.reminders || []).length}</td>
-                                  <td className="px-4 py-3 text-slate-700">{(item.fullData?.devices || []).length}</td>
                                   <td className="px-4 py-3"><StatusBadge status={item.status} /></td>
                                 </tr>
                               );
