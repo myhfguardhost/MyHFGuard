@@ -77,7 +77,7 @@ export default function PatientList() {
               title="Patient List"
               subtitle="View registered patients and open their health records."
               onRefresh={fetchPatients}
-              onMenuClick={() => setSidebarOpen(true)}
+              onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
             />
 

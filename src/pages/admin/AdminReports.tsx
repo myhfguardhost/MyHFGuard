@@ -83,7 +83,7 @@ export default function AdminReports() {
 
 
               fetch(
-                `${API}/patient/vitals?patientId=${patientId}&period=weekly`
+                `${API}/patient/vitals?patientId=${patientId}&period=monthly&tzOffsetMin=480`
               ).then((r) => (r.ok ? r.json() : null)),
 
 
@@ -310,7 +310,7 @@ export default function AdminReports() {
               title="Analytics & Reports"
               subtitle="Real patient health data, alerts, vitals and exportable reports."
               onRefresh={fetchReports}
-              onMenuClick={() => setSidebarOpen(true)}
+              onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
             />
 
@@ -443,7 +443,9 @@ export default function AdminReports() {
                           >
                             <div
                               className="w-8 rounded-t-lg bg-blue-500"
-                              style={{ height: `${value ? value * 1.8 : 8}px` }}
+                              style={{
+                                height: `${value ? value * 1.8 : 8}px`,
+                              }}
                             />
                             <span className="text-xs text-slate-500">
                               D{index + 1}
@@ -547,7 +549,9 @@ export default function AdminReports() {
 
 
                                   <td className="px-4 py-3 text-slate-700">
-                                    {latestSpo2 === "-" ? "-" : `${latestSpo2}%`}
+                                    {latestSpo2 === "-"
+                                      ? "-"
+                                      : `${latestSpo2}%`}
                                   </td>
 
 

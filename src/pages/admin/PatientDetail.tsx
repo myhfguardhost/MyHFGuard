@@ -22,7 +22,6 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import {
-  eachDayOfInterval,
   endOfDay,
   format,
   startOfDay,
@@ -54,6 +53,91 @@ import {
 } from "recharts";
 
 
+function toPositiveNumber(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+
+function toZeroOrPositiveNumber(value: any) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+
+function formatChartDate(dateString: string) {
+  if (!dateString) return "";
+
+
+  const date = new Date(dateString);
+
+
+  if (Number.isNaN(date.getTime())) {
+    return String(dateString).slice(0, 10);
+  }
+
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+
+function formatBpTime(dateString: string, timeString: string) {
+  const dateLabel = formatChartDate(dateString);
+  const timeLabel = String(timeString || "").substring(0, 5);
+
+
+  return timeLabel ? `${dateLabel} ${timeLabel}` : dateLabel;
+}
+
+
+function hasStepsData(data: any[]) {
+  return data.some((record) => record.count !== null);
+}
+
+
+function hasHrData(data: any[]) {
+  return data.some(
+    (record) => record.min !== null || record.avg !== null || record.max !== null
+  );
+}
+
+
+function hasSpo2Data(data: any[]) {
+  return data.some(
+    (record) => record.min !== null || record.avg !== null || record.max !== null
+  );
+}
+
+
+function hasBpData(data: any[]) {
+  return data.some(
+    (record) =>
+      record.systolic !== null ||
+      record.diastolic !== null ||
+      record.pulse !== null
+  );
+}
+
+
+function NoData({ message }: { message: string }) {
+  return (
+    <div
+      style={{
+        height: 300,
+        minHeight: 300,
+        width: "100%",
+      }}
+      className="flex items-center justify-center rounded-lg bg-white text-sm text-slate-500"
+    >
+      {message}
+    </div>
+  );
+}
+
+
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -64,6 +148,8 @@ export default function PatientDetail() {
 
 
   const [profile, setProfile] = useState<PatientProfile | null>(null);
+
+
   const [vitals, setVitals] = useState<any>({
     hr: [],
     spo2: [],
@@ -119,7 +205,7 @@ export default function PatientDetail() {
         .eq("patient_id", patientId)
         .gte("date", startStr)
         .lte("date", endStr)
-        .order("date", { ascending: false });
+        .order("date", { ascending: true });
 
 
       const { data: spo2Data, error: spo2Error } = await supabase
@@ -128,7 +214,7 @@ export default function PatientDetail() {
         .eq("patient_id", patientId)
         .gte("date", startStr)
         .lte("date", endStr)
-        .order("date", { ascending: false });
+        .order("date", { ascending: true });
 
 
       const { data: stepsData, error: stepsError } = await supabase
@@ -137,7 +223,7 @@ export default function PatientDetail() {
         .eq("patient_id", patientId)
         .gte("date", startStr)
         .lte("date", endStr)
-        .order("date", { ascending: false });
+        .order("date", { ascending: true });
 
 
       const { data: bpData, error: bpError } = await supabase
@@ -146,8 +232,8 @@ export default function PatientDetail() {
         .eq("patient_id", patientId)
         .gte("reading_date", startStr)
         .lte("reading_date", endStr)
-        .order("reading_date", { ascending: false })
-        .order("reading_time", { ascending: false });
+        .order("reading_date", { ascending: true })
+        .order("reading_time", { ascending: true });
 
 
       if (hrError) console.error("HR Error:", hrError);
@@ -156,134 +242,74 @@ export default function PatientDetail() {
       if (bpError) console.error("BP Error:", bpError);
 
 
-      const fillMissingDates = (data: any[], dateField: string) => {
-        const dataMap = new Map();
+      const formattedHr =
+        (hrData || [])
+          .map((record: any) => ({
+            fullDate: record.date,
+            date: formatChartDate(record.date),
+            min: toPositiveNumber(record.hr_min),
+            avg: toPositiveNumber(record.hr_avg),
+            max: toPositiveNumber(record.hr_max),
+          }))
+          .filter(
+            (record) =>
+              record.min !== null || record.avg !== null || record.max !== null
+          ) || [];
 
 
-        data.forEach((item) => {
-          dataMap.set(item[dateField], item);
-        });
+      const formattedSpo2 =
+        (spo2Data || [])
+          .map((record: any) => ({
+            fullDate: record.date,
+            date: formatChartDate(record.date),
+            min: toPositiveNumber(record.spo2_min),
+            avg: toPositiveNumber(record.spo2_avg),
+            max: toPositiveNumber(record.spo2_max),
+          }))
+          .filter(
+            (record) =>
+              record.min !== null || record.avg !== null || record.max !== null
+          ) || [];
 
 
-        const allDates = eachDayOfInterval({
-          start: startDate,
-          end: endDate,
-        });
+      const formattedSteps =
+        (stepsData || [])
+          .map((record: any) => ({
+            fullDate: record.date,
+            date: formatChartDate(record.date),
+            count: toZeroOrPositiveNumber(
+              record.steps_total ?? record.total_steps ?? record.steps
+            ),
+          }))
+          .filter((record) => record.count !== null) || [];
 
 
-        return allDates.map((date) => {
-          const dateStr = format(date, "yyyy-MM-dd");
-          return dataMap.get(dateStr) || { [dateField]: dateStr };
-        });
-      };
-
-
-      const formatChartDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
-      };
-
-
-      const hrDataFilled = fillMissingDates(hrData || [], "date");
-      const spo2DataFilled = fillMissingDates(spo2Data || [], "date");
-      const stepsDataFilled = fillMissingDates(stepsData || [], "date");
-
-
-      const bpChartData = (() => {
-        const bpByDate = new Map<string, any[]>();
-
-
-        (bpData || []).forEach((reading) => {
-          const date = reading.reading_date;
-
-
-          if (!bpByDate.has(date)) {
-            bpByDate.set(date, []);
-          }
-
-
-          bpByDate.get(date)?.push(reading);
-        });
-
-
-        const allDates = eachDayOfInterval({
-          start: startDate,
-          end: endDate,
-        });
-
-
-        const filledBpData: any[] = [];
-
-
-        allDates.forEach((dateObj) => {
-          const dateStr = format(dateObj, "yyyy-MM-dd");
-          const readings = bpByDate.get(dateStr);
-
-
-          if (readings && readings.length > 0) {
-            const sortedReadings = [...readings].sort((a, b) =>
-              String(a.reading_time || "").localeCompare(
-                String(b.reading_time || "")
-              )
-            );
-
-
-            sortedReadings.forEach((reading) => {
-              filledBpData.push({
-                fullDate: reading.reading_date,
-                time: `${formatChartDate(reading.reading_date)} ${String(
-                  reading.reading_time || ""
-                ).substring(0, 5)}`,
-                systolic: reading.systolic,
-                diastolic: reading.diastolic,
-                pulse: reading.pulse,
-              });
-            });
-          } else {
-            filledBpData.push({
-              fullDate: dateStr,
-              time: formatChartDate(dateStr),
-              systolic: null,
-              diastolic: null,
-              pulse: null,
-            });
-          }
-        });
-
-
-        return filledBpData;
-      })();
+      const formattedBp =
+        (bpData || [])
+          .map((reading: any) => ({
+            fullDate: reading.reading_date,
+            time: formatBpTime(reading.reading_date, reading.reading_time),
+            systolic: toPositiveNumber(
+              reading.systolic ?? reading.bp_systolic ?? reading.sys
+            ),
+            diastolic: toPositiveNumber(
+              reading.diastolic ?? reading.bp_diastolic ?? reading.dia
+            ),
+            pulse: toPositiveNumber(reading.pulse ?? reading.bp_pulse),
+          }))
+          .filter(
+            (record) =>
+              record.systolic !== null ||
+              record.diastolic !== null ||
+              record.pulse !== null
+          ) || [];
 
 
       setVitals({
-        hr: hrDataFilled.map((record) => ({
-          fullDate: record.date,
-          date: formatChartDate(record.date),
-          min: record.hr_min || null,
-          avg: record.hr_avg || null,
-          max: record.hr_max || null,
-        })),
-
-
-        spo2: spo2DataFilled.map((record) => ({
-          fullDate: record.date,
-          date: formatChartDate(record.date),
-          min: record.spo2_min || null,
-          avg: record.spo2_avg || null,
-          max: record.spo2_max || null,
-        })),
-
-
-        steps: stepsDataFilled.map((record) => ({
-          fullDate: record.date,
-          date: formatChartDate(record.date),
-          count: record.steps_total || null,
-        })),
-
-
-        bp: bpChartData,
+        hr: formattedHr,
+        spo2: formattedSpo2,
+        steps: formattedSteps,
+        bp: formattedBp,
       });
     } catch (error: any) {
       console.error("Fetch error:", error);
@@ -337,7 +363,7 @@ export default function PatientDetail() {
             <AdminTopBar
               title="Patient Details"
               subtitle="View patient health charts, vitals and raw data logs."
-              onMenuClick={() => setSidebarOpen(true)}
+              onMenuClick={() => setSidebarOpen((prev) => !prev)}
               onRefresh={refreshPatient}
               showExport={false}
             />
@@ -372,6 +398,8 @@ export default function PatientDetail() {
                       <h1 className="truncate text-2xl font-bold text-slate-900 sm:text-3xl">
                         {patientName}
                       </h1>
+
+
                       <p className="mt-1 text-sm text-slate-500">
                         ID: {profile.patient_id}
                       </p>
@@ -411,12 +439,18 @@ export default function PatientDetail() {
                     <Button variant="outline" size="sm" onClick={() => setPreset(1)}>
                       1M
                     </Button>
+
+
                     <Button variant="outline" size="sm" onClick={() => setPreset(3)}>
                       3M
                     </Button>
+
+
                     <Button variant="outline" size="sm" onClick={() => setPreset(6)}>
                       6M
                     </Button>
+
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -424,6 +458,8 @@ export default function PatientDetail() {
                     >
                       1Y
                     </Button>
+
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -535,40 +571,45 @@ export default function PatientDetail() {
 
 
                       <CardContent>
-                        <div className="h-[300px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={vitals.steps}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis
-                                dataKey="date"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                              />
-                              <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "white",
-                                  borderRadius: "8px",
-                                  border: "1px solid #e2e8f0",
-                                  color: "#0f172a",
-                                }}
-                                labelStyle={{
-                                  color: "#1e293b",
-                                  fontWeight: "bold",
-                                  marginBottom: "4px",
-                                }}
-                                cursor={{ fill: "#f4f4f5" }}
-                              />
-                              <Bar
-                                dataKey="count"
-                                fill="#3b82f6"
-                                radius={[4, 4, 0, 0]}
-                                name="Steps"
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
+                        {!hasStepsData(vitals.steps) ? (
+                          <NoData message="No steps data available for this period" />
+                        ) : (
+                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart
+                                data={vitals.steps}
+                                margin={{ top: 20, right: 30, left: 5, bottom: 20 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+
+
+                                <XAxis
+                                  dataKey="date"
+                                  tick={{ fontSize: 12, fill: "#334155" }}
+                                  stroke="#64748b"
+                                />
+
+
+                                <YAxis
+                                  tick={{ fontSize: 12, fill: "#334155" }}
+                                  stroke="#64748b"
+                                />
+
+
+                                <Tooltip />
+
+
+                                <Bar
+                                  dataKey="count"
+                                  fill="#2563eb"
+                                  radius={[4, 4, 0, 0]}
+                                  name="Steps"
+                                  isAnimationActive={false}
+                                />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -582,66 +623,77 @@ export default function PatientDetail() {
 
 
                       <CardContent>
-                        <div className="h-[300px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={vitals.hr}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis
-                                dataKey="date"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                              />
-                              <YAxis
-                                domain={[40, 180]}
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "white",
-                                  borderRadius: "8px",
-                                  border: "1px solid #e2e8f0",
-                                  color: "#0f172a",
-                                }}
-                                labelStyle={{
-                                  color: "#1e293b",
-                                  fontWeight: "bold",
-                                  marginBottom: "4px",
-                                }}
-                              />
-                              <Legend />
-                              <Line
-                                type="monotone"
-                                dataKey="max"
-                                stroke="#ef4444"
-                                strokeWidth={2}
-                                dot={false}
-                                name="Max"
-                                connectNulls
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="avg"
-                                stroke="#f97316"
-                                strokeWidth={2}
-                                dot={false}
-                                name="Avg"
-                                connectNulls
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="min"
-                                stroke="#22c55e"
-                                strokeWidth={2}
-                                dot={false}
-                                name="Min"
-                                connectNulls
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
+                        {!hasHrData(vitals.hr) ? (
+                          <NoData message="No heart rate data available for this period" />
+                        ) : (
+                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart
+                                data={vitals.hr}
+                                margin={{ top: 20, right: 30, left: 5, bottom: 20 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+
+
+                                <XAxis
+                                  dataKey="date"
+                                  tick={{ fontSize: 12, fill: "#334155" }}
+                                  stroke="#64748b"
+                                />
+
+
+                                <YAxis
+                                  domain={["dataMin - 10", "dataMax + 10"]}
+                                  tick={{ fontSize: 12, fill: "#334155" }}
+                                  stroke="#64748b"
+                                />
+
+
+                                <Tooltip />
+                                <Legend />
+
+
+                                <Line
+                                  type="monotone"
+                                  dataKey="max"
+                                  stroke="#dc2626"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#dc2626" }}
+                                  activeDot={{ r: 8 }}
+                                  name="Max"
+                                  connectNulls
+                                  isAnimationActive={false}
+                                />
+
+
+                                <Line
+                                  type="monotone"
+                                  dataKey="avg"
+                                  stroke="#f97316"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#f97316" }}
+                                  activeDot={{ r: 8 }}
+                                  name="Avg"
+                                  connectNulls
+                                  isAnimationActive={false}
+                                />
+
+
+                                <Line
+                                  type="monotone"
+                                  dataKey="min"
+                                  stroke="#16a34a"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#16a34a" }}
+                                  activeDot={{ r: 8 }}
+                                  name="Min"
+                                  connectNulls
+                                  isAnimationActive={false}
+                                />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -655,87 +707,91 @@ export default function PatientDetail() {
 
 
                       <CardContent>
-                        {vitals.bp.filter(
-                          (record: any) =>
-                            record.systolic !== null ||
-                            record.diastolic !== null ||
-                            record.pulse !== null
-                        ).length === 0 ? (
-                          <div className="flex h-[300px] items-center justify-center text-slate-500">
-                            No data available for this period
-                          </div>
+                        {!hasBpData(vitals.bp) ? (
+                          <NoData message="No blood pressure data available for this period" />
                         ) : (
-                          <div className="h-[300px] w-full">
+                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
                             <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={vitals.bp}>
-                                <CartesianGrid
-                                  strokeDasharray="3 3"
-                                  vertical={false}
-                                />
+                              <LineChart
+                                data={vitals.bp}
+                                margin={{ top: 20, right: 30, left: 5, bottom: 35 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+
+
                                 <XAxis
                                   dataKey="time"
-                                  fontSize={10}
-                                  tickLine={false}
-                                  axisLine={false}
+                                  tick={{ fontSize: 11, fill: "#334155" }}
+                                  stroke="#64748b"
                                   angle={-15}
                                   textAnchor="end"
                                   height={50}
                                 />
+
+
                                 <YAxis
-                                  domain={[40, 200]}
-                                  fontSize={12}
-                                  tickLine={false}
-                                  axisLine={false}
+                                  domain={["dataMin - 10", "dataMax + 10"]}
+                                  tick={{ fontSize: 12, fill: "#334155" }}
+                                  stroke="#64748b"
                                 />
-                                <Tooltip
-                                  contentStyle={{
-                                    backgroundColor: "white",
-                                    borderRadius: "8px",
-                                    border: "1px solid #e2e8f0",
-                                    color: "#0f172a",
-                                  }}
-                                  labelStyle={{
-                                    color: "#1e293b",
-                                    fontWeight: "bold",
-                                    marginBottom: "4px",
-                                  }}
-                                />
+
+
+                                <Tooltip />
                                 <Legend verticalAlign="top" />
+
+
                                 <ReferenceLine
                                   y={120}
                                   label="Sys Limit"
-                                  stroke="red"
+                                  stroke="#dc2626"
                                   strokeDasharray="3 3"
                                 />
+
+
                                 <ReferenceLine
                                   y={80}
                                   label="Dia Limit"
-                                  stroke="gray"
+                                  stroke="#64748b"
                                   strokeDasharray="3 3"
                                 />
+
+
                                 <Line
                                   type="monotone"
                                   dataKey="systolic"
-                                  stroke="#8884d8"
-                                  strokeWidth={3}
+                                  stroke="#dc2626"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#dc2626" }}
+                                  activeDot={{ r: 8 }}
                                   name="Systolic"
                                   connectNulls
+                                  isAnimationActive={false}
                                 />
+
+
                                 <Line
                                   type="monotone"
                                   dataKey="diastolic"
-                                  stroke="#82ca9d"
-                                  strokeWidth={3}
+                                  stroke="#2563eb"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#2563eb" }}
+                                  activeDot={{ r: 8 }}
                                   name="Diastolic"
                                   connectNulls
+                                  isAnimationActive={false}
                                 />
+
+
                                 <Line
                                   type="monotone"
                                   dataKey="pulse"
-                                  stroke="#ffc658"
-                                  strokeWidth={3}
+                                  stroke="#16a34a"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#16a34a" }}
+                                  activeDot={{ r: 8 }}
                                   name="Pulse"
                                   connectNulls
+                                  isAnimationActive={false}
                                 />
                               </LineChart>
                             </ResponsiveContainer>
@@ -752,47 +808,77 @@ export default function PatientDetail() {
 
 
                       <CardContent>
-                        <div className="h-[300px] w-full">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={vitals.spo2}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis
-                                dataKey="date"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                              />
-                              <YAxis
-                                domain={[80, 100]}
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                              />
-                              <Tooltip
-                                contentStyle={{
-                                  backgroundColor: "white",
-                                  borderRadius: "8px",
-                                  border: "1px solid #e2e8f0",
-                                  color: "#0f172a",
-                                }}
-                                labelStyle={{
-                                  color: "#1e293b",
-                                  fontWeight: "bold",
-                                  marginBottom: "4px",
-                                }}
-                              />
-                              <Line
-                                type="monotone"
-                                dataKey="avg"
-                                stroke="#06b6d4"
-                                strokeWidth={3}
-                                activeDot={{ r: 8 }}
-                                name="Avg %"
-                                connectNulls
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        </div>
+                        {!hasSpo2Data(vitals.spo2) ? (
+                          <NoData message="No SpO₂ data available for this period" />
+                        ) : (
+                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <LineChart
+                                data={vitals.spo2}
+                                margin={{ top: 20, right: 30, left: 5, bottom: 20 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+
+
+                                <XAxis
+                                  dataKey="date"
+                                  tick={{ fontSize: 12, fill: "#334155" }}
+                                  stroke="#64748b"
+                                />
+
+
+                                <YAxis
+                                  domain={["dataMin - 2", "dataMax + 2"]}
+                                  tick={{ fontSize: 12, fill: "#334155" }}
+                                  stroke="#64748b"
+                                />
+
+
+                                <Tooltip />
+                                <Legend />
+
+
+                                <Line
+                                  type="monotone"
+                                  dataKey="max"
+                                  stroke="#dc2626"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#dc2626" }}
+                                  activeDot={{ r: 8 }}
+                                  name="Max %"
+                                  connectNulls
+                                  isAnimationActive={false}
+                                />
+
+
+                                <Line
+                                  type="monotone"
+                                  dataKey="avg"
+                                  stroke="#06b6d4"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#06b6d4" }}
+                                  activeDot={{ r: 8 }}
+                                  name="Avg %"
+                                  connectNulls
+                                  isAnimationActive={false}
+                                />
+
+
+                                <Line
+                                  type="monotone"
+                                  dataKey="min"
+                                  stroke="#16a34a"
+                                  strokeWidth={4}
+                                  dot={{ r: 6, strokeWidth: 2, fill: "#16a34a" }}
+                                  activeDot={{ r: 8 }}
+                                  name="Min %"
+                                  connectNulls
+                                  isAnimationActive={false}
+                                />
+                              </LineChart>
+                            </ResponsiveContainer>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
@@ -811,9 +897,7 @@ export default function PatientDetail() {
 
 
                       <CardContent>
-                        {vitals.steps.filter(
-                          (record: any) => record.count !== null
-                        ).length === 0 ? (
+                        {!hasStepsData(vitals.steps) ? (
                           <p className="py-4 text-center text-slate-500">No data</p>
                         ) : (
                           <Table>
@@ -826,19 +910,16 @@ export default function PatientDetail() {
 
 
                             <TableBody>
-                              {[...vitals.steps]
-                                .filter((record: any) => record.count !== null)
-                                .reverse()
-                                .map((record: any, index: number) => (
-                                  <TableRow key={index}>
-                                    <TableCell className="text-slate-700">
-                                      {record.fullDate}
-                                    </TableCell>
-                                    <TableCell className="text-slate-700">
-                                      {record.count}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
+                              {[...vitals.steps].reverse().map((record: any, index: number) => (
+                                <TableRow key={index}>
+                                  <TableCell className="text-slate-700">
+                                    {record.fullDate}
+                                  </TableCell>
+                                  <TableCell className="text-slate-700">
+                                    {record.count}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
                             </TableBody>
                           </Table>
                         )}
@@ -853,12 +934,7 @@ export default function PatientDetail() {
 
 
                       <CardContent>
-                        {vitals.bp.filter(
-                          (record: any) =>
-                            record.systolic !== null ||
-                            record.diastolic !== null ||
-                            record.pulse !== null
-                        ).length === 0 ? (
+                        {!hasBpData(vitals.bp) ? (
                           <p className="py-4 text-center text-slate-500">No data</p>
                         ) : (
                           <Table>
@@ -874,27 +950,19 @@ export default function PatientDetail() {
 
 
                             <TableBody>
-                              {[...vitals.bp]
-                                .filter(
-                                  (record: any) =>
-                                    record.systolic !== null ||
-                                    record.diastolic !== null ||
-                                    record.pulse !== null
-                                )
-                                .reverse()
-                                .map((record: any, index: number) => (
-                                  <TableRow key={index}>
-                                    <TableCell className="text-slate-700">
-                                      {record.time}
-                                    </TableCell>
-                                    <TableCell className="text-slate-700">
-                                      {record.systolic}/{record.diastolic}
-                                    </TableCell>
-                                    <TableCell className="text-slate-700">
-                                      {record.pulse}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
+                              {[...vitals.bp].reverse().map((record: any, index: number) => (
+                                <TableRow key={index}>
+                                  <TableCell className="text-slate-700">
+                                    {record.time}
+                                  </TableCell>
+                                  <TableCell className="text-slate-700">
+                                    {record.systolic}/{record.diastolic}
+                                  </TableCell>
+                                  <TableCell className="text-slate-700">
+                                    {record.pulse}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
                             </TableBody>
                           </Table>
                         )}

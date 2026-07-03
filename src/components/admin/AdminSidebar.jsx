@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -14,6 +15,33 @@ import logo from "@/assets/loginlogo.jpg";
 export default function AdminSidebar({ open = false, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
+
+
+  const [visible, setVisible] = useState(open);
+
+
+  useEffect(() => {
+    setVisible(open);
+  }, [open]);
+
+
+  const closeSidebar = () => {
+    setVisible(false);
+
+
+    if (typeof onClose === "function") {
+      onClose();
+    }
+  };
+
+
+  const handleNavClick = () => {
+    // On mobile only, close sidebar after choosing menu.
+    // On desktop, sidebar stays open.
+    if (window.innerWidth < 1024) {
+      closeSidebar();
+    }
+  };
 
 
   const handleLogout = () => {
@@ -49,9 +77,10 @@ export default function AdminSidebar({ open = false, onClose }) {
         </div>
 
 
+        {/* X button: close sidebar only */}
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeSidebar}
           className="rounded-xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm hover:bg-slate-50 hover:text-slate-900"
           aria-label="Close admin menu"
         >
@@ -75,7 +104,7 @@ export default function AdminSidebar({ open = false, onClose }) {
             <Link
               key={item.path}
               to={item.path}
-              onClick={onClose}
+              onClick={handleNavClick}
               className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                 active
                   ? "bg-blue-50 text-blue-700 shadow-sm"
@@ -92,6 +121,7 @@ export default function AdminSidebar({ open = false, onClose }) {
 
       <div className="border-t border-slate-200 p-4">
         <button
+          type="button"
           onClick={handleLogout}
           className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600 shadow-sm transition hover:bg-red-100"
         >
@@ -105,31 +135,31 @@ export default function AdminSidebar({ open = false, onClose }) {
 
   return (
     <>
-      {/* Desktop sidebar: inside layout, does not overlap */}
+      {/* Desktop sidebar */}
       <aside
         className={`hidden h-screen shrink-0 overflow-hidden border-l border-slate-200 bg-white text-slate-700 transition-all duration-300 lg:flex lg:flex-col ${
-          open ? "lg:w-72" : "lg:w-0 lg:border-l-0"
+          visible ? "lg:w-72" : "lg:w-0 lg:border-l-0"
         }`}
       >
         <div className="flex h-full w-72 flex-col">{sidebarContent}</div>
       </aside>
 
 
-      {/* Mobile overlay background */}
-      {open && (
+      {/* Mobile overlay */}
+      {visible && (
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeSidebar}
           className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden"
           aria-label="Close admin menu overlay"
         />
       )}
 
 
-      {/* Mobile sidebar: overlay only on small screens */}
+      {/* Mobile sidebar */}
       <aside
         className={`fixed right-0 top-0 z-40 flex h-screen w-72 max-w-[86vw] flex-col border-l border-slate-200 bg-white text-slate-700 shadow-xl transition-transform duration-300 lg:hidden ${
-          open ? "translate-x-0" : "translate-x-full"
+          visible ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {sidebarContent}

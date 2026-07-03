@@ -45,25 +45,123 @@ export default function AdminDashboard() {
   };
 
 
+  const getEmptyVitals = () => ({
+    vitals: {
+      hr: [],
+      spo2: [],
+      steps: [],
+      bp: [],
+      weight: [],
+    },
+  });
+
+
+  const hasVitalsData = (data) => {
+    const vitals = data?.vitals || {};
+
+
+    return (
+      (Array.isArray(vitals.weight) && vitals.weight.length > 0) ||
+      (Array.isArray(vitals.bp) && vitals.bp.length > 0) ||
+      (Array.isArray(vitals.hr) && vitals.hr.length > 0) ||
+      (Array.isArray(vitals.spo2) && vitals.spo2.length > 0) ||
+      (Array.isArray(vitals.steps) && vitals.steps.length > 0)
+    );
+  };
+
+
+  const hasWeightOrBpData = (data) => {
+    const vitals = data?.vitals || {};
+
+
+    return (
+      (Array.isArray(vitals.weight) && vitals.weight.length > 0) ||
+      (Array.isArray(vitals.bp) && vitals.bp.length > 0)
+    );
+  };
+
+
+  async function fetchVitalsWithFallback(realPatientId) {
+    const today = new Date().toISOString().slice(0, 10);
+
+
+    const previousMonth = new Date();
+    previousMonth.setMonth(previousMonth.getMonth() - 1);
+    const previousMonthDate = previousMonth.toISOString().slice(0, 10);
+
+
+    const urls = [
+      `${API}/patient/vitals?patientId=${encodeURIComponent(
+        realPatientId
+      )}&period=weekly&date=${today}&tzOffsetMin=480`,
+
+
+      `${API}/patient/vitals?patientId=${encodeURIComponent(
+        realPatientId
+      )}&period=monthly&date=${today}&tzOffsetMin=480`,
+
+
+      `${API}/patient/vitals?patientId=${encodeURIComponent(
+        realPatientId
+      )}&period=monthly&date=${previousMonthDate}&tzOffsetMin=480`,
+    ];
+
+
+    let firstAnyData = null;
+
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url);
+
+
+        if (!res.ok) {
+          continue;
+        }
+
+
+        const data = await res.json();
+
+
+        if (hasVitalsData(data) && !firstAnyData) {
+          firstAnyData = data;
+        }
+
+
+        if (hasWeightOrBpData(data)) {
+          return data;
+        }
+      } catch (error) {
+        console.error("[AdminDashboard] vitals fetch failed", error);
+      }
+    }
+
+
+    return firstAnyData || getEmptyVitals();
+  }
+
+
   async function fetchAll() {
     try {
       setLoading(true);
       setError("");
 
 
-      const p = await fetch(`${API}/api/admin/patients`);
+      const patientsRes = await fetch(`${API}/api/admin/patients`);
 
 
-      if (!p.ok) {
-        const t = await p.text();
-        throw new Error(`patients ${p.status} ${p.statusText} ${t}`);
+      if (!patientsRes.ok) {
+        const text = await patientsRes.text();
+        throw new Error(
+          `patients ${patientsRes.status} ${patientsRes.statusText} ${text}`
+        );
       }
 
 
-      const pr = await p.json();
+      const patientsJson = await patientsRes.json();
 
 
-      const patientRows = [...(pr.patients || [])].sort((a, b) => {
+      const patientRows = [...(patientsJson.patients || [])].sort((a, b) => {
         return getDateTime(b.created_at) - getDateTime(a.created_at);
       });
 
@@ -101,9 +199,7 @@ export default function AdminDashboard() {
             ),
 
 
-            fetch(
-              `${API}/patient/vitals?patientId=${realPatientId}&period=weekly`
-            ).then((r) => (r.ok ? r.json() : null)),
+            fetchVitalsWithFallback(realPatientId),
 
 
             fetch(`${API}/patient/weekly-status?patientId=${realPatientId}`).then(
@@ -134,7 +230,7 @@ export default function AdminDashboard() {
             patientId: realPatientId,
             patientInfo: patientInfoRes,
             summaryData: summaryRes,
-            vitalsData: vitalsRes,
+            vitalsData: vitalsRes || getEmptyVitals(),
             weeklyStatus: weeklyStatusRes,
             waterSaltLog: waterSaltRes,
             alerts,
@@ -283,7 +379,8 @@ export default function AdminDashboard() {
 
 
       const latestSpo2 =
-        item.vitalsData?.vitals?.spo2 && item.vitalsData.vitals.spo2.length > 0
+        item.vitalsData?.vitals?.spo2 &&
+        item.vitalsData.vitals.spo2.length > 0
           ? item.vitalsData.vitals.spo2[
               item.vitalsData.vitals.spo2.length - 1
             ]?.avg
@@ -434,7 +531,7 @@ export default function AdminDashboard() {
                 exportPDF={exportPDF}
                 exportExcel={exportExcel}
                 onRefresh={fetchAll}
-                onMenuClick={() => setSidebarOpen(true)}
+                onMenuClick={() => setSidebarOpen((prev) => !prev)}
               />
 
 

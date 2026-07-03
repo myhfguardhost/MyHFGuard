@@ -667,22 +667,16 @@ function isRetryableGeminiError(error) {
 }
 
 async function generateWithRetry(prompt, systemInstruction) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
-  if (!apiKey) {
-    throw new Error('Missing GEMINI_API_KEY or GOOGLE_GENAI_KEY in environment variables')
-  }
-
-  const genAI = new GoogleGenerativeAI(apiKey)
-
-  const models = [
-  process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-  'gemini-2.0-flash-lite'
-]
+  const modelNames = [
+    process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+    'gemini-2.5-flash'
+  ]
 
   let lastError = null
 
-  for (const modelName of [...new Set(modelNames)]) {
+  for (const modelName of modelNames) {
     const model = genAI.getGenerativeModel({
       model: modelName,
       systemInstruction
@@ -691,31 +685,22 @@ async function generateWithRetry(prompt, systemInstruction) {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         console.log(`[Gemini] Trying model=${modelName}, attempt=${attempt}`)
-
         const result = await model.generateContent(prompt)
         const response = result.response
         const text = response.text()
-
-        if (!text || !text.trim()) {
-          throw new Error('Gemini returned empty response')
-        }
-
-        return text.trim()
+        return text
       } catch (error) {
         lastError = error
-
-        console.error(`[Gemini] Failed model=${modelName}, attempt=${attempt}`, {
-          message: error?.message,
-          status: error?.status,
-          details: error?.details
-        })
+        console.error(`[Gemini] Failed model=${modelName}, attempt=${attempt}:`, error?.message || error)
 
         if (!isRetryableGeminiError(error)) {
-          break
+          throw error
         }
 
         if (attempt < 3) {
-          await sleep(1000 * attempt)
+          const delay = 1000 * attempt
+          console.log(`[Gemini] Retry in ${delay}ms`)
+          await sleep(delay)
         }
       }
     }
@@ -741,8 +726,6 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     const userMessage = String(message).trim()
     const lowerMsg = userMessage.toLowerCase()
-
-    const healthData = await fetchPatientHealthData(patientId)
 
     const unrelatedPatterns = [
       'math', 'calculate', 'coding', 'programming', 'javascript', 'python',
@@ -791,79 +774,57 @@ app.post('/api/chat/symptoms', async (req, res) => {
       })
     }
 
-    const asksVitals =
-      /recent vitals|vitals|reading|readings|bp|blood pressure|weight|spo2|oxygen|heart rate|pulse|summary|indicate/i.test(userMessage)
+    const healthData = await fetchPatientHealthData(patientId)
 
-    if (asksVitals) {
-      return res.status(200).json({
-        reply:
-    `Based on your recent data:
-
-    - Blood Pressure: ${healthData.bp}
-    - Weight: ${healthData.weight}
-    - Symptoms: ${healthData.symptoms}
-    - Medication: ${healthData.medications}
-
-    What this means:
-    Your data can help show whether your heart failure condition is stable or needs attention.
-
-    Actions:
-    1. Continue logging your daily weight, BP, symptoms and SpO2.
-    2. Contact your doctor if weight increases quickly, BP is very high, SpO2 is below 95%, or symptoms get worse.
-    3. Seek emergency help immediately if you have chest pain, severe breathing difficulty, fainting, or SpO2 below 90%.`,
-        timestamp: new Date().toISOString()
-      })
-    }
-    
     const systemInstruction = `You are MyHFGuard AI, a STRICT heart-failure support assistant for patients.
 
-  VERY IMPORTANT RULES:
-  1. ONLY answer questions related to heart failure, symptoms, blood pressure, heart rate, SpO2, weight, medication, reminders, exercise, water/fluid, salt/diet, patient health logs, and when to contact a doctor or emergency services.
-  2. If outside those topics, say exactly: "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard."
-  3. Do not answer maths, celebrity, entertainment, school homework, coding, general knowledge, jokes, or unrelated chat.
-  4. Use simple language. Avoid medical jargon.
-  5. Keep answers short and clear.
-  6. Do not diagnose.
-  7. Do not change medication dose. Tell the patient to follow doctor instructions or contact the clinic.
-  8. If patient data is missing, say there is no recent data in the app and suggest logging it.
-  9. If the patient asks about their readings, use the provided recent vitals and symptoms.
-  10. If symptoms sound dangerous, tell the patient to seek emergency help immediately.
+VERY IMPORTANT RULES:
+1. ONLY answer questions related to heart failure, symptoms, blood pressure, heart rate, SpO2, weight, medication, reminders, exercise, water/fluid, salt/diet, patient health logs, and when to contact a doctor or emergency services.
+2. If outside those topics, say exactly: "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard."
+3. Do not answer maths, celebrity, entertainment, school homework, coding, general knowledge, jokes, or unrelated chat.
+4. Use simple language. Avoid medical jargon.
+5. Keep answers short and clear.
+6. Do not diagnose.
+7. Do not change medication dose. Tell the patient to follow doctor instructions or contact the clinic.
+8. If patient data is missing, say there is no recent data in the app and suggest logging it.
+9. If the patient asks about their readings, use the provided recent vitals and symptoms.
+10. If symptoms sound dangerous, tell the patient to seek emergency help immediately.
 
-  DANGER SIGNS - advise emergency help immediately if the patient mentions:
-  - chest pain or chest tightness
-  - severe shortness of breath or cannot breathe
-  - fainting, collapse, confusion, or blue lips
-  - SpO2 below 90%
-  - blood pressure 180/120 or higher
-  - very fast or very slow heart rate with symptoms
+DANGER SIGNS - advise emergency help immediately if the patient mentions:
+- chest pain or chest tightness
+- severe shortness of breath or cannot breathe
+- fainting, collapse, confusion, or blue lips
+- SpO2 below 90%
+- blood pressure 180/120 or higher
+- very fast or very slow heart rate with symptoms
 
-  WARNING SIGNS - advise contacting doctor/clinic soon if:
-  - increasing breathlessness
-  - leg/ankle/feet swelling
-  - needing more pillows or sitting up to sleep
-  - sudden weight gain
-  - SpO2 below 95%
-  - blood pressure is high or low
-  - heart rate is unusually high or low
-  - symptoms are getting worse
+WARNING SIGNS - advise contacting doctor/clinic soon if:
+- increasing breathlessness
+- leg/ankle/feet swelling
+- needing more pillows or sitting up to sleep
+- sudden weight gain
+- SpO2 below 95%
+- blood pressure is high or low
+- heart rate is unusually high or low
+- symptoms are getting worse
 
-  PATIENT CONTEXT:
-  ${healthData.summary}
+PATIENT CONTEXT:
+${healthData.summary}
 
-  RECENT VITALS:
-  - Heart Rate: ${healthData.hr}
-  - Blood Pressure: ${healthData.bp}
-  - SpO2: ${healthData.spo2}
-  - Weight: ${healthData.weight}
-  - Steps: ${healthData.steps}
-  - Recent Symptoms: ${healthData.symptoms}
-  - Current Medications: ${healthData.medications}
+RECENT VITALS:
+- Heart Rate: ${healthData.hr}
+- Blood Pressure: ${healthData.bp}
+- SpO2: ${healthData.spo2}
+- Weight: ${healthData.weight}
+- Steps: ${healthData.steps}
+- Recent Symptoms: ${healthData.symptoms}
+- Current Medications: ${healthData.medications}
 
-  ANSWER STYLE:
-  - Start with the direct answer.
-  - Then give 1 to 3 short actions.
-  - Mention emergency help only when needed.
-  - If the user uses Malay/BM, answer in simple Malay/BM. Otherwise answer in simple English.`
+ANSWER STYLE:
+- Start with the direct answer.
+- Then give 1 to 3 short actions.
+- Mention emergency help only when needed.
+- If the user uses Malay/BM, answer in simple Malay/BM. Otherwise answer in simple English.`
 
     const prompt = `Patient question:\n"${userMessage}"\n\nAnswer using the rules and patient data above.`
 
@@ -874,12 +835,10 @@ app.post('/api/chat/symptoms', async (req, res) => {
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('[MyChat REAL ERROR]:', error?.message || error)
-
-    return res.status(503).json({
-      error: error?.message || 'AI request failed',
+    console.error('MyChat error:', error)
+    return res.status(200).json({
       reply:
-        'AI service is currently unavailable. Please try again later.\n\nIf you have chest pain, severe shortness of breath, fainting or stroke symptoms, please seek emergency help immediately.',
+        'AI service is currently busy. Please try again later.\n\nIf you have chest pain, severe shortness of breath, fainting, or stroke symptoms, please seek emergency help immediately.',
       timestamp: new Date().toISOString()
     })
   }
@@ -1279,40 +1238,75 @@ app.get('/patient/vitals', async (req, res) => {
         .order('reading_time', { ascending: true })
       if (bp.error) return res.status(400).json({ error: bp.error.message })
 
-      // Fetch weight from weight_sample to ensure fresh data
-      const startBuf = new Date(startS); startBuf.setDate(startBuf.getDate() - 1);
-      const endBuf = new Date(endS); endBuf.setDate(endBuf.getDate() + 1);
-
-      const weightRaw = await supabase
-        .from('weight_sample')
-        .select('time_ts,kg')
+      // Fetch weight from weight_day first, then fallback to weight_sample
+      const weightDay = await supabase
+        .from('weight_day')
+        .select('date,kg_avg')
         .eq('patient_id', pid)
-        .gte('time_ts', startBuf.toISOString())
-        .lte('time_ts', endBuf.toISOString())
-        .order('time_ts', { ascending: true })
+        .gte('date', startS)
+        .lte('date', endS)
+        .order('date', { ascending: true })
 
-      const weightData = []
-      if (!weightRaw.error) {
-        const wMap = new Map()
-        for (const row of (weightRaw.data || [])) {
-          const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
-          const y = d.getUTCFullYear()
-          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-          const day = String(d.getUTCDate()).padStart(2, '0')
-          const k = `${y}-${m}-${day}`
-          if (k >= startS && k <= endS) {
-            if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
-            const e = wMap.get(k)
-            e.sum += Number(row.kg)
-            e.count++
+      let weightData = []
+      let weightError = weightDay.error || null
+
+      if (!weightDay.error && (weightDay.data || []).length > 0) {
+        weightData = (weightDay.data || [])
+          .map((r) => ({
+            date: r.date,
+            kg_avg: Number(r.kg_avg),
+          }))
+          .filter((r) => !Number.isNaN(r.kg_avg) && r.kg_avg > 0)
+      } else {
+        const startBuf = new Date(startS)
+        startBuf.setDate(startBuf.getDate() - 1)
+
+        const endBuf = new Date(endS)
+        endBuf.setDate(endBuf.getDate() + 1)
+
+        const weightRaw = await supabase
+          .from('weight_sample')
+          .select('time_ts,kg')
+          .eq('patient_id', pid)
+          .gte('time_ts', startBuf.toISOString())
+          .lte('time_ts', endBuf.toISOString())
+          .order('time_ts', { ascending: true })
+
+        weightError = weightRaw.error || null
+
+        if (!weightRaw.error) {
+          const wMap = new Map()
+
+          for (const row of weightRaw.data || []) {
+            const d = new Date(Date.parse(row.time_ts) + tzOffsetMin * 60000)
+            const y = d.getUTCFullYear()
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(d.getUTCDate()).padStart(2, '0')
+            const k = `${y}-${m}-${day}`
+
+            if (k >= startS && k <= endS) {
+              if (!wMap.has(k)) {
+                wMap.set(k, { sum: 0, count: 0 })
+              }
+
+              const e = wMap.get(k)
+              e.sum += Number(row.kg)
+              e.count++
+            }
           }
+
+          for (const [k, v] of wMap) {
+            weightData.push({
+              date: k,
+              kg_avg: Number((v.sum / v.count).toFixed(1)),
+            })
+          }
+
+          weightData.sort((a, b) => a.date.localeCompare(b.date))
         }
-        for (const [k, v] of wMap) {
-          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
-        }
-        weightData.sort((a, b) => a.date.localeCompare(b.date))
       }
-      const weight = { data: weightData, error: weightRaw.error }
+
+      const weight = { data: weightData, error: weightError }
 
       const hrDays = (hr.data || [])
       // Calculate resting HR from hourly data for the week range
@@ -1434,40 +1428,75 @@ app.get('/patient/vitals', async (req, res) => {
         .order('reading_time', { ascending: true })
       if (bp.error) return res.status(400).json({ error: bp.error.message })
 
-      // Fetch weight from weight_sample to ensure fresh data
-      const startBuf = new Date(startStr); startBuf.setDate(startBuf.getDate() - 1);
-      const endBuf = new Date(endStr); endBuf.setDate(endBuf.getDate() + 1);
-
-      const weightRaw = await supabase
-        .from('weight_sample')
-        .select('time_ts,kg')
+      // Fetch weight from weight_day first, then fallback to weight_sample
+      const weightDay = await supabase
+        .from('weight_day')
+        .select('date,kg_avg')
         .eq('patient_id', pid)
-        .gte('time_ts', startBuf.toISOString())
-        .lte('time_ts', endBuf.toISOString())
-        .order('time_ts', { ascending: true })
+        .gte('date', startStr)
+        .lte('date', endStr)
+        .order('date', { ascending: true })
 
-      const weightData = []
-      if (!weightRaw.error) {
-        const wMap = new Map()
-        for (const row of (weightRaw.data || [])) {
-          const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
-          const y = d.getUTCFullYear()
-          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-          const day = String(d.getUTCDate()).padStart(2, '0')
-          const k = `${y}-${m}-${day}`
-          if (k >= startStr && k <= endStr) {
-            if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
-            const e = wMap.get(k)
-            e.sum += Number(row.kg)
-            e.count++
+      let weightData = []
+      let weightError = weightDay.error || null
+
+      if (!weightDay.error && (weightDay.data || []).length > 0) {
+        weightData = (weightDay.data || [])
+          .map((r) => ({
+            date: r.date,
+            kg_avg: Number(r.kg_avg),
+          }))
+          .filter((r) => !Number.isNaN(r.kg_avg) && r.kg_avg > 0)
+      } else {
+        const startBuf = new Date(startStr)
+        startBuf.setDate(startBuf.getDate() - 1)
+
+        const endBuf = new Date(endStr)
+        endBuf.setDate(endBuf.getDate() + 1)
+
+        const weightRaw = await supabase
+          .from('weight_sample')
+          .select('time_ts,kg')
+          .eq('patient_id', pid)
+          .gte('time_ts', startBuf.toISOString())
+          .lte('time_ts', endBuf.toISOString())
+          .order('time_ts', { ascending: true })
+
+        weightError = weightRaw.error || null
+
+        if (!weightRaw.error) {
+          const wMap = new Map()
+
+          for (const row of weightRaw.data || []) {
+            const d = new Date(Date.parse(row.time_ts) + tzOffsetMin * 60000)
+            const y = d.getUTCFullYear()
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(d.getUTCDate()).padStart(2, '0')
+            const k = `${y}-${m}-${day}`
+
+            if (k >= startStr && k <= endStr) {
+              if (!wMap.has(k)) {
+                wMap.set(k, { sum: 0, count: 0 })
+              }
+
+              const e = wMap.get(k)
+              e.sum += Number(row.kg)
+              e.count++
+            }
           }
+
+          for (const [k, v] of wMap) {
+            weightData.push({
+              date: k,
+              kg_avg: Number((v.sum / v.count).toFixed(1)),
+            })
+          }
+
+          weightData.sort((a, b) => a.date.localeCompare(b.date))
         }
-        for (const [k, v] of wMap) {
-          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
-        }
-        weightData.sort((a, b) => a.date.localeCompare(b.date))
       }
-      const weight = { data: weightData, error: weightRaw.error }
+
+      const weight = { data: weightData, error: weightError }
 
       const hrDays = (hr.data || [])
       let restingMap = new Map()
@@ -2343,3 +2372,4 @@ app.get("/water-salt", async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+
