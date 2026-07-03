@@ -752,7 +752,7 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
+                    <Card className="overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm xl:col-span-2">
                       <CardHeader><CardTitle className="text-slate-900">Medication Records</CardTitle></CardHeader>
                       <CardContent>
                         {!hasRows(medicationRows) ? <MiniEmpty /> : (
