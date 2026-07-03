@@ -2,13 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import {
-  Activity,
-  Droplets,
   FileSpreadsheet,
   FileText,
-  HeartPulse,
   Loader2,
-  Scale,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -319,6 +315,41 @@ export default function AdminReports() {
     };
   }, [summary]);
 
+  const alertData = useMemo(() => {
+    const hasAlert = (item: any, keywords: string[]) => {
+      return (item.alerts || []).some((alert: any) => {
+        const text = `${alert.title || ""} ${alert.message || ""}`.toLowerCase();
+        return keywords.some((keyword) => text.includes(keyword));
+      });
+    };
+
+    return {
+      bp: summary.filter((item) =>
+        hasAlert(item, ["blood pressure", "bp", "systolic", "diastolic", "pulse"])
+      ).length,
+
+      weight: summary.filter((item) =>
+        hasAlert(item, ["weight", "kg"])
+      ).length,
+
+      spo2: summary.filter((item) =>
+        hasAlert(item, ["spo2", "spo₂", "oxygen"])
+      ).length,
+
+      symptoms: summary.filter((item) =>
+        hasAlert(item, ["symptom", "breathless", "swelling", "cough", "abdomen"])
+      ).length,
+
+      steps: summary.filter((item) =>
+        hasAlert(item, ["steps", "activity"])
+      ).length,
+
+      missingLogs: summary.filter((item) =>
+        hasAlert(item, ["missing", "log"])
+      ).length,
+    };
+  }, [summary]);
+
   return (
     <div className="min-h-screen bg-[#eef2f7]">
       <div className="flex min-h-screen w-full">
@@ -377,13 +408,6 @@ export default function AdminReports() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    <ReportCard icon={<Droplets />} title="Average SpO₂" value={`${reportData.avgSpo2}%`} />
-                    <ReportCard icon={<HeartPulse />} title="Average Heart Rate" value={`${reportData.avgHeartRate} bpm`} />
-                    <ReportCard icon={<Scale />} title="Average Weight" value={`${reportData.avgWeight} kg`} />
-                    <ReportCard icon={<Activity />} title="Total Patients" value={reportData.totalPatients} />
-                  </div>
-
                   <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
                       <h2 className="mb-4 font-bold text-slate-900">Patient Status Overview</h2>
@@ -395,20 +419,19 @@ export default function AdminReports() {
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
-                      <h2 className="mb-4 font-bold text-slate-900">Recent SpO₂ Trend</h2>
-                      <div className="grid h-56 grid-cols-7 items-end gap-3 border-b border-slate-200 px-2">
-                        {getWeeklySpo2(summary).map((value, index) => (
-                          <div key={index} className="flex flex-col items-center gap-2">
-                            <div
-                              className="w-8 rounded-t-lg bg-blue-500"
-                              style={{ height: `${value ? value * 1.8 : 8}px` }}
-                            />
-                            <span className="text-xs text-slate-500">D{index + 1}</span>
-                          </div>
-                        ))}
+                      <h2 className="mb-4 font-bold text-slate-900">Patient Alert Distribution</h2>
+
+                      <div className="space-y-4">
+                        <Bar label="Blood Pressure Alerts" value={alertData.bp} total={reportData.totalPatients} />
+                        <Bar label="Weight Alerts" value={alertData.weight} total={reportData.totalPatients} />
+                        <Bar label="SpO₂ Alerts" value={alertData.spo2} total={reportData.totalPatients} />
+                        <Bar label="Symptom Alerts" value={alertData.symptoms} total={reportData.totalPatients} />
+                        <Bar label="Step Alerts" value={alertData.steps} total={reportData.totalPatients} />
+                        <Bar label="Missing Log Alerts" value={alertData.missingLogs} total={reportData.totalPatients} />
                       </div>
+
                       <p className="mt-4 text-sm text-slate-500">
-                        This chart is calculated from available patient SpO₂ values.
+                        This chart shows how many patients triggered each alert category.
                       </p>
                     </div>
                   </div>
@@ -478,18 +501,6 @@ export default function AdminReports() {
   );
 }
 
-function ReportCard({ icon, title, value }: any) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
-      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-        {icon}
-      </div>
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
-    </div>
-  );
-}
-
 function Bar({ label, value, total }: any) {
   const percent = total > 0 ? Math.round((value / total) * 100) : 0;
 
@@ -518,25 +529,5 @@ function StatusBadge({ status }: any) {
     <span className={`rounded-full border px-3 py-1 text-xs font-semibold capitalize ${style}`}>
       {status || "stable"}
     </span>
-  );
-}
-
-function getWeeklySpo2(summary: any[]) {
-  const dailyTotals = Array(7).fill(0);
-  const dailyCounts = Array(7).fill(0);
-
-  summary.forEach((item) => {
-    const spo2List = item.vitalsData?.vitals?.spo2 || [];
-    spo2List.slice(-7).forEach((row: any, index: number) => {
-      const value = Number(row.avg);
-      if (!Number.isNaN(value) && value > 0) {
-        dailyTotals[index] += value;
-        dailyCounts[index]++;
-      }
-    });
-  });
-
-  return dailyTotals.map((total, index) =>
-    dailyCounts[index] ? Math.round(total / dailyCounts[index]) : 0
   );
 }
