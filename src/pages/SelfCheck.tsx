@@ -96,6 +96,7 @@ const SelfCheck = () => {
   )
 
   const [dryWeight, setDryWeight] = useState<number | null>(null)
+  const [trendPatientId, setTrendPatientId] = useState<string | undefined>(undefined)
 
   const [weightKg, setWeightKg] = useState<string>("")
   const [submitting, setSubmitting] = useState(false)
@@ -223,6 +224,34 @@ const SelfCheck = () => {
 
 
   useEffect(() => {
+    if (!patientId) {
+      setTrendPatientId(undefined)
+      return
+    }
+
+    let mounted = true
+
+    async function resolveTrendPatientId() {
+      const { data: mapped } = await supabase
+        .from("user_map")
+        .select("patient_id")
+        .eq("user_id", patientId)
+        .maybeSingle()
+
+      if (mounted) {
+        setTrendPatientId(mapped?.patient_id || patientId)
+      }
+    }
+
+    resolveTrendPatientId()
+
+    return () => {
+      mounted = false
+    }
+  }, [patientId])
+
+
+  useEffect(() => {
     if (!patientId) return
 
 
@@ -239,9 +268,9 @@ const SelfCheck = () => {
 
 
   useEffect(() => {
-    if (!patientId) return
+    if (!trendPatientId) return
     fetchWeeklyTrend()
-  }, [patientId, selectedDate, submitting])
+  }, [trendPatientId, selectedDate, submitting])
 
 
   useEffect(() => {
@@ -275,7 +304,7 @@ const SelfCheck = () => {
 
 
   async function fetchWeeklyTrend() {
-    if (!patientId) return
+    if (!trendPatientId) return
 
     const endDate = selectedDate
     const startDate = subDays(endDate, 6)
@@ -321,7 +350,7 @@ const SelfCheck = () => {
       const { data: weightRows } = await supabase
         .from("weight_day")
         .select("date, kg_avg, kg_min, kg_max")
-        .eq("patient_id", patientId)
+        .eq("patient_id", trendPatientId)
         .gte("date", startStr)
         .lte("date", endStr)
         .order("date", { ascending: true })
@@ -338,7 +367,7 @@ const SelfCheck = () => {
       const { data: bpRows } = await supabase
         .from("bp_readings")
         .select("reading_date, reading_time, systolic, diastolic, pulse")
-        .eq("patient_id", patientId)
+        .eq("patient_id", trendPatientId)
         .gte("reading_date", startStr)
         .lte("reading_date", endStr)
         .order("reading_date", { ascending: true })
@@ -357,7 +386,7 @@ const SelfCheck = () => {
       const { data: symptomRows, error } = await supabase
         .from("symptom_log")
         .select("date, cough, sob_activity, leg_swelling, abd_discomfort, orthopnea")
-        .eq("patient_id", patientId)
+        .eq("patient_id", trendPatientId)
         .gte("date", startStr)
         .lte("date", endStr)
         .order("date", { ascending: true })
