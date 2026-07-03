@@ -141,11 +141,11 @@ export default function PatientList() {
                         ) : (
                           patients.map((patient: any) => {
                             const patientName =
-                              `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
                               patient.full_name ||
+                              patient.profile_name ||
+                              `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
                               patient.name ||
                               "Unknown Patient";
-
 
                             return (
                               <TableRow
