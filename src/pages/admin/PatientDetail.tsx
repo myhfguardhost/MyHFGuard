@@ -161,11 +161,6 @@ function hasStepsData(data: any[]) {
   return data.some((record) => record.count !== null);
 }
 
-function hasHrData(data: any[]) {
-  return data.some(
-    (record) => record.min !== null || record.avg !== null || record.max !== null
-  );
-}
 
 function hasSpo2Data(data: any[]) {
   return data.some(
@@ -245,7 +240,6 @@ export default function PatientDetail() {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [fullData, setFullData] = useState<AdminPatientFullData | null>(null);
   const [vitals, setVitals] = useState<any>({
-    hr: [],
     spo2: [],
     steps: [],
     bp: [],
@@ -295,26 +289,11 @@ export default function PatientDetail() {
       setProfile(profileData);
       setFullData(data);
 
-      const hrData = data.vitals?.hr || [];
       const spo2Data = data.vitals?.spo2 || [];
       const stepsData = data.vitals?.steps || [];
       const bpData = data.vitals?.bp || [];
       const weightDayData = data.vitals?.weight || [];
       const weightSamples = data.vitals?.weightSamples || [];
-
-      const formattedHr = hrData
-        .map((record: any) => ({
-          fullDate: record.date,
-          date: formatChartDate(record.date),
-          min: toPositiveNumber(record.hr_min),
-          avg: toPositiveNumber(record.hr_avg),
-          max: toPositiveNumber(record.hr_max),
-          count: toZeroOrPositiveNumber(record.hr_count),
-        }))
-        .filter(
-          (record: any) =>
-            record.min !== null || record.avg !== null || record.max !== null
-        );
 
       const formattedSpo2 = spo2Data
         .map((record: any) => ({
@@ -371,7 +350,6 @@ export default function PatientDetail() {
         .filter((record: any) => record.kg !== null);
 
       setVitals({
-        hr: formattedHr,
         spo2: formattedSpo2,
         steps: formattedSteps,
         bp: formattedBp,
@@ -577,8 +555,7 @@ export default function PatientDetail() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                    <StatCard title="Heart Rate" value={summary.heartRate ? `${summary.heartRate} bpm` : "-"} detail="Latest band/app data" />
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     <StatCard title="SpO₂" value={summary.spo2 ? `${summary.spo2}%` : "-"} detail="Latest band/app data" />
                     <StatCard title="Steps Today" value={summary.stepsToday ?? "-"} detail={summary.latestSteps ? `Latest day: ${summary.latestSteps}` : "From Health Connect"} />
                     <StatCard title="Blood Pressure" value={summary.bpSystolic && summary.bpDiastolic ? `${summary.bpSystolic}/${summary.bpDiastolic}` : "-"} detail={summary.bpPulse ? `Pulse ${summary.bpPulse}` : "Self-check data"} />
@@ -602,30 +579,6 @@ export default function PatientDetail() {
                                 <Tooltip />
                                 <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} name="Steps" isAnimationActive={false} />
                               </BarChart>
-                            </ResponsiveContainer>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Heart Rate (BPM)</CardTitle></CardHeader>
-                      <CardContent>
-                        {!hasHrData(vitals.hr) ? (
-                          <NoData message="No heart rate data available for this period" />
-                        ) : (
-                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={vitals.hr} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                                <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
-                                <YAxis domain={["dataMin - 10", "dataMax + 10"]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
-                                <Tooltip />
-                                <Legend />
-                                <Line type="monotone" dataKey="max" stroke="#dc2626" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#dc2626" }} activeDot={{ r: 8 }} name="Max" connectNulls isAnimationActive={false} />
-                                <Line type="monotone" dataKey="avg" stroke="#f97316" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#f97316" }} activeDot={{ r: 8 }} name="Avg" connectNulls isAnimationActive={false} />
-                                <Line type="monotone" dataKey="min" stroke="#16a34a" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#16a34a" }} activeDot={{ r: 8 }} name="Min" connectNulls isAnimationActive={false} />
-                              </LineChart>
                             </ResponsiveContainer>
                           </div>
                         )}
@@ -714,20 +667,6 @@ export default function PatientDetail() {
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Count</TableHead></TableRow></TableHeader>
                             <TableBody>{[...vitals.steps].reverse().map((record: any, index: number) => (
                               <TableRow key={index}><TableCell>{record.fullDate}</TableCell><TableCell>{record.count}</TableCell></TableRow>
-                            ))}</TableBody>
-                          </Table>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Heart Rate Log</CardTitle></CardHeader>
-                      <CardContent>
-                        {!hasHrData(vitals.hr) ? <MiniEmpty /> : (
-                          <Table>
-                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Min</TableHead><TableHead>Avg</TableHead><TableHead>Max</TableHead></TableRow></TableHeader>
-                            <TableBody>{[...vitals.hr].reverse().map((record: any, index: number) => (
-                              <TableRow key={index}><TableCell>{record.fullDate}</TableCell><TableCell>{record.min ?? "-"}</TableCell><TableCell>{record.avg ?? "-"}</TableCell><TableCell>{record.max ?? "-"}</TableCell></TableRow>
                             ))}</TableBody>
                           </Table>
                         )}
