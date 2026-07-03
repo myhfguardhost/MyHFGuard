@@ -356,20 +356,96 @@ async function adminSafeSingle(label, query, errors) {
 
 async function adminSafeFallback(label, queryFns, errors) {
   let lastError = null
+
   for (const queryFn of queryFns) {
     try {
       const result = await queryFn()
-      if (!result || !result.error) return (result && result.data) || []
-      lastError = result.error.message
+
+      if (!result || result.error) {
+        lastError = result && result.error ? result.error.message : 'No result returned'
+        continue
+      }
+
+      const data = result.data
+
+      if (Array.isArray(data)) {
+        if (data.length > 0) return data
+        continue
+      }
+
+      if (data) return data
     } catch (error) {
       lastError = error.message
     }
   }
+
   if (lastError) {
     console.warn(`[admin/full-data] ${label}: ${lastError}`)
     errors[label] = lastError
   }
+
   return []
+}
+
+function adminUniqueValues(values) {
+  return [...new Set((values || []).filter((value) => value !== null && value !== undefined && String(value).trim() !== '').map((value) => String(value).trim()))]
+}
+
+function adminMedicationRowsFromProfile(profile) {
+  const raw = profile && profile.current_medication ? String(profile.current_medication).trim() : ''
+  if (!raw) return []
+
+  const rows = []
+  const usedRanges = []
+  const pattern = /([^,;\n()]+?)\s*\(([^)]*)\)/g
+  let match
+
+  while ((match = pattern.exec(raw)) !== null) {
+    const name = String(match[1] || '').trim()
+    const schedule = String(match[2] || '').trim()
+
+    if (name) {
+      rows.push({
+        id: `profile-med-${rows.length}`,
+        name,
+        schedule: schedule || 'Saved in patient profile',
+        active: true,
+        source: 'profiles.current_medication',
+      })
+      usedRanges.push([match.index, match.index + match[0].length])
+    }
+  }
+
+  let leftover = raw
+  for (const [start, end] of usedRanges.slice().reverse()) {
+    leftover = `${leftover.slice(0, start)} ${leftover.slice(end)}`
+  }
+
+  leftover
+    .split(/\n|;|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .forEach((name) => {
+      rows.push({
+        id: `profile-med-${rows.length}`,
+        name,
+        schedule: 'Saved in patient profile',
+        active: true,
+        source: 'profiles.current_medication',
+      })
+    })
+
+  if (rows.length === 0) {
+    rows.push({
+      id: 'profile-med-0',
+      name: raw,
+      schedule: 'Saved in patient profile',
+      active: true,
+      source: 'profiles.current_medication',
+    })
+  }
+
+  return rows
 }
 
 function adminBuildFullSummary({ hr, spo2, steps, distance, bp, weightDay, weightSamples, waterSalt, symptoms, medications, reminders, deviceSync }) {
@@ -446,12 +522,24 @@ app.get('/api/admin/patient-full-data', async (req, res) => {
       })
     }
 
-    const [patient, profileByUser, devices, deviceSync, hr, spo2, steps, distance, bp, weightDay, weightSamples, symptoms, waterSalt, medications, reminders] = await Promise.all([
-      adminSafeSingle('patients', supabase.from('patients').select('*').eq('patient_id', patientId).maybeSingle(), errors),
-      adminSafeFallback('profiles', [
-        () => supabase.from('profiles').select('*').eq('user_id', patientId).maybeSingle(),
-        () => supabase.from('profiles').select('*').eq('patient_id', patientId).maybeSingle(),
-      ], errors).then((rows) => Array.isArray(rows) ? (rows[0] || null) : rows),
+    const patient = await adminSafeSingle('patients', supabase.from('patients').select('*').eq('patient_id', patientId).maybeSingle(), errors)
+    const profileLookupIds = adminUniqueValues([
+      patientId,
+      patient && patient.user_id,
+      patient && patient.auth_user_id,
+      patient && patient.patient_id,
+      patient && patient.id,
+    ])
+
+    const profileQueries = []
+    for (const lookupId of profileLookupIds) {
+      profileQueries.push(() => supabase.from('profiles').select('*').eq('user_id', lookupId).maybeSingle())
+      profileQueries.push(() => supabase.from('profiles').select('*').eq('id', lookupId).maybeSingle())
+      profileQueries.push(() => supabase.from('profiles').select('*').eq('patient_id', lookupId).maybeSingle())
+    }
+
+    const [profileByUser, devices, deviceSync, hr, spo2, steps, distance, bp, weightDay, weightSamples, symptoms, waterSalt, medicationsFromTable, reminders] = await Promise.all([
+      adminSafeFallback('profiles', profileQueries, errors).then((rows) => Array.isArray(rows) ? (rows[0] || null) : rows),
       adminSafeQuery('devices', supabase.from('devices').select('*').eq('patient_id', patientId).limit(30), errors),
       adminSafeQuery('device_sync_status', supabase.from('device_sync_status').select('*').eq('patient_id', patientId).limit(30), errors),
       adminSafeQuery('hr_day', supabase.from('hr_day').select('*').eq('patient_id', patientId).gte('date', startDate).lte('date', endDate).order('date', { ascending: true }), errors),
@@ -469,6 +557,9 @@ app.get('/api/admin/patient-full-data', async (req, res) => {
       adminSafeQuery('medication', supabase.from('medication').select('*').eq('patient_id', patientId).limit(200), errors),
       adminSafeQuery('reminders', supabase.from('reminders').select('*').eq('patient_id', patientId).limit(200), errors),
     ])
+
+    const medicationsFromProfile = adminMedicationRowsFromProfile(profileByUser)
+    const medications = (medicationsFromTable && medicationsFromTable.length > 0) ? medicationsFromTable : medicationsFromProfile
 
     const summary = adminBuildFullSummary({
       hr,
@@ -1351,39 +1442,9 @@ app.get('/patient/summary', async (req, res) => {
   const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (hr.error) return res.status(400).json({ error: hr.error.message })
   const row = (hr.data && hr.data[0]) || null
-  const todayMY = toDateWithOffset(new Date().toISOString(), 480)
-
-  let stepsToday = null
-
-  const stToday = await supabase
-    .from('steps_day')
-    .select('date,steps_total')
-    .eq('patient_id', pid)
-    .eq('date', todayMY)
-    .limit(1)
-
-  if (stToday.error) return res.status(400).json({ error: stToday.error.message })
-
-  if (stToday.data && stToday.data.length > 0) {
-    stepsToday = Math.round(Number(stToday.data[0].steps_total || 0))
-  } else {
-    const startMY = `${todayMY}T00:00:00.000Z`
-    const endMY = `${todayMY}T23:59:59.999Z`
-
-    const stHour = await supabase
-      .from('steps_hour')
-      .select('steps_total')
-      .eq('patient_id', pid)
-      .gte('hour_ts', startMY)
-      .lte('hour_ts', endMY)
-
-    if (stHour.error) return res.status(400).json({ error: stHour.error.message })
-
-    stepsToday = (stHour.data || []).reduce(
-      (sum, row) => sum + Number(row.steps_total || 0),
-      0
-    )
-  }
+  const st = await supabase.from('steps_day').select('date,steps_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
+  if (st.error) return res.status(400).json({ error: st.error.message })
+  const srow = (st.data && st.data[0]) || null
   const dist = await supabase.from('distance_day').select('date,meters_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   const drow = (dist.data && dist.data[0]) || null
   const bp = await supabase.from('bp_readings').select('systolic,diastolic,pulse').eq('patient_id', pid).order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(1)
@@ -1421,7 +1482,7 @@ app.get('/patient/summary', async (req, res) => {
     bpPulse: bpRow ? bpRow.pulse : null,
     weightKg: wRow ? wRow.kg_avg : null,
     nextAppointmentDate: null,
-    stepsToday,
+    stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
     lastSyncTs,
   }
@@ -1506,40 +1567,75 @@ app.get('/patient/vitals', async (req, res) => {
         .order('reading_time', { ascending: true })
       if (bp.error) return res.status(400).json({ error: bp.error.message })
 
-      // Fetch weight from weight_sample to ensure fresh data
-      const startBuf = new Date(startS); startBuf.setDate(startBuf.getDate() - 1);
-      const endBuf = new Date(endS); endBuf.setDate(endBuf.getDate() + 1);
-
-      const weightRaw = await supabase
-        .from('weight_sample')
-        .select('time_ts,kg')
+      // Fetch weight from weight_day first, then fallback to weight_sample
+      const weightDay = await supabase
+        .from('weight_day')
+        .select('date,kg_avg')
         .eq('patient_id', pid)
-        .gte('time_ts', startBuf.toISOString())
-        .lte('time_ts', endBuf.toISOString())
-        .order('time_ts', { ascending: true })
+        .gte('date', startS)
+        .lte('date', endS)
+        .order('date', { ascending: true })
 
-      const weightData = []
-      if (!weightRaw.error) {
-        const wMap = new Map()
-        for (const row of (weightRaw.data || [])) {
-          const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
-          const y = d.getUTCFullYear()
-          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-          const day = String(d.getUTCDate()).padStart(2, '0')
-          const k = `${y}-${m}-${day}`
-          if (k >= startS && k <= endS) {
-            if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
-            const e = wMap.get(k)
-            e.sum += Number(row.kg)
-            e.count++
+      let weightData = []
+      let weightError = weightDay.error || null
+
+      if (!weightDay.error && (weightDay.data || []).length > 0) {
+        weightData = (weightDay.data || [])
+          .map((r) => ({
+            date: r.date,
+            kg_avg: Number(r.kg_avg),
+          }))
+          .filter((r) => !Number.isNaN(r.kg_avg) && r.kg_avg > 0)
+      } else {
+        const startBuf = new Date(startS)
+        startBuf.setDate(startBuf.getDate() - 1)
+
+        const endBuf = new Date(endS)
+        endBuf.setDate(endBuf.getDate() + 1)
+
+        const weightRaw = await supabase
+          .from('weight_sample')
+          .select('time_ts,kg')
+          .eq('patient_id', pid)
+          .gte('time_ts', startBuf.toISOString())
+          .lte('time_ts', endBuf.toISOString())
+          .order('time_ts', { ascending: true })
+
+        weightError = weightRaw.error || null
+
+        if (!weightRaw.error) {
+          const wMap = new Map()
+
+          for (const row of weightRaw.data || []) {
+            const d = new Date(Date.parse(row.time_ts) + tzOffsetMin * 60000)
+            const y = d.getUTCFullYear()
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(d.getUTCDate()).padStart(2, '0')
+            const k = `${y}-${m}-${day}`
+
+            if (k >= startS && k <= endS) {
+              if (!wMap.has(k)) {
+                wMap.set(k, { sum: 0, count: 0 })
+              }
+
+              const e = wMap.get(k)
+              e.sum += Number(row.kg)
+              e.count++
+            }
           }
+
+          for (const [k, v] of wMap) {
+            weightData.push({
+              date: k,
+              kg_avg: Number((v.sum / v.count).toFixed(1)),
+            })
+          }
+
+          weightData.sort((a, b) => a.date.localeCompare(b.date))
         }
-        for (const [k, v] of wMap) {
-          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
-        }
-        weightData.sort((a, b) => a.date.localeCompare(b.date))
       }
-      const weight = { data: weightData, error: weightRaw.error }
+
+      const weight = { data: weightData, error: weightError }
 
       const hrDays = (hr.data || [])
       // Calculate resting HR from hourly data for the week range
@@ -1661,40 +1757,75 @@ app.get('/patient/vitals', async (req, res) => {
         .order('reading_time', { ascending: true })
       if (bp.error) return res.status(400).json({ error: bp.error.message })
 
-      // Fetch weight from weight_sample to ensure fresh data
-      const startBuf = new Date(startStr); startBuf.setDate(startBuf.getDate() - 1);
-      const endBuf = new Date(endStr); endBuf.setDate(endBuf.getDate() + 1);
-
-      const weightRaw = await supabase
-        .from('weight_sample')
-        .select('time_ts,kg')
+      // Fetch weight from weight_day first, then fallback to weight_sample
+      const weightDay = await supabase
+        .from('weight_day')
+        .select('date,kg_avg')
         .eq('patient_id', pid)
-        .gte('time_ts', startBuf.toISOString())
-        .lte('time_ts', endBuf.toISOString())
-        .order('time_ts', { ascending: true })
+        .gte('date', startStr)
+        .lte('date', endStr)
+        .order('date', { ascending: true })
 
-      const weightData = []
-      if (!weightRaw.error) {
-        const wMap = new Map()
-        for (const row of (weightRaw.data || [])) {
-          const d = new Date(Date.parse(row.time_ts) + (tzOffsetMin * 60000))
-          const y = d.getUTCFullYear()
-          const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-          const day = String(d.getUTCDate()).padStart(2, '0')
-          const k = `${y}-${m}-${day}`
-          if (k >= startStr && k <= endStr) {
-            if (!wMap.has(k)) wMap.set(k, { sum: 0, count: 0 })
-            const e = wMap.get(k)
-            e.sum += Number(row.kg)
-            e.count++
+      let weightData = []
+      let weightError = weightDay.error || null
+
+      if (!weightDay.error && (weightDay.data || []).length > 0) {
+        weightData = (weightDay.data || [])
+          .map((r) => ({
+            date: r.date,
+            kg_avg: Number(r.kg_avg),
+          }))
+          .filter((r) => !Number.isNaN(r.kg_avg) && r.kg_avg > 0)
+      } else {
+        const startBuf = new Date(startStr)
+        startBuf.setDate(startBuf.getDate() - 1)
+
+        const endBuf = new Date(endStr)
+        endBuf.setDate(endBuf.getDate() + 1)
+
+        const weightRaw = await supabase
+          .from('weight_sample')
+          .select('time_ts,kg')
+          .eq('patient_id', pid)
+          .gte('time_ts', startBuf.toISOString())
+          .lte('time_ts', endBuf.toISOString())
+          .order('time_ts', { ascending: true })
+
+        weightError = weightRaw.error || null
+
+        if (!weightRaw.error) {
+          const wMap = new Map()
+
+          for (const row of weightRaw.data || []) {
+            const d = new Date(Date.parse(row.time_ts) + tzOffsetMin * 60000)
+            const y = d.getUTCFullYear()
+            const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+            const day = String(d.getUTCDate()).padStart(2, '0')
+            const k = `${y}-${m}-${day}`
+
+            if (k >= startStr && k <= endStr) {
+              if (!wMap.has(k)) {
+                wMap.set(k, { sum: 0, count: 0 })
+              }
+
+              const e = wMap.get(k)
+              e.sum += Number(row.kg)
+              e.count++
+            }
           }
+
+          for (const [k, v] of wMap) {
+            weightData.push({
+              date: k,
+              kg_avg: Number((v.sum / v.count).toFixed(1)),
+            })
+          }
+
+          weightData.sort((a, b) => a.date.localeCompare(b.date))
         }
-        for (const [k, v] of wMap) {
-          weightData.push({ date: k, kg_avg: Number((v.sum / v.count).toFixed(1)) })
-        }
-        weightData.sort((a, b) => a.date.localeCompare(b.date))
       }
-      const weight = { data: weightData, error: weightRaw.error }
+
+      const weight = { data: weightData, error: weightError }
 
       const hrDays = (hr.data || [])
       let restingMap = new Map()
@@ -2570,3 +2701,4 @@ app.get("/water-salt", async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+

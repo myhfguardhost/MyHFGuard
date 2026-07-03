@@ -100,6 +100,63 @@ function hasRows(data: any[]) {
   return Array.isArray(data) && data.length > 0;
 }
 
+function medicationRowsFromProfile(rawMedication: any) {
+  const raw = rawMedication ? String(rawMedication).trim() : "";
+  if (!raw) return [];
+
+  const rows: any[] = [];
+  const usedRanges: Array<[number, number]> = [];
+  const pattern = /([^,;\n()]+?)\s*\(([^)]*)\)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(raw)) !== null) {
+    const name = String(match[1] || "").trim();
+    const schedule = String(match[2] || "").trim();
+
+    if (name) {
+      rows.push({
+        id: `profile-med-${rows.length}`,
+        name,
+        schedule: schedule || "Saved in patient profile",
+        active: true,
+        source: "Profile current medication",
+      });
+      usedRanges.push([match.index, match.index + match[0].length]);
+    }
+  }
+
+  let leftover = raw;
+  [...usedRanges].reverse().forEach(([start, end]) => {
+    leftover = `${leftover.slice(0, start)} ${leftover.slice(end)}`;
+  });
+
+  leftover
+    .split(/\n|;|,/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .forEach((name) => {
+      rows.push({
+        id: `profile-med-${rows.length}`,
+        name,
+        schedule: "Saved in patient profile",
+        active: true,
+        source: "Profile current medication",
+      });
+    });
+
+  if (rows.length === 0) {
+    rows.push({
+      id: "profile-med-0",
+      name: raw,
+      schedule: "Saved in patient profile",
+      active: true,
+      source: "Profile current medication",
+    });
+  }
+
+  return rows;
+}
+
 function hasStepsData(data: any[]) {
   return data.some((record) => record.count !== null);
 }
@@ -363,13 +420,7 @@ export default function PatientDetail() {
   const waterSalt = fullData?.logs?.waterSalt || [];
   const medications = fullData?.logs?.medications || [];
   const profileMedicationText = fullData?.profile?.current_medication || fullData?.patient?.current_medication || "";
-  const fallbackMedicationRows = profileMedicationText
-    ? String(profileMedicationText)
-        .split(/\n|,/)
-        .map((item: string) => item.trim())
-        .filter(Boolean)
-        .map((name: string, index: number) => ({ id: `profile-med-${index}`, name, schedule: "Saved in patient profile", active: true }))
-    : [];
+  const fallbackMedicationRows = medicationRowsFromProfile(profileMedicationText);
   const medicationRows = hasRows(medications) ? medications : fallbackMedicationRows;
   const deviceSync = fullData?.deviceSync || [];
   const errors = fullData?.errors || {};
