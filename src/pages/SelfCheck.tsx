@@ -109,7 +109,7 @@ const SelfCheck = () => {
     has_bp: false,
     has_symptoms: false,
   })
-  const [weeklyStatus, setWeeklyStatus] = useState<Record<string, { has_weight: boolean; has_symptoms: boolean }>>(
+  const [weeklyStatus, setWeeklyStatus] = useState<Record<string, { has_weight: boolean; has_symptoms: boolean; has_bp?: boolean; has_water_diet?: boolean }>>(
     {}
   )
 
@@ -1055,20 +1055,22 @@ const SelfCheck = () => {
                           <Legend />
                           <Line
                             type="monotone"
-                            dataKey="weight"
-                            name={t("selfCheck.weeklyTrend.weightKg")}
-                            stroke="#2563eb"
-                            strokeWidth={2}
-                            connectNulls
-                          />
-                          <Line
-                            type="monotone"
                             dataKey="dryWeight"
                             name={t("selfCheck.weeklyTrend.originalDryWeight")}
                             stroke="#64748b"
                             strokeWidth={2}
                             strokeDasharray="6 6"
                             dot={false}
+                            connectNulls
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="weight"
+                            name={t("selfCheck.weeklyTrend.weightKg")}
+                            stroke="#2563eb"
+                            strokeWidth={3}
+                            dot={{ r: 5 }}
+                            activeDot={{ r: 7 }}
                             connectNulls
                           />
                         </LineChart>
@@ -1136,7 +1138,7 @@ const SelfCheck = () => {
                         <LineChart data={weeklyTrend}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="day" />
-                          <YAxis domain={[0, 25]} />
+                          <YAxis domain={[-1, 25]} ticks={[0, 5, 10, 15, 20, 25]} />
                           <Tooltip />
                           <Legend />
 
@@ -1149,7 +1151,9 @@ const SelfCheck = () => {
                             dataKey="symptomScore"
                             name={t("selfCheck.weeklyTrend.symptomScore")}
                             stroke="#9333ea"
-                            strokeWidth={2}
+                            strokeWidth={3}
+                            dot={{ r: 5 }}
+                            activeDot={{ r: 7 }}
                             connectNulls
                           />
                         </LineChart>
