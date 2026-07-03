@@ -232,7 +232,7 @@ export async function getWeeklyStatus(patientId: string, endDate?: string) {
   const url = `${serverUrl()}/patient/weekly-status?patientId=${encodeURIComponent(patientId)}${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`
   const res = await fetch(url)
   if (!res.ok) return {}
-  return res.json() as Promise<Record<string, { has_weight: boolean; has_symptoms: boolean }>>
+  return res.json() as Promise<Record<string, { has_weight: boolean; has_symptoms: boolean; has_bp?: boolean }>>
 }
 
 export async function sendSymptomMessage(message: string, patientId: string) {
@@ -306,3 +306,43 @@ export async function processWeightImage(file: File, patientId: string) {
 
   return data
 }
+export type AdminPatientFullData = {
+  patientId: string
+  range?: { startDate?: string; endDate?: string }
+  patient?: any
+  profile?: any
+  devices?: any[]
+  deviceSync?: any[]
+  summary?: any
+  vitals?: {
+    hr?: any[]
+    spo2?: any[]
+    steps?: any[]
+    distance?: any[]
+    bp?: any[]
+    weight?: any[]
+    weightSamples?: any[]
+  }
+  logs?: {
+    symptoms?: any[]
+    waterSalt?: any[]
+    medications?: any[]
+    reminders?: any[]
+  }
+  errors?: Record<string, string>
+}
+
+export async function getAdminPatientFullData(patientId: string, startDate?: string, endDate?: string) {
+  const params = new URLSearchParams({ patientId })
+  if (startDate) params.set("startDate", startDate)
+  if (endDate) params.set("endDate", endDate)
+
+  const res = await fetch(`${serverUrl()}/api/admin/patient-full-data?${params.toString()}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.details || body?.error || "Failed to fetch full patient data")
+  }
+
+  return res.json() as Promise<AdminPatientFullData>
+}
+

@@ -11,12 +11,57 @@ import {
 import { toast } from "sonner";
 
 
-import { serverUrl } from "@/lib/api";
+import { getAdminPatientFullData, serverUrl } from "@/lib/api";
 import { buildAlerts } from "@/lib/adminAlertUtils";
 
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
+
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function normalizeVitals(fullData: any) {
+  const vitals = fullData?.vitals || {};
+  const hr = vitals.hr || [];
+  const spo2 = vitals.spo2 || [];
+  const steps = vitals.steps || [];
+  const bp = vitals.bp || [];
+  const weight = vitals.weight || [];
+  const weightSamples = vitals.weightSamples || [];
+
+  return {
+    vitals: {
+      hr: hr.map((row: any) => ({
+        time: row.date,
+        min: Math.round(Number(row.hr_min || 0)),
+        avg: Math.round(Number(row.hr_avg || 0)),
+        max: Math.round(Number(row.hr_max || 0)),
+      })),
+      spo2: spo2.map((row: any) => ({
+        time: row.date,
+        min: Math.round(Number(row.spo2_min || 0)),
+        avg: Math.round(Number(row.spo2_avg || 0)),
+        max: Math.round(Number(row.spo2_max || 0)),
+      })),
+      steps: steps.map((row: any) => ({
+        time: row.date,
+        count: Math.round(Number(row.steps_total ?? row.total_steps ?? row.steps ?? 0)),
+      })),
+      bp: bp.map((row: any) => ({
+        time: `${row.reading_date || ""}T${row.reading_time || "00:00:00"}`,
+        systolic: Number(row.systolic ?? row.bp_systolic ?? row.sys ?? 0),
+        diastolic: Number(row.diastolic ?? row.bp_diastolic ?? row.dia ?? 0),
+        pulse: Number(row.pulse ?? row.bp_pulse ?? 0),
+      })),
+      weight: (weight.length > 0 ? weight : weightSamples).map((row: any) => ({
+        time: row.date || row.time_ts,
+        value: Number(row.kg_avg ?? row.kg ?? row.value ?? 0),
+      })),
+    },
+  };
+}
 
 
 export default function AdminAlerts() {
@@ -65,46 +110,58 @@ export default function AdminAlerts() {
       });
 
 
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 90);
+      const startDate = dateKey(start);
+      const endDate = dateKey(end);
+
       const allAlerts = await Promise.all(
         patientRows.map(async (patient: any) => {
           const patientId = patient.patient_id;
 
-
-          const [summaryRes, vitalsRes, weeklyStatusRes] = await Promise.all([
-            fetch(`${API}/patient/summary?patientId=${patientId}`).then((r) =>
-              r.ok ? r.json() : null
-            ),
-            fetch(`${API}/patient/vitals?patientId=${patientId}&period=weekly`).then(
-              (r) => (r.ok ? r.json() : null)
-            ),
+          const [fullData, weeklyStatusRes] = await Promise.all([
+            getAdminPatientFullData(patientId, startDate, endDate).catch((e) => ({
+              patientId,
+              patient,
+              summary: {},
+              vitals: { hr: [], spo2: [], steps: [], distance: [], bp: [], weight: [], weightSamples: [] },
+              logs: { symptoms: [], waterSalt: [], medications: [], reminders: [] },
+              devices: [],
+              profile: null,
+              deviceSync: [],
+              errors: { fullData: e.message },
+            })),
             fetch(`${API}/patient/weekly-status?patientId=${patientId}`).then((r) =>
               r.ok ? r.json() : null
             ),
           ]);
 
-
+          const patientInfo = fullData?.patient || fullData?.profile || patient;
           const patientName =
-            `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
+            `${patientInfo?.first_name || ""} ${patientInfo?.last_name || ""}`.trim() ||
+            patientInfo?.full_name ||
+            patientInfo?.name ||
             patient.full_name ||
             patient.name ||
             "Unknown Patient";
-
 
           const createdAt =
             patient.updated_at ||
             patient.last_sign_in_at ||
             patient.created_at ||
+            fullData?.patient?.created_at ||
+            fullData?.profile?.created_at ||
             new Date().toISOString();
-
 
           const patientAlerts = buildAlerts({
             patientId,
-            summaryData: summaryRes,
-            vitalsData: vitalsRes,
+            summaryData: { summary: fullData?.summary || {} },
+            vitalsData: normalizeVitals(fullData),
             weeklyStatus: weeklyStatusRes,
+            symptomLogs: fullData?.logs?.symptoms || [],
             demoMode: false,
           });
-
 
           return patientAlerts
             .filter((alert: any) => alert.level !== "stable")

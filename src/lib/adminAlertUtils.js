@@ -53,20 +53,84 @@ export function pickWorstStatus(alerts) {
    Symptom helper functions
 ========================= */
 
+const SYMPTOM_FIELDS = [
+  ["sob_activity", "breathlessness", "shortness_of_breath"],
+  ["leg_swelling", "swelling", "feet_swelling"],
+  ["orthopnea", "sleeping", "sleep_flat"],
+  ["cough"],
+  ["abd_discomfort", "abdomen", "abdominal_discomfort"],
+]
+
+function firstNumber(row, keys) {
+  for (const key of keys) {
+    const value = row?.[key]
+    if (value !== undefined && value !== null && value !== "") {
+      const numberValue = Number(value)
+      return Number.isNaN(numberValue) ? 0 : numberValue
+    }
+  }
+
+  return 0
+}
+
+function symptomDateKey(row) {
+  const value = row?.date || row?.logged_at || row?.time_ts || row?.created_at
+  if (!value) return ""
+
+  const text = String(value)
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return text.slice(0, 10)
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  return date.toISOString().slice(0, 10)
+}
+
+function todayDateKey() {
+  const now = new Date()
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+  return local.toISOString().slice(0, 10)
+}
+
+function daysBetween(dateA, dateB) {
+  const a = new Date(`${dateA}T00:00:00`).getTime()
+  const b = new Date(`${dateB}T00:00:00`).getTime()
+  if (Number.isNaN(a) || Number.isNaN(b)) return 999
+  return Math.round((b - a) / 86400000)
+}
+
 function countSymptomsInRange(symptom, min, max) {
   if (!symptom) return 0
 
-  const values = [
-    symptom.sob_activity,
-    symptom.leg_swelling,
-    symptom.orthopnea,
-    symptom.cough,
-    symptom.abd_discomfort,
-  ]
+  const values = SYMPTOM_FIELDS.map((keys) => firstNumber(symptom, keys))
 
-  return values.filter(
-    (v) => Number(v) >= min && Number(v) <= max
-  ).length
+  return values.filter((v) => v >= min && v <= max).length
+}
+
+function getDailySymptomRows(symptoms) {
+  if (!Array.isArray(symptoms)) return []
+
+  const byDate = new Map()
+
+  for (const row of symptoms) {
+    const key = symptomDateKey(row)
+    if (!key) continue
+
+    const current = byDate.get(key)
+    const rowTime = new Date(row.logged_at || row.time_ts || row.created_at || key).getTime()
+    const currentTime = current
+      ? new Date(current.logged_at || current.time_ts || current.created_at || key).getTime()
+      : -Infinity
+
+    if (!current || (Number.isFinite(rowTime) && rowTime >= currentTime)) {
+      byDate.set(key, row)
+    }
+  }
+
+  return [...byDate.entries()]
+    .map(([date, row]) => ({ date, row }))
+    .sort((a, b) => a.date.localeCompare(b.date))
 }
 
 function hasConsecutiveSymptomDays(
@@ -76,21 +140,16 @@ function hasConsecutiveSymptomDays(
   minCount,
   daysRequired = 3
 ) {
-  if (!Array.isArray(symptoms)) return false
-
-  const sorted = [...symptoms].sort(
-    (a, b) =>
-      new Date(a.date).getTime() -
-      new Date(b.date).getTime()
-  )
-
+  const dailyRows = getDailySymptomRows(symptoms)
   let streak = 0
+  let previousDate = ""
 
-  for (const row of sorted) {
-    const count = countSymptomsInRange(row, min, max)
+  for (const item of dailyRows) {
+    const count = countSymptomsInRange(item.row, min, max)
+    const isNextDay = previousDate ? daysBetween(previousDate, item.date) === 1 : true
 
     if (count >= minCount) {
-      streak += 1
+      streak = isNextDay ? streak + 1 : 1
 
       if (streak >= daysRequired) {
         return true
@@ -98,6 +157,8 @@ function hasConsecutiveSymptomDays(
     } else {
       streak = 0
     }
+
+    previousDate = item.date
   }
 
   return false
@@ -212,16 +273,6 @@ export function buildAlerts({
         id: "bp-warning-high",
         level: "warning",
         title: "High Blood Pressure",
-        message: `BP ${bpSystolic}/${bpDiastolic} mmHg`,
-      })
-    } else if (
-      (bpSystolic >= 121 && bpSystolic <= 139) ||
-      (bpDiastolic >= 80 && bpDiastolic <= 89)
-    ) {
-      alerts.push({
-        id: "bp-warning-elevated",
-        level: "warning",
-        title: "Elevated Blood Pressure",
         message: `BP ${bpSystolic}/${bpDiastolic} mmHg`,
       })
     }
@@ -348,11 +399,6 @@ export function buildAlerts({
     null
   )
 
-  const baselineHr = formatNumber(
-    summaryData?.summary?.baselineHr,
-    null
-  )
-
   if (
     baselineWeight !== null &&
     latestWeight !== null
@@ -398,39 +444,18 @@ export function buildAlerts({
     }
   }
 
-  if (baselineHr !== null && hr !== null) {
-    const hrDiff = Math.abs(hr - baselineHr)
-
-    if (hrDiff >= 20) {
-      alerts.push({
-        id: "baseline-hr-warning",
-        level: "warning",
-        title: "Heart Rate Deviates From Baseline",
-        message: `Heart rate differs from baseline by ${hrDiff} bpm`,
-      })
-    }
-  }
-
   /* =========================
      Symptom alerts
   ========================= */
 
-  const todaySymptom =
-    symptomLogs?.[symptomLogs.length - 1]
+  const todayKey = todayDateKey()
+  const todaySymptom = getDailySymptomRows(symptomLogs).find(
+    (item) => item.date === todayKey
+  )?.row
 
-  const todayRedSymptoms =
-    countSymptomsInRange(
-      todaySymptom,
-      4,
-      5
-    )
+  const todayRedSymptoms = countSymptomsInRange(todaySymptom, 4, 5)
 
-  const todayOrangeSymptoms =
-    countSymptomsInRange(
-      todaySymptom,
-      2,
-      3
-    )
+  const todayOrangeSymptoms = countSymptomsInRange(todaySymptom, 2, 3)
 
   const hasRedSymptomStreak =
     hasConsecutiveSymptomDays(
@@ -458,8 +483,9 @@ export function buildAlerts({
       id: "symptom-red-alert",
       level: "critical",
       title: "Critical Symptom Alert",
-      message:
-        "Red zone symptoms detected based on daily or consecutive symptom ratings.",
+      message: todayRedSymptoms >= 3
+        ? `${todayRedSymptoms} red-zone symptoms rated 4–5 today.`
+        : "2 or more red-zone symptoms rated 4–5 were detected for 3 consecutive days.",
     })
   } else if (
     todayOrangeSymptoms >= 3 ||
@@ -469,8 +495,9 @@ export function buildAlerts({
       id: "symptom-warning-alert",
       level: "warning",
       title: "Symptom Warning",
-      message:
-        "Orange zone symptoms detected based on daily or consecutive symptom ratings.",
+      message: todayOrangeSymptoms >= 3
+        ? `${todayOrangeSymptoms} orange-zone symptoms rated 2–3 today.`
+        : "2 or more orange-zone symptoms rated 2–3 were detected for 3 consecutive days.",
     })
   }
 
@@ -506,26 +533,12 @@ export function buildAlerts({
     const missingVitalDays =
       days.filter((d) => d.has_bp === false).length
 
-    const missingWaterDietDays =
-      days.filter(
-        (d) => d.has_water_diet === false
-      ).length
-
     if (missingVitalDays >= 2) {
       alerts.push({
         id: "missing-vitals",
         level: "warning",
         title: "Incomplete Vital Logs",
         message: `${missingVitalDays} days without vital log this week`,
-      })
-    }
-
-    if (missingWaterDietDays >= 2) {
-      alerts.push({
-        id: "missing-water-diet",
-        level: "warning",
-        title: "Incomplete Water & Diet Logs",
-        message: `${missingWaterDietDays} days without water and diet log this week`,
       })
     }
 
