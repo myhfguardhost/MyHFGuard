@@ -281,7 +281,6 @@ export default function AdminDashboard() {
     let avgHr = 0;
     let avgSteps = 0;
 
-
     let spo2Count = 0;
     let hrCount = 0;
     let stepsCount = 0;
