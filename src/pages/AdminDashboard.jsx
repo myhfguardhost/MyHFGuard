@@ -16,7 +16,6 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import AdminRecentAlerts from "@/components/admin/AdminRecentAlerts";
 import AdminSummaryPanels from "@/components/admin/AdminSummaryPanels";
-import AdminAnalyticsCards from "@/components/admin/AdminAnalyticsCards";
 import AdminActivityFeed from "@/components/admin/AdminActivityFeed";
 import AdminKeyMetricsPanel from "@/components/admin/AdminKeyMetricsPanel";
 
@@ -571,11 +570,6 @@ export default function AdminDashboard() {
 
 
                     <AdminActivityFeed summary={summary} />
-                  </div>
-
-
-                  <div className="mt-5">
-                    <AdminAnalyticsCards dashboardData={dashboardData} />
                   </div>
                 </>
               )}

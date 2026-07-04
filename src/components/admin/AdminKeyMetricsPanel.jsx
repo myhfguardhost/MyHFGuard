@@ -1,4 +1,4 @@
-import { Footprints, HeartPulse, Scale, Waves } from "lucide-react"
+import { Footprints, Scale, Waves } from "lucide-react"
 import AdminWeightChart from "@/components/admin/AdminWeightChart"
 import AdminBPChart from "@/components/admin/AdminBPChart"
 
@@ -8,9 +8,6 @@ export default function AdminKeyMetricsPanel({ dashboardData, summary = [] }) {
   const avgSpo2 =
     realData.avgSpo2 !== "-" ? realData.avgSpo2 : dashboardData.avgSpo2
 
-  const avgHr =
-    realData.avgHr !== "-" ? realData.avgHr : dashboardData.avgHr
-
   const avgSteps =
     realData.avgSteps !== "-" ? realData.avgSteps : dashboardData.avgSteps
 
@@ -18,17 +15,11 @@ export default function AdminKeyMetricsPanel({ dashboardData, summary = [] }) {
     <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
       <h2 className="font-semibold text-slate-900 mb-4">Key Metrics</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         <MetricCard
           icon={<Waves className="text-cyan-600" size={18} />}
           label="Avg SpO₂"
           value={avgSpo2 === "-" ? "No data" : `${avgSpo2}%`}
-        />
-
-        <MetricCard
-          icon={<HeartPulse className="text-rose-600" size={18} />}
-          label="Avg Heart Rate"
-          value={avgHr === "-" ? "No data" : `${avgHr} bpm`}
         />
 
         <MetricCard
@@ -70,9 +61,6 @@ function getRealMetrics(summary) {
   let spo2Total = 0
   let spo2Count = 0
 
-  let hrTotal = 0
-  let hrCount = 0
-
   let stepsTotal = 0
   let stepsCount = 0
 
@@ -92,17 +80,11 @@ function getRealMetrics(summary) {
     const latestWeight =
       weightList.length > 0 ? Number(weightList[weightList.length - 1]?.value) : null
 
-    const heartRate = Number(s.heartRate)
     const steps = Number(s.stepsToday)
 
     if (!Number.isNaN(latestSpo2) && latestSpo2 > 0) {
       spo2Total += latestSpo2
       spo2Count++
-    }
-
-    if (!Number.isNaN(heartRate) && heartRate > 0) {
-      hrTotal += heartRate
-      hrCount++
     }
 
     if (!Number.isNaN(steps) && steps >= 0) {
@@ -118,7 +100,6 @@ function getRealMetrics(summary) {
 
   return {
     avgSpo2: spo2Count ? Math.round(spo2Total / spo2Count) : "-",
-    avgHr: hrCount ? Math.round(hrTotal / hrCount) : "-",
     avgSteps: stepsCount ? Math.round(stepsTotal / stepsCount) : "-",
     avgWeight: weightCount ? (weightTotal / weightCount).toFixed(1) : "-",
   }
