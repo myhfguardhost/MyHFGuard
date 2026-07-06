@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { generatePatientPdf } from "@/lib/pdf";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AdminPatientFullData, getAdminPatientFullData, PatientProfile } from "@/lib/api";
@@ -42,7 +42,6 @@ import {
   Legend,
   Line,
   LineChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -200,6 +199,47 @@ function symptomTotal(row: any) {
     Number(row?.orthopnea || row?.sleeping || 0) +
     Number(row?.cough || 0) +
     Number(row?.abd_discomfort || row?.abdomen || 0)
+  );
+}
+
+
+function ChartFrame({
+  children,
+}: {
+  children: (width: number, height: number) => any;
+}) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  const height = 300;
+
+  useLayoutEffect(() => {
+    const element = frameRef.current;
+    if (!element) return;
+
+    const updateSize = () => {
+      const nextWidth = Math.floor(element.getBoundingClientRect().width);
+      setWidth(nextWidth > 0 ? nextWidth : 0);
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(element);
+    window.addEventListener("resize", updateSize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateSize);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={frameRef}
+      style={{ height, minHeight: height, width: "100%", minWidth: 0 }}
+    >
+      {width > 10 ? children(width, height) : null}
+    </div>
   );
 }
 
@@ -479,11 +519,11 @@ export default function PatientDetail() {
                 <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-slate-600">Quick Range:</span>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(1)}>1M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(3)}>3M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(6)}>6M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setYearPreset(1)}>1Y</Button>
-                    <Button variant="outline" size="sm" onClick={() => setYearPreset(3)}>3Y</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreset(1)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">1M</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreset(3)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">3M</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreset(6)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">6M</Button>
+                    <Button variant="outline" size="sm" onClick={() => setYearPreset(1)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">1Y</Button>
+                    <Button variant="outline" size="sm" onClick={() => setYearPreset(3)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">3Y</Button>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -570,17 +610,17 @@ export default function PatientDetail() {
                         {!hasStepsData(vitals.steps) ? (
                           <NoData message="No steps data available for this period" />
                         ) : (
-                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={vitals.steps} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
+                          <ChartFrame>
+                            {(chartWidth, chartHeight) => (
+                              <BarChart width={chartWidth} height={chartHeight} data={vitals.steps} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <YAxis tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <Tooltip />
                                 <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} name="Steps" isAnimationActive={false} />
                               </BarChart>
-                            </ResponsiveContainer>
-                          </div>
+                            )}
+                          </ChartFrame>
                         )}
                       </CardContent>
                     </Card>
@@ -591,9 +631,9 @@ export default function PatientDetail() {
                         {!hasBpData(vitals.bp) ? (
                           <NoData message="No blood pressure data available for this period" />
                         ) : (
-                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={vitals.bp} margin={{ top: 20, right: 30, left: 5, bottom: 35 }}>
+                          <ChartFrame>
+                            {(chartWidth, chartHeight) => (
+                              <LineChart width={chartWidth} height={chartHeight} data={vitals.bp} margin={{ top: 20, right: 30, left: 5, bottom: 35 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" />
                                 <YAxis domain={["dataMin - 10", "dataMax + 10"]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
@@ -603,8 +643,8 @@ export default function PatientDetail() {
                                 <Line type="monotone" dataKey="diastolic" stroke="#2563eb" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#2563eb" }} activeDot={{ r: 8 }} name="Diastolic" connectNulls isAnimationActive={false} />
                                 <Line type="monotone" dataKey="pulse" stroke="#16a34a" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#16a34a" }} activeDot={{ r: 8 }} name="Pulse" connectNulls isAnimationActive={false} />
                               </LineChart>
-                            </ResponsiveContainer>
-                          </div>
+                            )}
+                          </ChartFrame>
                         )}
                       </CardContent>
                     </Card>
@@ -615,9 +655,9 @@ export default function PatientDetail() {
                         {!hasSpo2Data(vitals.spo2) ? (
                           <NoData message="No SpO₂ data available for this period" />
                         ) : (
-                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={vitals.spo2} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
+                          <ChartFrame>
+                            {(chartWidth, chartHeight) => (
+                              <LineChart width={chartWidth} height={chartHeight} data={vitals.spo2} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <YAxis domain={["dataMin - 2", "dataMax + 2"]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
@@ -627,8 +667,8 @@ export default function PatientDetail() {
                                 <Line type="monotone" dataKey="avg" stroke="#06b6d4" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#06b6d4" }} activeDot={{ r: 8 }} name="Avg %" connectNulls isAnimationActive={false} />
                                 <Line type="monotone" dataKey="min" stroke="#16a34a" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#16a34a" }} activeDot={{ r: 8 }} name="Min %" connectNulls isAnimationActive={false} />
                               </LineChart>
-                            </ResponsiveContainer>
-                          </div>
+                            )}
+                          </ChartFrame>
                         )}
                       </CardContent>
                     </Card>
@@ -639,9 +679,9 @@ export default function PatientDetail() {
                         {!hasWeightData(vitals.weight) ? (
                           <NoData message="No weight data available for this period" />
                         ) : (
-                          <div style={{ height: 300, minHeight: 300, width: "100%" }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <LineChart data={vitals.weight} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
+                          <ChartFrame>
+                            {(chartWidth, chartHeight) => (
+                              <LineChart width={chartWidth} height={chartHeight} data={vitals.weight} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                                 <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <YAxis domain={["dataMin - 2", "dataMax + 2"]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
@@ -649,8 +689,8 @@ export default function PatientDetail() {
                                 <Legend />
                                 <Line type="monotone" dataKey="kg" stroke="#9333ea" strokeWidth={4} dot={{ r: 6, strokeWidth: 2, fill: "#9333ea" }} activeDot={{ r: 8 }} name="Weight kg" connectNulls isAnimationActive={false} />
                               </LineChart>
-                            </ResponsiveContainer>
-                          </div>
+                            )}
+                          </ChartFrame>
                         )}
                       </CardContent>
                     </Card>
