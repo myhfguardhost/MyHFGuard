@@ -729,9 +729,9 @@ export default function PatientDetail() {
                       <CardContent>
                         {!hasBpData(vitals.bp) ? <MiniEmpty /> : (
                           <Table>
-                            <TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Sys/Dia</TableHead><TableHead>Pulse</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Sys/Dia</TableHead><TableHead>Pulse</TableHead></TableRow></TableHeader>
                             <TableBody>{[...vitals.bp].reverse().map((record: any, index: number) => (
-                              <TableRow key={index}><TableCell>{record.time}</TableCell><TableCell>{record.systolic}/{record.diastolic}</TableCell><TableCell>{record.pulse}</TableCell></TableRow>
+                              <TableRow key={index}><TableCell>{record.fullDate}</TableCell><TableCell>{record.systolic}/{record.diastolic}</TableCell><TableCell>{record.pulse}</TableCell></TableRow>
                             ))}</TableBody>
                           </Table>
                         )}
@@ -745,7 +745,7 @@ export default function PatientDetail() {
                           <Table>
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Weight</TableHead></TableRow></TableHeader>
                             <TableBody>{[...vitals.weight].reverse().map((record: any, index: number) => (
-                              <TableRow key={index}><TableCell>{formatDateOnly(record.fullDate)}</TableCell><TableCell>{record.kg} kg</TableCell></TableRow>
+                              <TableRow key={index}><TableCell>{String(record.fullDate).slice(0, 10)}</TableCell><TableCell>{record.kg} kg</TableCell></TableRow>
                             ))}</TableBody>
                           </Table>
                         )}
