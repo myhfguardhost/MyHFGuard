@@ -62,7 +62,7 @@ function formatChartDate(dateString: string) {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return String(dateString).slice(0, 10);
 
-  return date.toLocaleDateString("en-US", {
+  return date.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });
@@ -79,7 +79,7 @@ function formatDateOnly(value: any) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return date.toLocaleDateString("en-MY", {
+  return date.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });

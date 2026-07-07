@@ -225,8 +225,8 @@ export default function WaterSalt() {
           weekday: "short",
         }),
         fullDate: date.toLocaleDateString(currentLocale, {
-          month: "short",
           day: "numeric",
+          month: "short",
         }),
         water: log ? Number(log.water_intake_ml || 0) : 0,
         limit: log ? Number(log.water_limit_ml || 0) : Number(waterLimitMl || 0),
@@ -252,8 +252,8 @@ export default function WaterSalt() {
           weekday: "short",
         }),
         fullDate: date.toLocaleDateString(currentLocale, {
-          month: "short",
           day: "numeric",
+          month: "short",
         }),
         saltScore: score,
         fill: getSaltColor(score),
