@@ -24,17 +24,18 @@ function getWeightTime(row) {
 }
 
 function shortDate(value) {
-  const text = String(value || "");
+  if (!value) return "";
 
-  if (text.length >= 16) {
-    return text.slice(5, 16);
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
   }
 
-  if (text.length >= 10) {
-    return text.slice(5, 10);
-  }
-
-  return text;
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
 function useChartSize(defaultWidth = 520) {
