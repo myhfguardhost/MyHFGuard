@@ -79,13 +79,10 @@ function formatDateOnly(value: any) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
-  return date.toLocaleDateString();
-}
-
-function formatBpTime(dateString: string, timeString: string) {
-  const dateLabel = formatChartDate(dateString);
-  const timeLabel = String(timeString || "").substring(0, 5);
-  return timeLabel ? `${dateLabel} ${timeLabel}` : dateLabel;
+  return date.toLocaleDateString("en-MY", {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function getRecordValue(record: any, keys: string[]) {
@@ -362,7 +359,7 @@ export default function PatientDetail() {
       const formattedBp = bpData
         .map((reading: any) => ({
           fullDate: reading.reading_date,
-          time: formatBpTime(reading.reading_date, reading.reading_time),
+          time: formatDateOnly(reading.reading_date),
           systolic: toPositiveNumber(
             reading.systolic ?? reading.bp_systolic ?? reading.sys
           ),
