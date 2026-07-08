@@ -50,22 +50,16 @@ const Login = () => {
     let { data } = await supabase.auth.getSession();
     let role = data?.session?.user?.app_metadata?.role;
 
-    if (role !== "patient") {
-      try {
-        await fetch(`${serverUrl()}/admin/promote`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email, role: "patient" }),
-        });
-        const r = await supabase.auth.getSession();
-        role = r.data?.session?.user?.app_metadata?.role;
-      } catch (_) {}
+    if (role === "admin") {
+      await supabase.auth.signOut();
+      setError("This is an admin account. Please use the Admin Login page.");
+      setIsSubmitting(false);
+      return;
     }
 
     if (role !== "patient") {
       await supabase.auth.signOut();
-      toast.info("Please confirm your email. Check your inbox for the verification link.");
-      setError("Email not confirmed yet. Check your inbox to verify.");
+      setError("Your account is not authorized as a patient.");
       setIsSubmitting(false);
       return;
     }
