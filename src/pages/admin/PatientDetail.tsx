@@ -611,7 +611,7 @@ export default function PatientDetail() {
                             {(chartWidth, chartHeight) => (
                               <BarChart width={chartWidth} height={chartHeight} data={vitals.steps} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                                <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
+                                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" interval={0} angle={-35} textAnchor="end" height={55}/>
                                 <YAxis tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <Tooltip />
                                 <Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} name="Steps" isAnimationActive={false} />
@@ -632,7 +632,7 @@ export default function PatientDetail() {
                             {(chartWidth, chartHeight) => (
                               <LineChart width={chartWidth} height={chartHeight} data={vitals.bp} margin={{ top: 20, right: 30, left: 5, bottom: 35 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                                <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" />
+                                <XAxis dataKey="time" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" interval={0} angle={-35} textAnchor="end" height={55}/>
                                 <YAxis domain={["dataMin - 10", "dataMax + 10"]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <Tooltip />
                                 <Legend />
@@ -656,7 +656,7 @@ export default function PatientDetail() {
                             {(chartWidth, chartHeight) => (
                               <LineChart width={chartWidth} height={chartHeight} data={vitals.spo2} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                                <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
+                                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" interval={0} angle={-35} textAnchor="end" height={55}/>
                                 <YAxis domain={["dataMin - 2", "dataMax + 2"]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <Tooltip />
                                 <Legend />
@@ -680,7 +680,7 @@ export default function PatientDetail() {
                             {(chartWidth, chartHeight) => (
                               <LineChart width={chartWidth} height={chartHeight} data={vitals.weight} margin={{ top: 20, right: 30, left: 5, bottom: 20 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                                <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
+                                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" interval={0} angle={-35} textAnchor="end" height={55}/>
                                 <YAxis domain={["dataMin - 2", "dataMax + 2"]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
                                 <Tooltip />
                                 <Legend />
