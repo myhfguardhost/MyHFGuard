@@ -25,7 +25,7 @@ export default function AdminSummaryPanels({ dashboardData }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-      <section className="lg:col-span-7 rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+      <section className="lg:col-span-12 rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
         <h2 className="font-semibold text-slate-900 mb-4">Overall Status</h2>
 
         <div className="flex flex-col items-center">
@@ -58,27 +58,6 @@ export default function AdminSummaryPanels({ dashboardData }) {
               <p className="font-bold text-red-700 text-lg">{critical}</p>
               <p className="text-sm text-slate-700">Critical</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="lg:col-span-5 rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-        <h2 className="font-semibold text-slate-900 mb-4">Patient Summary</h2>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-            <span className="text-sm text-slate-700">Total Patients</span>
-            <span className="font-bold text-slate-900">{dashboardData.totalPatients}</span>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-            <span className="text-sm text-slate-700">New This Month</span>
-            <span className="font-bold text-slate-900">{dashboardData.newThisMonth}</span>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-            <span className="text-sm text-slate-700">Active Patients</span>
-            <span className="font-bold text-slate-900">{dashboardData.activePatients}</span>
           </div>
         </div>
       </section>
