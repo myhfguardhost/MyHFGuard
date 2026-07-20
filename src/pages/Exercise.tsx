@@ -5,8 +5,6 @@ import StableChart from "@/components/StableChart"
 import { Button } from "@/components/ui/button"
 import {
   Footprints,
-  MapPinned,
-  Timer,
   Activity,
   Target,
   BellRing,
@@ -14,53 +12,92 @@ import {
   Smartphone,
   CalendarDays,
   Download,
+  TrendingUp,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { getPatientSummary, getPatientVitals } from "@/lib/api"
 import { format, formatDistanceToNow, startOfWeek } from "date-fns"
 import { toast } from "sonner"
 import { useLanguage } from "@/contexts/LanguageContext"
-import { CartesianGrid, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts"
-
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ReferenceLine,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 const getWeekKey = () => {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 })
   return format(weekStart, "yyyy-MM-dd")
 }
 
-
 const Exercise = () => {
   const { t } = useLanguage()
+
   const [patientId, setPatientId] = useState<string | undefined>()
-  const [selectedGoal, setSelectedGoal] = useState<string>("goalBetterSleep")
+  const [selectedGoal, setSelectedGoal] =
+    useState<string>("goalBetterSleep")
   const [hasSavedGoal, setHasSavedGoal] = useState(false)
   const [goalSaved, setGoalSaved] = useState(false)
   const [goalLoading, setGoalLoading] = useState(false)
   const [savingGoal, setSavingGoal] = useState(false)
   const [collecting, setCollecting] = useState(false)
 
-
   const currentWeekKey = getWeekKey()
-  const currentWeekLabel = `${t("weekOf")} ${format(new Date(currentWeekKey), "d MMM yyyy")}`
 
+  const currentWeekLabel = `${t("weekOf")} ${format(
+    new Date(`${currentWeekKey}T00:00:00`),
+    "d MMM yyyy"
+  )}`
 
   const weeklyGoals = [
-    { key: "goalBetterSleep", label: t("goalBetterSleep") },
-    { key: "goalBoostedEnergy", label: t("goalBoostedEnergy") },
-    { key: "goalWalkWithEase", label: t("goalWalkWithEase") },
-    { key: "goalLessPain", label: t("goalLessPain") },
-    { key: "goalFeelBetter", label: t("goalFeelBetter") },
-    { key: "goalReducedBreathlessness", label: t("goalReducedBreathlessness") },
-    { key: "goalLessFatigue", label: t("goalLessFatigue") },
-    { key: "goalMoreHouseEnergy", label: t("goalMoreHouseEnergy") },
-    { key: "goalMoreSocialEnergy", label: t("goalMoreSocialEnergy") },
-    { key: "goalImprovedAppetite", label: t("goalImprovedAppetite") },
+    {
+      key: "goalBetterSleep",
+      label: t("goalBetterSleep"),
+    },
+    {
+      key: "goalBoostedEnergy",
+      label: t("goalBoostedEnergy"),
+    },
+    {
+      key: "goalWalkWithEase",
+      label: t("goalWalkWithEase"),
+    },
+    {
+      key: "goalLessPain",
+      label: t("goalLessPain"),
+    },
+    {
+      key: "goalFeelBetter",
+      label: t("goalFeelBetter"),
+    },
+    {
+      key: "goalReducedBreathlessness",
+      label: t("goalReducedBreathlessness"),
+    },
+    {
+      key: "goalLessFatigue",
+      label: t("goalLessFatigue"),
+    },
+    {
+      key: "goalMoreHouseEnergy",
+      label: t("goalMoreHouseEnergy"),
+    },
+    {
+      key: "goalMoreSocialEnergy",
+      label: t("goalMoreSocialEnergy"),
+    },
+    {
+      key: "goalImprovedAppetite",
+      label: t("goalImprovedAppetite"),
+    },
   ]
-
 
   const loadWeeklyGoal = async (uid: string) => {
     setGoalLoading(true)
-
 
     try {
       const { data, error } = await supabase
@@ -72,40 +109,56 @@ const Exercise = () => {
         .limit(1)
         .maybeSingle()
 
-
       if (error) throw error
-
 
       if (data?.goal) {
         setSelectedGoal(data.goal)
         setHasSavedGoal(true)
-        localStorage.setItem(`exerciseGoal:${uid}:${currentWeekKey}`, data.goal)
+
+        localStorage.setItem(
+          `exerciseGoal:${uid}:${currentWeekKey}`,
+          data.goal
+        )
       } else {
         setHasSavedGoal(false)
-        const legacyGoalKey = localStorage.getItem(`exerciseGoal:${uid}:${currentWeekKey}`)
+
+        const legacyGoalKey = localStorage.getItem(
+          `exerciseGoal:${uid}:${currentWeekKey}`
+        )
+
         setSelectedGoal(legacyGoalKey || "goalBetterSleep")
       }
     } catch (err) {
       console.error("Failed to load weekly exercise goal", err)
-      const legacyGoalKey = localStorage.getItem(`exerciseGoal:${uid}:${currentWeekKey}`)
-      if (legacyGoalKey) setSelectedGoal(legacyGoalKey)
+
+      const legacyGoalKey = localStorage.getItem(
+        `exerciseGoal:${uid}:${currentWeekKey}`
+      )
+
+      if (legacyGoalKey) {
+        setSelectedGoal(legacyGoalKey)
+      }
+
       toast.error(t("goalLoadFailed"))
     } finally {
       setGoalLoading(false)
     }
   }
 
-
   useEffect(() => {
     async function init() {
       const { data } = await supabase.auth.getSession()
       const uid = data?.session?.user?.id
+
       setPatientId(uid)
-      if (uid) await loadWeeklyGoal(uid)
+
+      if (uid) {
+        await loadWeeklyGoal(uid)
+      }
     }
+
     init()
   }, [currentWeekKey])
-
 
   const summaryQuery = useQuery({
     queryKey: ["patient-summary", patientId],
@@ -114,7 +167,6 @@ const Exercise = () => {
     refetchOnWindowFocus: false,
   })
 
-
   const vitalsQuery = useQuery({
     queryKey: ["patient-vitals-exercise", patientId],
     queryFn: () => getPatientVitals(patientId, "hourly"),
@@ -122,60 +174,96 @@ const Exercise = () => {
     refetchOnWindowFocus: false,
   })
 
-
   const summary = summaryQuery.data?.summary || {}
   const vitals = vitalsQuery.data?.vitals || {}
 
+  const stepCount = Number(summary.stepsToday || 0)
 
-  const stepCount = summary.stepsToday || 0
-  const distanceKm = summary.distanceToday || 0
-  const exerciseMinutes = stepCount > 0 ? Math.max(10, Math.round(stepCount / 100)) : 0
-  const spo2 = vitals.spo2?.length ? Math.round(vitals.spo2[vitals.spo2.length - 1].avg || 0) : 98
-
+  const spo2 = vitals.spo2?.length
+    ? Math.round(
+        Number(vitals.spo2[vitals.spo2.length - 1]?.avg || 0)
+      )
+    : 98
 
   const stepTarget = 3000
   const baselineSteps = 2000
-  const stepProgress = Math.min(100, Math.round((stepCount / stepTarget) * 100))
+
+  const stepProgress = Math.min(
+    100,
+    Math.round((stepCount / stepTarget) * 100)
+  )
+
   const stepGap = Math.max(0, stepTarget - stepCount)
   const toleratedWell = stepCount >= baselineSteps
   const targetReached = stepCount >= stepTarget
 
-
   const syncDisplay = summary.lastSyncTs
-    ? formatDistanceToNow(new Date(summary.lastSyncTs), { addSuffix: true })
+    ? formatDistanceToNow(new Date(summary.lastSyncTs), {
+        addSuffix: true,
+      })
     : t("notSyncedYet")
 
-
   const recommendation = useMemo(() => {
-    if (targetReached) return t("exerciseRecommendationReached")
-    if (toleratedWell) return t("exerciseRecommendationGood")
+    if (targetReached) {
+      return t("exerciseRecommendationReached")
+    }
+
+    if (toleratedWell) {
+      return t("exerciseRecommendationGood")
+    }
+
     return t("exerciseRecommendationSlow")
   }, [targetReached, toleratedWell, t])
 
+  const weeklyStepsData = useMemo(() => {
+    const weekData = [
+      { day: "Mon", steps: 0 },
+      { day: "Tue", steps: 0 },
+      { day: "Wed", steps: 0 },
+      { day: "Thu", steps: 0 },
+      { day: "Fri", steps: 0 },
+      { day: "Sat", steps: 0 },
+      { day: "Sun", steps: 0 },
+    ]
 
-  const weeklyStepsData = [
-    { day: "Mon", steps: 0 },
-    { day: "Tue", steps: 0 },
-    { day: "Wed", steps: 0 },
-    { day: "Thu", steps: 0 },
-    { day: "Fri", steps: 0 },
-    { day: "Sat", steps: 0 },
-    { day: "Sun", steps: 0 },
-  ]
+    ;(vitals.steps || []).forEach((item: any) => {
+      const rawTime =
+        item?.time ??
+        item?.date ??
+        item?.created_at ??
+        item?.time_ts
 
+      if (!rawTime) return
 
-  ;(vitals.steps || []).forEach((item: any) => {
-    const day = format(new Date(item.time), "EEE")
+      const parsedDate = new Date(rawTime)
 
+      if (Number.isNaN(parsedDate.getTime())) return
 
-    const row = weeklyStepsData.find((d) => d.day === day)
+      const day = format(parsedDate, "EEE")
+      const row = weekData.find((entry) => entry.day === day)
 
+      if (!row) return
 
-    if (row) {
-      row.steps += Number(item.count || item.steps || item.value || 0)
-    }
-  })
+      row.steps += Number(
+        item?.count ??
+          item?.steps ??
+          item?.total_steps ??
+          item?.value ??
+          0
+      )
+    })
 
+    return weekData
+  }, [vitals.steps])
+
+  const weeklyMaximum = useMemo(() => {
+    const highestSteps = Math.max(
+      stepTarget,
+      ...weeklyStepsData.map((item) => item.steps)
+    )
+
+    return Math.ceil(highestSteps / 1000) * 1000
+  }, [weeklyStepsData])
 
   const handleSaveGoal = async () => {
     if (!patientId) {
@@ -183,15 +271,12 @@ const Exercise = () => {
       return
     }
 
-
     if (hasSavedGoal) {
       toast.info(t("goalAlreadySavedInfo"))
       return
     }
 
-
     setSavingGoal(true)
-
 
     try {
       const { error } = await supabase
@@ -204,7 +289,6 @@ const Exercise = () => {
           },
         ])
 
-
       if (error) {
         if (error.code === "23505") {
           setHasSavedGoal(true)
@@ -213,16 +297,22 @@ const Exercise = () => {
           return
         }
 
-
         throw error
       }
 
+      localStorage.setItem(
+        `exerciseGoal:${patientId}:${currentWeekKey}`,
+        selectedGoal
+      )
 
-      localStorage.setItem(`exerciseGoal:${patientId}:${currentWeekKey}`, selectedGoal)
       setHasSavedGoal(true)
       setGoalSaved(true)
+
       toast.success(t("goalSaved"))
-      setTimeout(() => setGoalSaved(false), 2000)
+
+      setTimeout(() => {
+        setGoalSaved(false)
+      }, 2000)
     } catch (err) {
       console.error("Failed to save weekly exercise goal", err)
       toast.error(t("goalSaveFailed"))
@@ -231,205 +321,439 @@ const Exercise = () => {
     }
   }
 
-
   const handleCollectData = async () => {
     if (!patientId) {
       toast.error(t("userNotFound"))
       return
     }
 
-
     setCollecting(true)
+
     try {
-      await Promise.all([summaryQuery.refetch(), vitalsQuery.refetch()])
+      await Promise.all([
+        summaryQuery.refetch(),
+        vitalsQuery.refetch(),
+      ])
+
       toast.success(t("latestExerciseLoaded"))
     } catch (err) {
+      console.error("Failed to load latest exercise data", err)
       toast.error(t("failedExerciseLoad"))
     } finally {
       setCollecting(false)
     }
   }
 
-
-  const currentGoalLabel = weeklyGoals.find((goal) => goal.key === selectedGoal)?.label || t("goalBetterSleep")
-
+  const currentGoalLabel =
+    weeklyGoals.find((goal) => goal.key === selectedGoal)?.label ||
+    t("goalBetterSleep")
 
   return (
-    <div className="min-h-screen bg-background px-3 py-4 sm:px-4 md:px-6 md:py-8 text-foreground">
+    <div className="min-h-screen bg-background px-3 py-4 text-foreground sm:px-4 md:px-6 md:py-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h1 className="text-4xl font-bold">{t("exerciseTitle")}</h1>
-            <p className="mt-2 text-muted-foreground">{t("exerciseDesc")}</p>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              {t("exerciseTitle")}
+            </h1>
+
+            <p className="mt-2 text-muted-foreground">
+              {t("exerciseDesc")}
+            </p>
           </div>
 
+          <div className="flex w-fit items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <Smartphone className="h-4 w-4 text-primary" />
+            </div>
 
-          <div className="flex w-fit items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm">
-            <Smartphone className="h-4 w-4 text-primary" />
-            <span>{t("lastSynced")} : {syncDisplay}</span>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                {t("lastSynced")}
+              </p>
+
+              <p className="font-medium">{syncDisplay}</p>
+            </div>
           </div>
         </div>
 
-
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm lg:col-span-2">
-            <div className="mb-4 flex items-center gap-2">
-              <Target className="text-primary" />
-              <h2 className="text-xl font-semibold">{t("weeklyGoal")}</h2>
+          <Card className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm lg:col-span-2">
+            <div className="border-b border-border bg-muted/30 px-5 py-5 sm:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
+                    <Target className="h-5 w-5 text-primary" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-semibold">
+                      {t("weeklyGoal")}
+                    </h2>
+
+                    <p className="text-sm text-muted-foreground">
+                      {t("selectGoal")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  {currentWeekLabel}
+                </div>
+              </div>
             </div>
 
+            <div className="p-5 sm:p-6">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {weeklyGoals.map((goal) => {
+                  const isSelected = selectedGoal === goal.key
 
-            <div className="mb-4 inline-flex items-center gap-2 rounded-xl border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              {currentWeekLabel}
-            </div>
+                  return (
+                    <button
+                      key={goal.key}
+                      type="button"
+                      onClick={() => {
+                        if (
+                          !hasSavedGoal &&
+                          !goalLoading &&
+                          !savingGoal
+                        ) {
+                          setSelectedGoal(goal.key)
+                        }
+                      }}
+                      disabled={
+                        hasSavedGoal ||
+                        goalLoading ||
+                        savingGoal
+                      }
+                      className={`min-h-[54px] rounded-2xl border px-4 py-3 text-left text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-70 ${
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground shadow-md"
+                          : "border-border bg-background hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent hover:shadow-sm"
+                      }`}
+                    >
+                      {goal.label}
+                    </button>
+                  )
+                })}
+              </div>
 
-
-            <p className="mb-3 text-muted-foreground">{t("selectGoal")}</p>
-
-
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {weeklyGoals.map((goal) => (
-                <button
-                  key={goal.key}
-                  onClick={() => {
-                    if (!hasSavedGoal && !goalLoading && !savingGoal) setSelectedGoal(goal.key)
-                  }}
-                  disabled={hasSavedGoal || goalLoading || savingGoal}
-                  className={`rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-70 ${
-                    selectedGoal === goal.key ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-accent"
-                  }`}
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={handleSaveGoal}
+                  disabled={
+                    hasSavedGoal ||
+                    goalLoading ||
+                    savingGoal
+                  }
+                  className="min-w-[130px] rounded-xl"
                 >
-                  {goal.label}
-                </button>
-              ))}
-            </div>
+                  {goalLoading || savingGoal
+                    ? t("saving")
+                    : hasSavedGoal
+                      ? t("alreadySavedThisWeek")
+                      : t("saveGoal")}
+                </Button>
 
+                {goalSaved && (
+                  <p className="inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-4 w-4" />
+                    {t("goalSaved")}
+                  </p>
+                )}
+              </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button onClick={handleSaveGoal} disabled={hasSavedGoal || goalLoading || savingGoal}>
-                {goalLoading || savingGoal ? t("saving") : hasSavedGoal ? t("alreadySavedThisWeek") : t("saveGoal")}
-              </Button>
               {hasSavedGoal && (
                 <p className="mt-3 text-sm text-muted-foreground">
                   {t("goalAlreadySavedInfo")}
                 </p>
               )}
-              {goalSaved && (
-                <p className="inline-flex items-center gap-2 text-green-600 dark:text-green-400">
-                  <CheckCircle2 className="h-4 w-4" />
-                  {t("goalSaved")}
-                </p>
-              )}
-            </div>
 
+              <div className="mt-5 flex items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    {t("currentGoal")}
+                  </p>
 
-            <div className="mt-4 rounded-xl border border-border bg-muted px-4 py-3">
-              <p className="text-sm text-muted-foreground">{t("currentGoal")}</p>
-              <p className="mt-1 text-lg font-semibold text-primary">{currentGoalLabel}</p>
+                  <p className="mt-1 text-lg font-semibold text-primary">
+                    {currentGoalLabel}
+                  </p>
+                </div>
+
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                </div>
+              </div>
             </div>
           </Card>
 
-
           <div className="flex flex-col gap-4">
-            <Button onClick={handleCollectData} className="flex h-[120px] w-full items-center justify-center gap-2 text-lg font-semibold">
-              <Download className="h-5 w-5" />
-              {collecting || summaryQuery.isFetching || vitalsQuery.isFetching ? t("collecting") : t("collectData")}
+            <Button
+              onClick={handleCollectData}
+              disabled={
+                collecting ||
+                summaryQuery.isFetching ||
+                vitalsQuery.isFetching
+              }
+              className="flex min-h-[88px] w-full items-center justify-center gap-3 rounded-3xl text-base font-semibold shadow-sm"
+            >
+              <Download
+                className={`h-5 w-5 ${
+                  collecting ||
+                  summaryQuery.isFetching ||
+                  vitalsQuery.isFetching
+                    ? "animate-bounce"
+                    : ""
+                }`}
+              />
+
+              {collecting ||
+              summaryQuery.isFetching ||
+              vitalsQuery.isFetching
+                ? t("collecting")
+                : t("collectData")}
             </Button>
 
+            <Card className="rounded-3xl border border-border bg-card shadow-sm">
+              <CardContent className="p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-500/10">
+                    <Footprints className="h-5 w-5 text-yellow-500" />
+                  </div>
 
-            <Card className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <Footprints className="text-yellow-500" />
-                <h2 className="text-xl font-semibold">{t("dailyTarget")}</h2>
-              </div>
-              <p className="text-sm text-muted-foreground">{t("minimumTarget")}</p>
-              <div className="mt-2 text-4xl font-bold text-yellow-500">{stepTarget}</div>
-              <p className="text-sm text-muted-foreground">{t("stepsPerDay")}</p>
-              <div className="mt-4 h-2 w-full rounded-full bg-muted">
-                <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${stepProgress}%` }} />
-              </div>
-              <div className="mt-3 space-y-1 text-sm">
-                <p className="text-muted-foreground">{stepCount} / {stepTarget} {t("stepsCompleted")}</p>
-                <p className="font-medium">{targetReached ? t("targetAchieved") : `${stepGap} ${t("stepsRemaining")}`}</p>
-              </div>
+                  <div>
+                    <h2 className="font-semibold">
+                      {t("dailyTarget")}
+                    </h2>
+
+                    <p className="text-xs text-muted-foreground">
+                      {t("minimumTarget")}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-end gap-2">
+                  <span className="text-4xl font-bold text-yellow-500">
+                    {stepTarget}
+                  </span>
+
+                  <span className="pb-1 text-sm text-muted-foreground">
+                    {t("stepsPerDay")}
+                  </span>
+                </div>
+
+                <div className="mt-5 h-3 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{
+                      width: `${stepProgress}%`,
+                    }}
+                  />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {stepCount} / {stepTarget}
+                  </span>
+
+                  <span className="font-semibold text-primary">
+                    {stepProgress}%
+                  </span>
+                </div>
+
+                <p className="mt-2 text-sm font-medium">
+                  {targetReached
+                    ? t("targetAchieved")
+                    : `${stepGap} ${t("stepsRemaining")}`}
+                </p>
+              </CardContent>
             </Card>
 
+            <Card className="rounded-3xl border border-border bg-card shadow-sm">
+              <CardContent className="p-5">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-pink-500/10">
+                    <Activity className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                  </div>
 
-            <Card className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <Activity className="text-pink-600 dark:text-pink-400" />
-                <h3 className="font-semibold">{t("oximetry")}</h3>
-              </div>
-              <div className="text-3xl font-bold">{spo2}%</div>
-              <p className="mt-2 text-muted-foreground">{t("spo2Desc")}</p>
+                  <h3 className="font-semibold">
+                    {t("oximetry")}
+                  </h3>
+                </div>
+
+                <div className="text-3xl font-bold">{spo2}%</div>
+
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t("spo2Desc")}
+                </p>
+              </CardContent>
             </Card>
 
+            <Card className="rounded-3xl border border-border bg-card shadow-sm">
+              <CardContent className="p-5">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-yellow-500/10">
+                    <BellRing className="h-5 w-5 text-yellow-500" />
+                  </div>
 
-            <Card className="rounded-2xl border border-border bg-card/80 p-5 backdrop-blur-sm">
-              <div className="mb-3 flex items-center gap-2">
-                <BellRing className="text-yellow-500" />
-                <h3 className="font-semibold">{t("exerciseReminder")}</h3>
-              </div>
-              <p className="text-muted-foreground">{recommendation}</p>
+                  <h3 className="font-semibold">
+                    {t("exerciseReminder")}
+                  </h3>
+                </div>
+
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {recommendation}
+                </p>
+              </CardContent>
             </Card>
           </div>
         </div>
 
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <Card className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+            <CardContent className="flex h-full flex-col justify-between p-6">
+              <div>
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                    <Footprints className="h-6 w-6 text-primary" />
+                  </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4">
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Footprints className="text-primary" />
-              <h3 className="font-semibold">{t("stepCount")}</h3>
-            </div>
-            <div className="text-3xl font-bold">{stepCount}</div>
-            <p className="mt-2 text-muted-foreground">{t("todaySteps")}</p>
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                    {stepProgress}%
+                  </span>
+                </div>
+
+                <p className="text-sm font-medium text-muted-foreground">
+                  {t("stepCount")}
+                </p>
+
+                <div className="mt-2 text-5xl font-bold tracking-tight">
+                  {stepCount.toLocaleString()}
+                </div>
+
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {t("todaySteps")}
+                </p>
+              </div>
+
+              <div className="mt-8 rounded-2xl bg-muted/60 p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {t("dailyTarget")}
+                  </span>
+
+                  <span className="font-semibold">
+                    {stepTarget.toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-background">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{
+                      width: `${stepProgress}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </CardContent>
           </Card>
 
+          <Card className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+            <CardHeader className="border-b border-border bg-muted/20 px-5 py-5 sm:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
 
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <MapPinned className="text-green-600 dark:text-green-400" />
-              <h3 className="font-semibold">{t("distance")}</h3>
-            </div>
-            <div className="text-3xl font-bold">{distanceKm} km</div>
-            <p className="mt-2 text-muted-foreground">{t("distanceDesc")}</p>
-          </Card>
+                  <div>
+                    <CardTitle className="text-lg">
+                      {t("weeklyStepTrend")}
+                    </CardTitle>
 
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {currentWeekLabel}
+                    </p>
+                  </div>
+                </div>
 
-          <Card className="rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Timer className="text-purple-600 dark:text-purple-400" />
-              <h3 className="font-semibold">{t("exerciseTime")}</h3>
-            </div>
-            <div className="text-3xl font-bold">{exerciseMinutes} min</div>
-            <p className="mt-2 text-muted-foreground">{t("exerciseTimeDesc")}</p>
-          </Card>
-
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                {t("weeklyStepTrend")}
-              </CardTitle>
+                <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  7 Days
+                </div>
+              </div>
             </CardHeader>
 
+            <CardContent className="p-4 sm:p-6">
+              <div className="h-[280px] w-full">
+                <StableChart height={280}>
+                  <BarChart
+                    data={weeklyStepsData}
+                    margin={{
+                      top: 12,
+                      right: 12,
+                      left: 0,
+                      bottom: 0,
+                    }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      opacity={0.35}
+                    />
 
-            <CardContent>
-              <div className="h-[180px]">
-                <StableChart height={180}>
-                  <BarChart data={weeklyStepsData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" fontSize={12} />
-                    <YAxis hide />
-                    <Tooltip />
+                    <XAxis
+                      dataKey="day"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
 
+                    <YAxis
+                      domain={[0, weeklyMaximum]}
+                      allowDecimals={false}
+                      width={48}
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) =>
+                        value >= 1000
+                          ? `${Math.round(value / 1000)}k`
+                          : `${value}`
+                      }
+                    />
+
+                    <Tooltip
+                      cursor={{
+                        fill: "rgba(14, 165, 233, 0.08)",
+                      }}
+                      formatter={(value) => [
+                        `${Number(value).toLocaleString()} steps`,
+                        t("stepCount"),
+                      ]}
+                      contentStyle={{
+                        borderRadius: "12px",
+                      }}
+                    />
+
+                    <ReferenceLine
+                      y={stepTarget}
+                      stroke="#f59e0b"
+                      strokeDasharray="6 6"
+                      label={{
+                        value: `${stepTarget} target`,
+                        position: "insideTopRight",
+                        fontSize: 11,
+                      }}
+                    />
 
                     <Bar
                       dataKey="steps"
-                      radius={[6, 6, 0, 0]}
+                      radius={[8, 8, 0, 0]}
                       fill="#0ea5e9"
+                      maxBarSize={54}
                     />
                   </BarChart>
                 </StableChart>
@@ -438,15 +762,28 @@ const Exercise = () => {
           </Card>
         </div>
 
+        <Card className="mt-6 rounded-3xl border border-border bg-card shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                <Activity className="h-5 w-5 text-primary" />
+              </div>
 
-        <Card className="mt-6 rounded-2xl border border-border bg-card/80 p-6 backdrop-blur-sm">
-          <h2 className="text-xl font-semibold">{t("exerciseNotes")}</h2>
-          <p className="mt-2 text-muted-foreground">{t("exerciseNotesDesc")}</p>
+              <div>
+                <h2 className="text-lg font-semibold">
+                  {t("exerciseNotes")}
+                </h2>
+
+                <p className="mt-2 leading-6 text-muted-foreground">
+                  {t("exerciseNotesDesc")}
+                </p>
+              </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
   )
 }
-
 
 export default Exercise
