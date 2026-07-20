@@ -185,7 +185,16 @@ const Exercise = () => {
       )
     : 98
 
-  const stepTarget = 3000
+  const stepTargetValue = Number(
+    summary.targetSteps ??
+    summary.target_steps ??
+    3000
+  )
+
+  const stepTarget =
+    Number.isFinite(stepTargetValue) && stepTargetValue > 0
+      ? stepTargetValue
+      : 3000
   const baselineSteps = 2000
 
   const stepProgress = Math.min(
@@ -712,17 +721,8 @@ const Exercise = () => {
                     />
 
                     <YAxis
+                      hide
                       domain={[0, weeklyMaximum]}
-                      allowDecimals={false}
-                      width={48}
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) =>
-                        value >= 1000
-                          ? `${Math.round(value / 1000)}k`
-                          : `${value}`
-                      }
                     />
 
                     <Tooltip
