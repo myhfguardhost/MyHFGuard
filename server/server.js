@@ -1423,8 +1423,14 @@ app.get('/patient/weekly-status', async (req, res) => {
 
 // Patient endpoints for dashboard
 app.get('/patient/summary', async (req, res) => {
-  const pid = (req.query && req.query.patientId)
-  if (!pid) return res.status(400).json({ error: 'missing patientId' })
+  const pid = req.query && req.query.patientId
+
+  if (!pid) {
+    return res.status(400).json({
+      error: 'missing patientId',
+    })
+  }
+
   if (supabaseMock) {
     const summary = {
       heartRate: null,
@@ -1436,87 +1442,205 @@ app.get('/patient/summary', async (req, res) => {
       stepsToday: null,
       distanceToday: null,
       lastSyncTs: null,
+      target_steps: 3000,
     }
+
     return res.status(200).json({ summary })
   }
-  const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
-  if (hr.error) return res.status(400).json({ error: hr.error.message })
-  const row = (hr.data && hr.data[0]) || null
-  const todayMY = toDateWithOffset(new Date().toISOString(), 480)
 
-  let stepsToday = null
+  const hr = await supabase
+    .from('hr_day')
+    .select('date,hr_avg')
+    .eq('patient_id', pid)
+    .order('date', { ascending: false })
+    .limit(1)
 
-  const stToday = await supabase
+  if (hr.error) {
+    return res.status(400).json({
+      error: hr.error.message,
+    })
+  }
+
+  const row = hr.data?.[0] || null
+
+  const st = await supabase
     .from('steps_day')
     .select('date,steps_total')
     .eq('patient_id', pid)
-    .eq('date', todayMY)
+    .order('date', { ascending: false })
     .limit(1)
 
-  if (stToday.error) return res.status(400).json({ error: stToday.error.message })
+  if (st.error) {
+    return res.status(400).json({
+      error: st.error.message,
+    })
+  }
 
-  if (stToday.data && stToday.data.length > 0) {
-    stepsToday = Math.round(Number(stToday.data[0].steps_total || 0))
-  } else {
-    const startMY = `${todayMY}T00:00:00.000Z`
-    const endMY = `${todayMY}T23:59:59.999Z`
+  const srow = st.data?.[0] || null
 
-    const stHour = await supabase
-      .from('steps_hour')
-      .select('steps_total')
-      .eq('patient_id', pid)
-      .gte('hour_ts', startMY)
-      .lte('hour_ts', endMY)
+  const dist = await supabase
+    .from('distance_day')
+    .select('date,meters_total')
+    .eq('patient_id', pid)
+    .order('date', { ascending: false })
+    .limit(1)
 
-    if (stHour.error) return res.status(400).json({ error: stHour.error.message })
+  const drow = dist.data?.[0] || null
 
-    stepsToday = (stHour.data || []).reduce(
-      (sum, row) => sum + Number(row.steps_total || 0),
-      0
+  const bp = await supabase
+    .from('bp_readings')
+    .select('systolic,diastolic,pulse')
+    .eq('patient_id', pid)
+    .order('reading_date', { ascending: false })
+    .order('reading_time', { ascending: false })
+    .limit(1)
+
+  const bpRow = bp.data?.[0] || null
+
+  const wt = await supabase
+    .from('weight_day')
+    .select('date,kg_avg')
+    .eq('patient_id', pid)
+    .order('date', { ascending: false })
+    .limit(1)
+
+  const wRow = wt.data?.[0] || null
+
+  // Read patient-specific target steps from profiles.
+  let targetSteps = 3000
+
+  try {
+    const profileResult = await supabase
+      .from('profiles')
+      .select('target_steps')
+      .eq('user_id', pid)
+      .maybeSingle()
+
+    if (profileResult.error) {
+      console.warn(
+        '[patient/summary] target_steps lookup failed:',
+        profileResult.error.message
+      )
+    } else {
+      const value = Number(profileResult.data?.target_steps)
+
+      if (Number.isFinite(value) && value > 0) {
+        targetSteps = value
+      }
+    }
+  } catch (error) {
+    console.warn(
+      '[patient/summary] target_steps exception:',
+      error?.message || error
     )
   }
-  const dist = await supabase.from('distance_day').select('date,meters_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
-  const drow = (dist.data && dist.data[0]) || null
-  const bp = await supabase.from('bp_readings').select('systolic,diastolic,pulse').eq('patient_id', pid).order('reading_date', { ascending: false }).order('reading_time', { ascending: false }).limit(1)
-  const bpRow = (bp.data && bp.data[0]) || null
-  const wt = await supabase.from('weight_day').select('date,kg_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
-  const wRow = (wt.data && wt.data[0]) || null
+
   let lastSyncTs = null
+
   try {
-    const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
-    const srow2 = (sync.data && sync.data[0]) || null
-    lastSyncTs = (srow2 && (srow2.last_sync_ts || srow2.updated_at)) || null
-  } catch (_) { }
+    const sync = await supabase
+      .from('device_sync_status')
+      .select('last_sync_ts,updated_at')
+      .eq('patient_id', pid)
+      .order('last_sync_ts', { ascending: false })
+      .limit(1)
+
+    const syncRow = sync.data?.[0] || null
+
+    lastSyncTs =
+      syncRow?.last_sync_ts ||
+      syncRow?.updated_at ||
+      null
+  } catch (_) {}
+
   if (!lastSyncTs) {
     try {
-      const hrLast = await supabase.from('hr_sample').select('time_ts').eq('patient_id', pid).order('time_ts', { ascending: false }).limit(1)
-      const stepsLast = await supabase.from('steps_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
-      const distLast = await supabase.from('distance_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
+      const hrLast = await supabase
+        .from('hr_sample')
+        .select('time_ts')
+        .eq('patient_id', pid)
+        .order('time_ts', { ascending: false })
+        .limit(1)
+
+      const stepsLast = await supabase
+        .from('steps_event')
+        .select('end_ts')
+        .eq('patient_id', pid)
+        .order('end_ts', { ascending: false })
+        .limit(1)
+
+      const distLast = await supabase
+        .from('distance_event')
+        .select('end_ts')
+        .eq('patient_id', pid)
+        .order('end_ts', { ascending: false })
+        .limit(1)
+
       const candidates = []
-      const hrTs = hrLast && hrLast.data && hrLast.data[0] && hrLast.data[0].time_ts
-      const stTs = stepsLast && stepsLast.data && stepsLast.data[0] && stepsLast.data[0].end_ts
-      const diTs = distLast && distLast.data && distLast.data[0] && distLast.data[0].end_ts
+
+      const hrTs = hrLast.data?.[0]?.time_ts
+      const stepsTs = stepsLast.data?.[0]?.end_ts
+      const distanceTs = distLast.data?.[0]?.end_ts
+
       if (hrTs) candidates.push(hrTs)
-      if (stTs) candidates.push(stTs)
-      if (diTs) candidates.push(diTs)
+      if (stepsTs) candidates.push(stepsTs)
+      if (distanceTs) candidates.push(distanceTs)
+
       if (candidates.length) {
-        const maxTs = Math.max(...candidates.map((d) => new Date(d).getTime()))
-        if (Number.isFinite(maxTs)) lastSyncTs = new Date(maxTs).toISOString()
+        const maxTs = Math.max(
+          ...candidates.map((date) =>
+            new Date(date).getTime()
+          )
+        )
+
+        if (Number.isFinite(maxTs)) {
+          lastSyncTs = new Date(maxTs).toISOString()
+        }
       }
-    } catch (_) { }
+    } catch (_) {}
   }
+
   const summary = {
-    heartRate: row ? Math.round(row.hr_avg || 0) : null,
-    bpSystolic: bpRow ? bpRow.systolic : null,
-    bpDiastolic: bpRow ? bpRow.diastolic : null,
-    bpPulse: bpRow ? bpRow.pulse : null,
-    weightKg: wRow ? wRow.kg_avg : null,
+    heartRate: row
+      ? Math.round(row.hr_avg || 0)
+      : null,
+
+    bpSystolic: bpRow
+      ? bpRow.systolic
+      : null,
+
+    bpDiastolic: bpRow
+      ? bpRow.diastolic
+      : null,
+
+    bpPulse: bpRow
+      ? bpRow.pulse
+      : null,
+
+    weightKg: wRow
+      ? wRow.kg_avg
+      : null,
+
     nextAppointmentDate: null,
-    stepsToday,
-    distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
+
+    stepsToday: srow
+      ? Math.round(srow.steps_total || 0)
+      : null,
+
+    distanceToday: drow
+      ? Math.round(drow.meters_total || 0)
+      : null,
+
     lastSyncTs,
+
+    target_steps: targetSteps,
   }
-  console.log('[patient/summary] summary computed')
+
+  console.log('[patient/summary] summary computed', {
+    patientId: pid,
+    targetSteps,
+  })
+
   return res.status(200).json({ summary })
 })
 
