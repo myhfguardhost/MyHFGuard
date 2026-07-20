@@ -174,7 +174,16 @@ const Exercise = () => {
     refetchOnWindowFocus: false,
   })
 
-  const summary = summaryQuery.data?.summary || {}
+  type PatientSummary = {
+    stepsToday?: number | null
+    targetSteps?: number | null
+    target_steps?: number | null
+    lastSyncTs?: string | null
+  }
+
+  const summary: PatientSummary =
+    summaryQuery.data?.summary || {}
+
   const vitals = vitalsQuery.data?.vitals || {}
 
   const stepCount = Number(summary.stepsToday || 0)
