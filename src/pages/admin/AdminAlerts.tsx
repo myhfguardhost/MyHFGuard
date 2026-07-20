@@ -19,7 +19,10 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 
 function dateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function normalizeVitals(fullData: any) {
@@ -60,6 +63,120 @@ function normalizeVitals(fullData: any) {
         value: Number(row.kg_avg ?? row.kg ?? row.value ?? 0),
       })),
     },
+  };
+
+}
+
+type AlertRecordTime = {
+  value: string;
+  dateOnly: boolean;
+  label: "Latest record" | "Status checked";
+};
+
+type DateCandidate = {
+  value: string;
+  dateOnly: boolean;
+  timestamp: number;
+};
+
+function toDateCandidate(value: any): DateCandidate | null {
+  if (!value) return null;
+
+  const text = String(value).trim();
+  if (!text) return null;
+
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text);
+  const parsed = new Date(dateOnly ? `${text}T12:00:00` : text);
+  const timestamp = parsed.getTime();
+
+  if (Number.isNaN(timestamp)) return null;
+
+  return { value: text, dateOnly, timestamp };
+}
+
+function newestCandidate(candidates: Array<DateCandidate | null>) {
+  return candidates
+    .filter((candidate): candidate is DateCandidate => Boolean(candidate))
+    .sort((a, b) => b.timestamp - a.timestamp)[0] || null;
+}
+
+function latestRowTime(rows: any[], getValue: (row: any) => any) {
+  if (!Array.isArray(rows)) return null;
+  return newestCandidate(rows.map((row) => toDateCandidate(getValue(row))));
+}
+
+function getAlertRecordTime(
+  fullData: any,
+  alertId: string,
+  evaluatedAt: string
+): AlertRecordTime {
+  const vitals = fullData?.vitals || {};
+  const logs = fullData?.logs || {};
+
+  const latestHr = latestRowTime(vitals.hr || [], (row) => row.date);
+  const latestSpo2 = latestRowTime(vitals.spo2 || [], (row) => row.date);
+  const latestSteps = latestRowTime(vitals.steps || [], (row) => row.date);
+  const latestBp = latestRowTime(vitals.bp || [], (row) => {
+    const date = row.reading_date || row.date;
+    if (!date) return row.created_at || row.time_ts;
+    return row.reading_time ? `${date}T${row.reading_time}` : date;
+  });
+  const latestWeight = newestCandidate([
+    latestRowTime(vitals.weight || [], (row) => row.date || row.created_at),
+    latestRowTime(
+      vitals.weightSamples || [],
+      (row) => row.time_ts || row.created_at || row.date
+    ),
+  ]);
+  const latestSymptom = latestRowTime(
+    logs.symptoms || [],
+    (row) => row.logged_at || row.time_ts || row.created_at || row.date
+  );
+
+  const latestOverall = newestCandidate([
+    latestHr,
+    latestSpo2,
+    latestSteps,
+    latestBp,
+    latestWeight,
+    latestSymptom,
+  ]);
+
+  let selected: DateCandidate | null = null;
+
+  if (alertId.startsWith("bp-") || alertId.startsWith("baseline-bp")) {
+    selected = latestBp;
+  } else if (alertId.startsWith("hr-")) {
+    selected = latestHr;
+  } else if (alertId.startsWith("spo2-")) {
+    selected = latestSpo2;
+  } else if (
+    alertId.startsWith("weight-") ||
+    alertId.startsWith("baseline-weight")
+  ) {
+    selected = latestWeight;
+  } else if (alertId.startsWith("symptom-")) {
+    selected = latestSymptom;
+  } else if (alertId === "steps-warning") {
+    selected = latestSteps;
+  }
+
+  // Missing-log alerts describe the status at the moment the page is refreshed,
+  // rather than a historical patient/account timestamp.
+  if (alertId.startsWith("missing-")) {
+    return {
+      value: evaluatedAt,
+      dateOnly: false,
+      label: "Status checked",
+    };
+  }
+
+  const resolved = selected || latestOverall || toDateCandidate(evaluatedAt)!;
+
+  return {
+    value: resolved.value,
+    dateOnly: resolved.dateOnly,
+    label: "Latest record",
   };
 }
 
@@ -112,7 +229,7 @@ export default function AdminAlerts() {
 
       const end = new Date();
       const start = new Date();
-      start.setDate(end.getDate() - 90);
+      start.setDate(end.getDate() - 6);
       const startDate = dateKey(start);
       const endDate = dateKey(end);
 
@@ -132,9 +249,11 @@ export default function AdminAlerts() {
               deviceSync: [],
               errors: { fullData: e.message },
             })),
-            fetch(`${API}/patient/weekly-status?patientId=${patientId}`).then((r) =>
-              r.ok ? r.json() : null
-            ),
+            fetch(
+              `${API}/patient/weekly-status?patientId=${encodeURIComponent(
+                patientId
+              )}&endDate=${encodeURIComponent(endDate)}`
+            ).then((r) => (r.ok ? r.json() : null)),
           ]);
 
           const patientInfo = fullData?.patient || fullData?.profile || patient;
@@ -146,13 +265,7 @@ export default function AdminAlerts() {
             patient.name ||
             "Unknown Patient";
 
-          const createdAt =
-            patient.updated_at ||
-            patient.last_sign_in_at ||
-            patient.created_at ||
-            fullData?.patient?.created_at ||
-            fullData?.profile?.created_at ||
-            new Date().toISOString();
+          const evaluatedAt = new Date().toISOString();
 
           const patientAlerts = buildAlerts({
             patientId,
@@ -165,19 +278,47 @@ export default function AdminAlerts() {
 
           return patientAlerts
             .filter((alert: any) => alert.level !== "stable")
-            .map((alert: any) => ({
-              ...alert,
-              alertKey: `${patientId}-${alert.id}`,
-              patientId,
-              patientName,
-              createdAt,
-            }));
+            .map((alert: any) => {
+              const recordTime = getAlertRecordTime(
+                fullData,
+                String(alert.id || ""),
+                evaluatedAt
+              );
+
+              return {
+                ...alert,
+                alertKey: `${patientId}-${alert.id}`,
+                patientId,
+                patientName,
+                createdAt: recordTime.value,
+                dateOnly: recordTime.dateOnly,
+                timeLabel: recordTime.label,
+              };
+            });
         })
       );
 
 
+      const levelRank: Record<string, number> = {
+        critical: 2,
+        warning: 1,
+        stable: 0,
+      };
+
       const flattened = allAlerts.flat().sort((a: any, b: any) => {
-        return getDateTime(b.createdAt) - getDateTime(a.createdAt);
+        const timeDifference =
+          getDateTime(b.createdAt) - getDateTime(a.createdAt);
+
+        if (timeDifference !== 0) return timeDifference;
+
+        const levelDifference =
+          (levelRank[b.level] || 0) - (levelRank[a.level] || 0);
+
+        if (levelDifference !== 0) return levelDifference;
+
+        return String(a.patientName || "").localeCompare(
+          String(b.patientName || "")
+        );
       });
 
 
@@ -239,15 +380,19 @@ export default function AdminAlerts() {
   };
 
 
-  const formatDateTime = (value: any) => {
+  const formatDateTime = (value: any, dateOnly = false) => {
     if (!value) return "N/A";
 
+    const text = String(value);
+    const date = new Date(
+      dateOnly && /^\d{4}-\d{2}-\d{2}$/.test(text)
+        ? `${text}T12:00:00`
+        : text
+    );
 
-    const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "N/A";
 
-
-    return date.toLocaleString();
+    return dateOnly ? date.toLocaleDateString() : date.toLocaleString();
   };
 
 
@@ -266,7 +411,10 @@ export default function AdminAlerts() {
         `Alert Level: ${String(alert.level || "").toUpperCase()}`,
         `Alert: ${alert.title}`,
         `Details: ${alert.message}`,
-        `Time: ${formatDateTime(alert.createdAt)}`,
+        `${alert.timeLabel || "Latest record"}: ${formatDateTime(
+          alert.createdAt,
+          alert.dateOnly
+        )}`,
       ].join("\n")
     );
 
@@ -283,7 +431,7 @@ export default function AdminAlerts() {
           <div className="mx-auto w-full max-w-7xl">
             <AdminTopBar
               title="Alert Center"
-              subtitle="Review latest warning and critical patient alerts."
+              subtitle="Review alerts calculated from each patient’s latest records within the last 7 days."
               onRefresh={fetchAlerts}
               onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
@@ -304,7 +452,7 @@ export default function AdminAlerts() {
                     Active Alerts
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Latest alerts are shown from newest to oldest.
+                    Only the latest patient records are used, sorted from newest to oldest.
                   </p>
                 </div>
 
@@ -378,7 +526,10 @@ export default function AdminAlerts() {
 
 
                             <p className="text-sm text-slate-500">
-                              {formatDateTime(alert.createdAt)}
+                              {alert.timeLabel || "Latest record"}: {formatDateTime(
+                                alert.createdAt,
+                                alert.dateOnly
+                              )}
                             </p>
                           </div>
 
@@ -431,4 +582,3 @@ export default function AdminAlerts() {
     </div>
   );
 }
-

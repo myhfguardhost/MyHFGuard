@@ -90,14 +90,16 @@ export default function AdminWeightChart({ summary = [], compact = false }) {
   const data =
     firstPatientWithWeight?.vitalsData?.vitals?.weight
       ?.map((row) => ({
+        sourceTime: getWeightTime(row),
         time: shortDate(getWeightTime(row)),
         value: getWeightValue(row),
       }))
-      ?.filter((row) => row.value !== null) || [];
+      ?.filter((row) => row.value !== null)
+      ?.sort((a, b) => new Date(a.sourceTime).getTime() - new Date(b.sourceTime).getTime()) || [];
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <h3 className="mb-1 font-semibold text-slate-800">Weight Trend</h3>
+      <h3 className="mb-1 font-semibold text-slate-800">Weight Trend — Latest 7 Days</h3>
       <p className="mb-3 text-xs text-slate-500">{patientName}</p>
 
       <div

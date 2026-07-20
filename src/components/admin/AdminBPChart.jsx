@@ -101,6 +101,7 @@ export default function AdminBPChart({ summary = [], compact = false }) {
   const data =
     firstPatientWithBP?.vitalsData?.vitals?.bp
       ?.map((row) => ({
+        sourceTime: getBpTime(row),
         time: shortDate(getBpTime(row)),
         systolic: toNumber(row?.systolic ?? row?.sys ?? row?.bp_systolic),
         diastolic: toNumber(row?.diastolic ?? row?.dia ?? row?.bp_diastolic),
@@ -109,12 +110,13 @@ export default function AdminBPChart({ summary = [], compact = false }) {
       ?.filter(
         (row) =>
           row.systolic !== null || row.diastolic !== null || row.pulse !== null
-      ) || [];
+      )
+      ?.sort((a, b) => new Date(a.sourceTime).getTime() - new Date(b.sourceTime).getTime()) || [];
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
       <h3 className="mb-1 font-semibold text-slate-800">
-        Blood Pressure Trend
+        Blood Pressure Trend — Latest 7 Days
       </h3>
       <p className="mb-3 text-xs text-slate-500">{patientName}</p>
 

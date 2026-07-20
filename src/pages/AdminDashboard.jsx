@@ -44,6 +44,14 @@ export default function AdminDashboard() {
   };
 
 
+  const localDateKey = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+
   const getEmptyVitals = () => ({
     vitals: {
       hr: [],
@@ -69,74 +77,83 @@ export default function AdminDashboard() {
   };
 
 
-  const hasWeightOrBpData = (data) => {
-    const vitals = data?.vitals || {};
-
-
-    return (
-      (Array.isArray(vitals.weight) && vitals.weight.length > 0) ||
-      (Array.isArray(vitals.bp) && vitals.bp.length > 0)
-    );
+  const latestByTime = (rows = [], getter = (row) => row?.time) => {
+    return [...rows]
+      .filter(Boolean)
+      .sort((a, b) => getDateTime(getter(b)) - getDateTime(getter(a)))[0] || null;
   };
 
 
-  async function fetchVitalsWithFallback(realPatientId) {
-    const today = new Date().toISOString().slice(0, 10);
+  const buildLatestSevenDaySummary = (rawSummary, vitalsData, todayKey) => {
+    const vitals = vitalsData?.vitals || {};
+    const latestHr = latestByTime(vitals.hr || []);
+    const latestSpo2 = latestByTime(vitals.spo2 || []);
+    const latestBp = latestByTime(vitals.bp || []);
+    const latestWeight = latestByTime(vitals.weight || []);
+    const latestSteps = latestByTime(vitals.steps || []);
+    const todaySteps = (vitals.steps || []).find(
+      (row) => String(row?.time || "").slice(0, 10) === todayKey
+    );
 
 
-    const previousMonth = new Date();
-    previousMonth.setMonth(previousMonth.getMonth() - 1);
-    const previousMonthDate = previousMonth.toISOString().slice(0, 10);
+    const observationTimes = [
+      latestHr?.time,
+      latestSpo2?.time,
+      latestBp?.time,
+      latestWeight?.time,
+      latestSteps?.time,
+    ].filter(Boolean);
 
 
-    const urls = [
-      `${API}/patient/vitals?patientId=${encodeURIComponent(
-        realPatientId
-      )}&period=weekly&date=${today}&tzOffsetMin=480`,
+    const lastObservation = observationTimes.sort(
+      (a, b) => getDateTime(b) - getDateTime(a)
+    )[0] || null;
 
 
-      `${API}/patient/vitals?patientId=${encodeURIComponent(
-        realPatientId
-      )}&period=monthly&date=${today}&tzOffsetMin=480`,
+    return {
+      summary: {
+        ...(rawSummary?.summary || {}),
+        heartRate: latestHr ? Number(latestHr.avg) : null,
+        spo2: latestSpo2 ? Number(latestSpo2.avg) : null,
+        bpSystolic: latestBp ? Number(latestBp.systolic) : null,
+        bpDiastolic: latestBp ? Number(latestBp.diastolic) : null,
+        bpPulse: latestBp ? Number(latestBp.pulse) : null,
+        weightKg: latestWeight ? Number(latestWeight.value) : null,
+        stepsToday: todaySteps ? Number(todaySteps.count) : null,
+        latestSteps: latestSteps ? Number(latestSteps.count) : null,
+        lastSyncTs: lastObservation,
+      },
+    };
+  };
 
 
-      `${API}/patient/vitals?patientId=${encodeURIComponent(
-        realPatientId
-      )}&period=monthly&date=${previousMonthDate}&tzOffsetMin=480`,
-    ];
+  async function fetchLatestSevenDayVitals(realPatientId) {
+    const today = localDateKey(new Date());
+    const url = `${API}/patient/vitals?patientId=${encodeURIComponent(
+      realPatientId
+    )}&period=weekly&date=${today}&tzOffsetMin=480`;
 
 
-    let firstAnyData = null;
+    try {
+      const res = await fetch(url);
 
 
-    for (const url of urls) {
-      try {
-        const res = await fetch(url);
-
-
-        if (!res.ok) {
-          continue;
-        }
-
-
-        const data = await res.json();
-
-
-        if (hasVitalsData(data) && !firstAnyData) {
-          firstAnyData = data;
-        }
-
-
-        if (hasWeightOrBpData(data)) {
-          return data;
-        }
-      } catch (error) {
-        console.error("[AdminDashboard] vitals fetch failed", error);
+      if (!res.ok) {
+        console.error(
+          "[AdminDashboard] latest 7-day vitals fetch failed",
+          res.status,
+          res.statusText
+        );
+        return getEmptyVitals();
       }
+
+
+      const data = await res.json();
+      return hasVitalsData(data) ? data : getEmptyVitals();
+    } catch (error) {
+      console.error("[AdminDashboard] latest 7-day vitals fetch failed", error);
+      return getEmptyVitals();
     }
-
-
-    return firstAnyData || getEmptyVitals();
   }
 
 
@@ -166,6 +183,13 @@ export default function AdminDashboard() {
 
 
       setUsers(patientRows);
+
+
+      const rangeEndDate = new Date();
+      const rangeStartDate = new Date(rangeEndDate);
+      rangeStartDate.setDate(rangeStartDate.getDate() - 6);
+      const rangeStart = localDateKey(rangeStartDate);
+      const rangeEnd = localDateKey(rangeEndDate);
 
 
       const detailed = await Promise.all(
@@ -198,10 +222,10 @@ export default function AdminDashboard() {
             ),
 
 
-            fetchVitalsWithFallback(realPatientId),
+            fetchLatestSevenDayVitals(realPatientId),
 
 
-            fetch(`${API}/patient/weekly-status?patientId=${realPatientId}`).then(
+            fetch(`${API}/patient/weekly-status?patientId=${realPatientId}&endDate=${rangeEnd}`).then(
               (r) => (r.ok ? r.json() : null)
             ),
 
@@ -210,15 +234,24 @@ export default function AdminDashboard() {
               .from("water_salt_logs")
               .select("*")
               .eq("patient_id", realPatientId)
+              .gte("entry_date", rangeStart)
+              .lte("entry_date", rangeEnd)
               .order("entry_date", { ascending: false })
               .limit(1)
               .then(({ data, error }) => (error ? null : data?.[0] || null)),
           ]);
 
 
+          const sevenDaySummary = buildLatestSevenDaySummary(
+            summaryRes,
+            vitalsRes,
+            rangeEnd
+          );
+
+
           const alerts = buildAlerts({
             patientId: demoPatientId,
-            summaryData: summaryRes,
+            summaryData: sevenDaySummary,
             vitalsData: vitalsRes,
             weeklyStatus: weeklyStatusRes,
             demoMode: DEMO_MODE,
@@ -228,13 +261,14 @@ export default function AdminDashboard() {
           return {
             patientId: realPatientId,
             patientInfo: patientInfoRes,
-            summaryData: summaryRes,
+            summaryData: sevenDaySummary,
             vitalsData: vitalsRes || getEmptyVitals(),
             weeklyStatus: weeklyStatusRes,
             waterSaltLog: waterSaltRes,
             alerts,
             status: pickWorstStatus(alerts),
             createdAt:
+              sevenDaySummary?.summary?.lastSyncTs ||
               patient.created_at ||
               patientInfoRes?.patient?.created_at ||
               patientInfoRes?.patient?.createdAt ||
@@ -295,36 +329,34 @@ export default function AdminDashboard() {
 
 
     summary.forEach((item) => {
-      const latestSpo2 =
-        item.vitalsData?.vitals?.spo2 && item.vitalsData.vitals.spo2.length > 0
-          ? Number(
-              item.vitalsData.vitals.spo2[
-                item.vitalsData.vitals.spo2.length - 1
-              ]?.avg
-            )
-          : null;
+      const vitals = item.vitalsData?.vitals || {};
+      const spo2Values = (vitals.spo2 || [])
+        .map((row) => Number(row?.avg))
+        .filter((value) => Number.isFinite(value) && value > 0);
+      const hrValues = (vitals.hr || [])
+        .map((row) => Number(row?.avg))
+        .filter((value) => Number.isFinite(value) && value > 0);
+      const stepValues = (vitals.steps || [])
+        .map((row) => Number(row?.count))
+        .filter((value) => Number.isFinite(value) && value >= 0);
 
 
-      const hr = Number(item.summaryData?.summary?.heartRate);
-      const steps = Number(item.summaryData?.summary?.stepsToday);
-
-
-      if (!Number.isNaN(latestSpo2) && latestSpo2 > 0) {
-        avgSpo2 += latestSpo2;
+      spo2Values.forEach((value) => {
+        avgSpo2 += value;
         spo2Count++;
-      }
+      });
 
 
-      if (!Number.isNaN(hr) && hr > 0) {
-        avgHr += hr;
+      hrValues.forEach((value) => {
+        avgHr += value;
         hrCount++;
-      }
+      });
 
 
-      if (!Number.isNaN(steps) && steps >= 0) {
-        avgSteps += steps;
+      stepValues.forEach((value) => {
+        avgSteps += value;
         stepsCount++;
-      }
+      });
 
 
       if (item.status === "critical") critical++;
@@ -523,7 +555,7 @@ export default function AdminDashboard() {
             <div className="mx-auto w-full max-w-7xl">
               <AdminTopBar
                 title="Dashboard"
-                subtitle="Monitor patient status, recent alerts, health metrics and reports."
+                subtitle="Monitor patient status and health data from the latest 7 days."
                 showExportBox={showExportBox}
                 setShowExportBox={setShowExportBox}
                 exportPDF={exportPDF}
@@ -585,4 +617,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-

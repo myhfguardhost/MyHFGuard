@@ -16,7 +16,10 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 
 function dateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function valueOf(row: any, keys: string[]) {
@@ -127,7 +130,7 @@ export default function AdminReports() {
 
       const end = new Date();
       const start = new Date();
-      start.setDate(end.getDate() - 90);
+      start.setDate(end.getDate() - 6);
       const startDate = dateKey(start);
       const endDate = dateKey(end);
 
@@ -357,7 +360,7 @@ export default function AdminReports() {
           <div className="mx-auto w-full max-w-7xl">
             <AdminTopBar
               title="Reports"
-              subtitle="Complete patient data from app, website and smart band sync."
+              subtitle="Patient reports calculated from the latest 7 days of app, website and smart band data."
               onRefresh={fetchReports}
               onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}

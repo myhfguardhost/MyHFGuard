@@ -13,7 +13,8 @@ export default function AdminKeyMetricsPanel({ dashboardData, summary = [] }) {
 
   return (
     <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
-      <h2 className="font-semibold text-slate-900 mb-4">Key Metrics</h2>
+      <h2 className="font-semibold text-slate-900 mb-1">Key Metrics</h2>
+      <p className="mb-4 text-xs text-slate-500">Calculated from the latest 7 days of available patient data.</p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         <MetricCard
@@ -69,33 +70,33 @@ function getRealMetrics(summary) {
 
   summary.forEach((item) => {
     const vitals = item.vitalsData?.vitals || {}
-    const s = item.summaryData?.summary || {}
 
-    const spo2List = vitals.spo2 || []
-    const weightList = vitals.weight || []
+    const spo2Values = (vitals.spo2 || [])
+      .map((row) => Number(row?.avg))
+      .filter((value) => Number.isFinite(value) && value > 0)
 
-    const latestSpo2 =
-      spo2List.length > 0 ? Number(spo2List[spo2List.length - 1]?.avg) : null
+    const stepValues = (vitals.steps || [])
+      .map((row) => Number(row?.count))
+      .filter((value) => Number.isFinite(value) && value >= 0)
 
-    const latestWeight =
-      weightList.length > 0 ? Number(weightList[weightList.length - 1]?.value) : null
+    const weightValues = (vitals.weight || [])
+      .map((row) => Number(row?.value))
+      .filter((value) => Number.isFinite(value) && value > 0)
 
-    const steps = Number(s.stepsToday)
-
-    if (!Number.isNaN(latestSpo2) && latestSpo2 > 0) {
-      spo2Total += latestSpo2
+    spo2Values.forEach((value) => {
+      spo2Total += value
       spo2Count++
-    }
+    })
 
-    if (!Number.isNaN(steps) && steps >= 0) {
-      stepsTotal += steps
+    stepValues.forEach((value) => {
+      stepsTotal += value
       stepsCount++
-    }
+    })
 
-    if (!Number.isNaN(latestWeight) && latestWeight > 0) {
-      weightTotal += latestWeight
+    weightValues.forEach((value) => {
+      weightTotal += value
       weightCount++
-    }
+    })
   })
 
   return {

@@ -24,6 +24,7 @@ import {
   endOfDay,
   format,
   startOfDay,
+  subDays,
   subMonths,
   subYears,
 } from "date-fns";
@@ -34,6 +35,7 @@ import { DateRange } from "react-day-picker";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
+import PatientTargetStepsControl from "@/components/admin/PatientTargetStepsControl";
 
 import {
   Bar,
@@ -289,7 +291,7 @@ export default function PatientDetail() {
   const pdfRef = useRef<HTMLDivElement>(null);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subMonths(new Date(), 1),
+    from: subDays(new Date(), 6),
     to: new Date(),
   });
 
@@ -315,6 +317,8 @@ export default function PatientDetail() {
       const profileRow = data.profile || {};
       const profileData: PatientProfile = {
         patient_id: patient.patient_id || patientId,
+        assigned_user_id: patient.assigned_user_id || profileRow.assigned_user_id || null,
+        full_name: profileRow.full_name || null,
         first_name: patient.first_name || profileRow.first_name || profileRow.full_name || "",
         last_name: patient.last_name || profileRow.last_name || "",
         email: patient.email || profileRow.email || null,
@@ -400,6 +404,11 @@ export default function PatientDetail() {
     }
   };
 
+  const setSevenDayPreset = () => {
+    const to = new Date();
+    setDateRange({ from: subDays(to, 6), to });
+  };
+
   const setPreset = (months: number) => {
     const to = new Date();
     const from = subMonths(to, months);
@@ -427,6 +436,7 @@ export default function PatientDetail() {
   const patientName = profile
     ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
       fullData?.profile?.full_name ||
+      profile.assigned_user_id ||
       "Patient Details"
     : "Patient Details";
 
@@ -482,8 +492,11 @@ export default function PatientDetail() {
                       <h1 className="truncate text-2xl font-bold text-slate-900 sm:text-3xl">
                         {patientName}
                       </h1>
-                      <p className="mt-1 break-all text-sm text-slate-500">
-                        ID: {profile.patient_id}
+                      <p className="mt-1 text-sm font-medium text-slate-600">
+                        User ID: {profile.assigned_user_id || "Not assigned"}
+                      </p>
+                      <p className="mt-1 break-all text-xs text-slate-400">
+                        Auth ID: {profile.patient_id}
                       </p>
                       {latestSync && (
                         <p className="mt-1 text-sm text-slate-500">
@@ -513,9 +526,22 @@ export default function PatientDetail() {
                   </div>
                 </div>
 
+                <PatientTargetStepsControl
+                  patientId={profile.patient_id}
+                  initialTarget={fullData?.profile?.target_steps ?? 3000}
+                  onUpdated={(target) =>
+                    setFullData((current) =>
+                      current
+                        ? { ...current, profile: { ...(current.profile || {}), target_steps: target } }
+                        : current
+                    )
+                  }
+                />
+
                 <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-slate-600">Quick Range:</span>
+                    <Button variant="outline" size="sm" onClick={setSevenDayPreset} className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100">7D</Button>
                     <Button variant="outline" size="sm" onClick={() => setPreset(1)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">1M</Button>
                     <Button variant="outline" size="sm" onClick={() => setPreset(3)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">3M</Button>
                     <Button variant="outline" size="sm" onClick={() => setPreset(6)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">6M</Button>

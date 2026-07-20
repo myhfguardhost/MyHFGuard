@@ -739,7 +739,7 @@ const Exercise = () => {
                         fill: "rgba(14, 165, 233, 0.08)",
                       }}
                       formatter={(value) => [
-                        `${Number(value).toLocaleString()} steps`,
+                        `${Number(value ?? 0).toLocaleString()} steps`,
                         t("stepCount"),
                       ]}
                       contentStyle={{

@@ -538,7 +538,7 @@ export function buildAlerts({
         id: "missing-vitals",
         level: "warning",
         title: "Incomplete Vital Logs",
-        message: `${missingVitalDays} days without vital log this week`,
+        message: `${missingVitalDays} days without vital log in the latest 7 days`,
       })
     }
 
@@ -547,7 +547,7 @@ export function buildAlerts({
         id: "missing-weight",
         level: "warning",
         title: "Incomplete Weight Logs",
-        message: `${missingWeightDays} days without weight log this week`,
+        message: `${missingWeightDays} days without weight log in the latest 7 days`,
       })
     }
 
@@ -556,7 +556,7 @@ export function buildAlerts({
         id: "missing-symptoms",
         level: "warning",
         title: "Incomplete Symptom Logs",
-        message: `${missingSymptomDays} days without symptom log this week`,
+        message: `${missingSymptomDays} days without symptom log in the latest 7 days`,
       })
     }
   }

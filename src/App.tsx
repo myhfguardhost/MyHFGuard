@@ -20,7 +20,6 @@ import Exercise from "./pages/Exercise"
 import Medication from "./pages/Medication"
 import Contact from "./pages/Contact"
 import NotFound from "./pages/NotFound"
-import Register from "./pages/Register"
 import Login from "./pages/Login"
 import SymptomChecker from "./pages/SymptomChecker"
 import AuthCallback from "./pages/AuthCallback"
@@ -61,7 +60,6 @@ const App = () => {
               <Routes>
                 {/* Auth */}
                 <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
 
                 {/* Admin */}
