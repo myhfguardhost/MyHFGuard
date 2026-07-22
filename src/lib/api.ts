@@ -1,8 +1,10 @@
 const DEFAULT_URL = 'http://localhost:3001'
 
+
 export function serverUrl() {
   const fromEnv1 = import.meta.env.VITE_SERVER_URL as string | undefined
   const fromEnv2 = import.meta.env.VITE_API_URL as string | undefined
+
 
   return fromEnv1 && fromEnv1.length > 0
     ? fromEnv1
@@ -11,16 +13,20 @@ export function serverUrl() {
       : DEFAULT_URL
 }
 
+
 export function bpServerUrl() {
   return serverUrl()
 }
 
+
 export async function getAdminSummary() {
   const res = await fetch(serverUrl() + '/admin/summary')
+
 
   if (!res.ok) {
     throw new Error('failed to fetch summary: ' + res.status)
   }
+
 
   return res.json() as Promise<{
     summary: Array<{
@@ -32,6 +38,7 @@ export async function getAdminSummary() {
   }>
 }
 
+
 export type PatientSummary = {
   heartRate?: number
   bpSystolic?: number
@@ -42,23 +49,31 @@ export type PatientSummary = {
   stepsToday?: number
   distanceToday?: number
   lastSyncTs?: string
+  targetSteps?: number
+  target_steps?: number
 }
+
 
 export async function getPatientSummary(patientId?: string) {
   const pid = patientId
+
 
   const url = pid
     ? `${serverUrl()}/patient/summary?patientId=${encodeURIComponent(pid)}`
     : `${serverUrl()}/patient/summary`
 
+
   const res = await fetch(url)
+
 
   if (!res.ok) {
     return { summary: {} as PatientSummary }
   }
 
+
   return res.json() as Promise<{ summary: PatientSummary }>
 }
+
 
 export type PatientVitals = {
   hr?: Array<{
@@ -89,6 +104,7 @@ export type PatientVitals = {
   }>
 }
 
+
 export async function getPatientVitals(
   patientId?: string,
   period?: 'hourly' | 'weekly' | 'monthly',
@@ -98,38 +114,48 @@ export async function getPatientVitals(
   const pid = patientId
   const qp: string[] = []
 
+
   if (pid) {
     qp.push(`patientId=${encodeURIComponent(pid)}`)
   }
+
 
   if (period) {
     qp.push(`period=${encodeURIComponent(period)}`)
   }
 
+
   if (date) {
     qp.push(`date=${encodeURIComponent(date)}`)
   }
+
 
   if (typeof tzOffsetMin === 'number') {
     qp.push(`tzOffsetMin=${encodeURIComponent(String(tzOffsetMin))}`)
   }
 
+
   const url = qp.length
     ? `${serverUrl()}/patient/vitals?${qp.join('&')}`
     : `${serverUrl()}/patient/vitals`
 
+
   const res = await fetch(url)
+
 
   if (!res.ok) {
     return { vitals: {} as PatientVitals }
   }
 
+
   const data = await res.json()
+
 
   return {
     vitals: (data.vitals || data) as PatientVitals,
   }
 }
+
 
 export type PatientReminders = Array<{
   id: string
@@ -138,42 +164,53 @@ export type PatientReminders = Array<{
   notes?: string
 }>
 
+
 export async function getPatientReminders(patientId?: string) {
   const pid = patientId
+
 
   const url = pid
     ? `${serverUrl()}/patient/reminders?patientId=${encodeURIComponent(pid)}`
     : `${serverUrl()}/patient/reminders`
 
+
   const res = await fetch(url)
+
 
   if (!res.ok) {
     return { reminders: [] as PatientReminders }
   }
+
 
   return res.json() as Promise<{
     reminders: PatientReminders
   }>
 }
 
+
 export async function processImage(file: File, patientId: string) {
   const formData = new FormData()
 
+
   formData.append('image', file)
   formData.append('patientId', patientId)
+
 
   const res = await fetch(`${serverUrl()}/api/process-image`, {
     method: 'POST',
     body: formData,
   })
 
+
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.error || 'Failed to process image')
   }
 
+
   return res.json()
 }
+
 
 export async function addManualEvent(data: any, patientId: string) {
   const res = await fetch(`${serverUrl()}/api/add-manual-event`, {
@@ -187,28 +224,35 @@ export async function addManualEvent(data: any, patientId: string) {
     }),
   })
 
+
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.error || 'Failed to add event')
   }
 
+
   return res.json()
 }
+
 
 export async function getHealthEvents(userId?: string) {
   const url = userId
     ? `${serverUrl()}/api/health-events?user_id=${encodeURIComponent(userId)}`
     : `${serverUrl()}/api/health-events`
 
+
   const res = await fetch(url)
+
 
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.error || 'Failed to fetch events')
   }
 
+
   return res.json()
 }
+
 
 export type PatientProfile = {
   patient_id: string
@@ -224,10 +268,12 @@ export type PatientProfile = {
   target_steps?: number
 }
 
+
 async function adminAuthHeaders() {
   const { supabase } = await import('@/lib/supabase')
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
+
 
   return token
     ? {
@@ -236,25 +282,30 @@ async function adminAuthHeaders() {
     : {}
 }
 
+
 export async function getPatients() {
   const res = await fetch(`${serverUrl()}/api/admin/patients`, {
     headers: await adminAuthHeaders(),
   })
 
+
   if (!res.ok) {
     throw new Error('Failed to fetch patients')
   }
+
 
   return res.json() as Promise<{
     patients: PatientProfile[]
   }>
 }
 
+
 export async function createAdminPatientAccount(payload: {
   userId: string
   password: string
 }) {
   let res: Response
+
 
   try {
     res = await fetch(`${serverUrl()}/api/admin/patients`, {
@@ -271,7 +322,9 @@ export async function createAdminPatientAccount(payload: {
     )
   }
 
+
   const body = await res.json().catch(() => ({}))
+
 
   if (!res.ok) {
     if (res.status === 404) {
@@ -280,11 +333,13 @@ export async function createAdminPatientAccount(payload: {
       )
     }
 
+
     if (res.status === 401) {
       throw new Error(
         'Your admin login session has expired. Sign in again.'
       )
     }
+
 
     if (res.status === 403) {
       throw new Error(
@@ -292,21 +347,25 @@ export async function createAdminPatientAccount(payload: {
       )
     }
 
+
     throw new Error(
       body?.error || `Failed to create patient account (${res.status})`
     )
   }
+
 
   return body as {
     patient: PatientProfile
   }
 }
 
+
 export async function updateAdminPatientTargetSteps(
   patientId: string,
   targetSteps: number
 ) {
   let res: Response
+
 
   try {
     res = await fetch(
@@ -330,7 +389,9 @@ export async function updateAdminPatientTargetSteps(
     )
   }
 
+
   const body = await res.json().catch(() => ({}))
+
 
   if (!res.ok) {
     if (res.status === 404) {
@@ -339,11 +400,13 @@ export async function updateAdminPatientTargetSteps(
       )
     }
 
+
     if (res.status === 401) {
       throw new Error(
         'Your admin login session has expired. Sign in again.'
       )
     }
+
 
     if (res.status === 403) {
       throw new Error(
@@ -351,16 +414,19 @@ export async function updateAdminPatientTargetSteps(
       )
     }
 
+
     throw new Error(
       body?.error || `Failed to update target steps (${res.status})`
     )
   }
+
 
   return body as {
     patientId: string
     targetSteps: number
   }
 }
+
 
 export async function getPatientProfile(patientId: string) {
   const res = await fetch(
@@ -372,14 +438,18 @@ export async function getPatientProfile(patientId: string) {
     }
   )
 
+
   if (!res.ok) {
     throw new Error('Failed to fetch patient profile')
   }
 
+
   const data = await res.json()
+
 
   return data.patients[0] as PatientProfile | undefined
 }
+
 
 export async function createPatientReminder(payload: {
   patientId: string
@@ -396,11 +466,14 @@ export async function createPatientReminder(payload: {
     body: JSON.stringify(payload),
   })
 
+
   const body = await res.json()
+
 
   if (!res.ok) {
     return body
   }
+
 
   return body as {
     reminder: {
@@ -412,6 +485,7 @@ export async function createPatientReminder(payload: {
   }
 }
 
+
 export async function deletePatientReminder(
   patientId: string,
   id: string
@@ -420,15 +494,18 @@ export async function deletePatientReminder(
     `${serverUrl()}/patient/reminders/${encodeURIComponent(id)}` +
     `?patientId=${encodeURIComponent(patientId)}`
 
+
   const res = await fetch(url, {
     method: 'DELETE',
   })
+
 
   return res.json() as Promise<{
     ok: boolean
     id: string
   }>
 }
+
 
 export async function updatePatientReminder(payload: {
   patientId: string
@@ -446,11 +523,14 @@ export async function updatePatientReminder(payload: {
     body: JSON.stringify(payload),
   })
 
+
   const body = await res.json()
+
 
   if (!res.ok) {
     return body
   }
+
 
   return body as {
     reminder: {
@@ -462,6 +542,7 @@ export async function updatePatientReminder(payload: {
   }
 }
 
+
 export type MedicationPreferences = {
   beta_blockers: boolean
   raas_inhibitors: boolean
@@ -471,14 +552,18 @@ export type MedicationPreferences = {
   notify_hour: number
 }
 
+
 export async function getPatientMedications(patientId?: string) {
   const pid = patientId
+
 
   const url = pid
     ? `${serverUrl()}/patient/medications?patientId=${encodeURIComponent(pid)}`
     : `${serverUrl()}/patient/medications`
 
+
   const res = await fetch(url)
+
 
   if (!res.ok) {
     return {
@@ -493,10 +578,12 @@ export async function getPatientMedications(patientId?: string) {
     }
   }
 
+
   return res.json() as Promise<{
     preferences: MedicationPreferences
   }>
 }
+
 
 export async function savePatientMedications(
   payload: {
@@ -511,10 +598,12 @@ export async function savePatientMedications(
     body: JSON.stringify(payload),
   })
 
+
   return res.json() as Promise<{
     ok: boolean
   }>
 }
+
 
 export type PatientInfo = {
   patient?: {
@@ -528,14 +617,18 @@ export type PatientInfo = {
   warnings?: string[]
 }
 
+
 export async function getPatientInfo(patientId?: string) {
   const pid = patientId
+
 
   const url = pid
     ? `${serverUrl()}/admin/patient-info?patientId=${encodeURIComponent(pid)}`
     : `${serverUrl()}/admin/patient-info`
 
+
   const res = await fetch(url)
+
 
   if (!res.ok) {
     return {
@@ -545,8 +638,10 @@ export async function getPatientInfo(patientId?: string) {
     } as PatientInfo
   }
 
+
   return res.json() as Promise<PatientInfo>
 }
+
 
 export async function postWeightSample(payload: {
   patientId: string
@@ -571,6 +666,7 @@ export async function postWeightSample(payload: {
     },
   ]
 
+
   const res = await fetch(`${serverUrl()}/ingest/weight-samples`, {
     method: 'POST',
     headers: {
@@ -579,8 +675,10 @@ export async function postWeightSample(payload: {
     body: JSON.stringify(body),
   })
 
+
   return res.json()
 }
+
 
 export async function postSymptomLog(payload: {
   patientId: string
@@ -612,7 +710,9 @@ export async function postSymptomLog(payload: {
       .slice(2)}`,
   }
 
+
   console.log('[postSymptomLog] body', body)
+
 
   const res = await fetch(`${serverUrl()}/ingest/symptom-log`, {
     method: 'POST',
@@ -622,8 +722,10 @@ export async function postSymptomLog(payload: {
     body: JSON.stringify(body),
   })
 
+
   return res.json()
 }
+
 
 export async function getDailyStatus(
   patientId: string,
@@ -635,6 +737,7 @@ export async function getDailyStatus(
     )}&date=${encodeURIComponent(date)}`
   )
 
+
   if (!res.ok) {
     return {
       has_weight: false,
@@ -643,12 +746,14 @@ export async function getDailyStatus(
     }
   }
 
+
   return res.json() as Promise<{
     has_weight: boolean
     has_bp: boolean
     has_symptoms: boolean
   }>
 }
+
 
 export async function getWeeklyStatus(
   patientId: string,
@@ -660,11 +765,14 @@ export async function getWeeklyStatus(
     )}` +
     `${endDate ? `&endDate=${encodeURIComponent(endDate)}` : ''}`
 
+
   const res = await fetch(url)
+
 
   if (!res.ok) {
     return {}
   }
+
 
   return res.json() as Promise<
     Record<
@@ -677,6 +785,7 @@ export async function getWeeklyStatus(
     >
   >
 }
+
 
 export async function sendSymptomMessage(
   message: string,
@@ -693,16 +802,19 @@ export async function sendSymptomMessage(
     }),
   })
 
+
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.error || 'Failed to get response')
   }
+
 
   return res.json() as Promise<{
     response: string
     timestamp: string
   }>
 }
+
 
 export async function collectSmartbandData(patientId: string) {
   const res = await fetch(`${serverUrl()}/api/collect-data`, {
@@ -715,13 +827,16 @@ export async function collectSmartbandData(patientId: string) {
     }),
   })
 
+
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.error || 'Failed to collect data')
   }
 
+
   return res.json()
 }
+
 
 export const postWaterSalt = async (data: any) => {
   const res = await fetch(`${serverUrl()}/water-salt`, {
@@ -732,12 +847,15 @@ export const postWaterSalt = async (data: any) => {
     body: JSON.stringify(data),
   })
 
+
   if (!res.ok) {
     throw new Error('Failed')
   }
 
+
   return res.json()
 }
+
 
 export async function getWaterSaltLogs(
   patientId: string,
@@ -749,9 +867,11 @@ export async function getWaterSaltLogs(
     )}&limit=${encodeURIComponent(String(limit))}`
   )
 
+
   if (!res.ok) {
     throw new Error('Failed to load water and salt logs')
   }
+
 
   return res.json() as Promise<{
     logs: Array<{
@@ -764,29 +884,36 @@ export async function getWaterSaltLogs(
   }>
 }
 
+
 export async function processWeightImage(
   file: File,
   patientId: string
 ) {
   const formData = new FormData()
 
+
   formData.append('image', file)
   formData.append('patientId', patientId)
+
 
   const response = await fetch(`${serverUrl()}/api/ocr/weight`, {
     method: 'POST',
     body: formData,
   })
 
+
   const text = await response.text()
 
+
   let data: any = {}
+
 
   try {
     data = text ? JSON.parse(text) : {}
   } catch {
     throw new Error(text || 'Server returned invalid JSON')
   }
+
 
   if (!response.ok) {
     throw new Error(
@@ -796,8 +923,10 @@ export async function processWeightImage(
     )
   }
 
+
   return data
 }
+
 
 export type AdminPatientFullData = {
   patientId: string
@@ -828,6 +957,7 @@ export type AdminPatientFullData = {
   errors?: Record<string, string>
 }
 
+
 export async function getAdminPatientFullData(
   patientId: string,
   startDate?: string,
@@ -837,20 +967,25 @@ export async function getAdminPatientFullData(
     patientId,
   })
 
+
   if (startDate) {
     params.set('startDate', startDate)
   }
+
 
   if (endDate) {
     params.set('endDate', endDate)
   }
 
+
   const res = await fetch(
     `${serverUrl()}/api/admin/patient-full-data?${params.toString()}`
   )
 
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
+
 
     throw new Error(
       body?.details ||
@@ -859,5 +994,7 @@ export async function getAdminPatientFullData(
     )
   }
 
+
   return res.json() as Promise<AdminPatientFullData>
 }
+
