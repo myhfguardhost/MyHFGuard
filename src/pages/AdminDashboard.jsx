@@ -7,10 +7,8 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
-
-import { serverUrl } from "@/lib/api";
+import { getPatients, serverUrl } from "@/lib/api";
 import { buildAlerts, pickWorstStatus } from "@/lib/adminAlertUtils";
-
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
@@ -19,11 +17,9 @@ import AdminSummaryPanels from "@/components/admin/AdminSummaryPanels";
 import AdminActivityFeed from "@/components/admin/AdminActivityFeed";
 import AdminKeyMetricsPanel from "@/components/admin/AdminKeyMetricsPanel";
 
-
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const exportRef = useRef(null);
-
 
   const [users, setUsers] = useState([]);
   const [summary, setSummary] = useState([]);
@@ -33,16 +29,13 @@ export default function AdminDashboard() {
   const [showExportBox, setShowExportBox] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-
   const API = serverUrl();
   const DEMO_MODE = false;
-
 
   const getDateTime = (value) => {
     const time = new Date(value || 0).getTime();
     return Number.isNaN(time) ? 0 : time;
   };
-
 
   const localDateKey = (date = new Date()) => {
     const year = date.getFullYear();
@@ -50,7 +43,6 @@ export default function AdminDashboard() {
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
-
 
   const getEmptyVitals = () => ({
     vitals: {
@@ -62,10 +54,8 @@ export default function AdminDashboard() {
     },
   });
 
-
   const hasVitalsData = (data) => {
     const vitals = data?.vitals || {};
-
 
     return (
       (Array.isArray(vitals.weight) && vitals.weight.length > 0) ||
@@ -76,13 +66,14 @@ export default function AdminDashboard() {
     );
   };
 
-
   const latestByTime = (rows = [], getter = (row) => row?.time) => {
-    return [...rows]
-      .filter(Boolean)
-      .sort((a, b) => getDateTime(getter(b)) - getDateTime(getter(a)))[0] || null;
+    return (
+      [...rows]
+        .filter(Boolean)
+        .sort((a, b) => getDateTime(getter(b)) - getDateTime(getter(a)))[0] ||
+      null
+    );
   };
-
 
   const buildLatestSevenDaySummary = (rawSummary, vitalsData, todayKey) => {
     const vitals = vitalsData?.vitals || {};
@@ -95,7 +86,6 @@ export default function AdminDashboard() {
       (row) => String(row?.time || "").slice(0, 10) === todayKey
     );
 
-
     const observationTimes = [
       latestHr?.time,
       latestSpo2?.time,
@@ -104,11 +94,10 @@ export default function AdminDashboard() {
       latestSteps?.time,
     ].filter(Boolean);
 
-
-    const lastObservation = observationTimes.sort(
-      (a, b) => getDateTime(b) - getDateTime(a)
-    )[0] || null;
-
+    const lastObservation =
+      observationTimes.sort(
+        (a, b) => getDateTime(b) - getDateTime(a)
+      )[0] || null;
 
     return {
       summary: {
@@ -126,17 +115,14 @@ export default function AdminDashboard() {
     };
   };
 
-
   async function fetchLatestSevenDayVitals(realPatientId) {
     const today = localDateKey(new Date());
     const url = `${API}/patient/vitals?patientId=${encodeURIComponent(
       realPatientId
     )}&period=weekly&date=${today}&tzOffsetMin=480`;
 
-
     try {
       const res = await fetch(url);
-
 
       if (!res.ok) {
         console.error(
@@ -147,43 +133,31 @@ export default function AdminDashboard() {
         return getEmptyVitals();
       }
 
-
       const data = await res.json();
       return hasVitalsData(data) ? data : getEmptyVitals();
     } catch (error) {
-      console.error("[AdminDashboard] latest 7-day vitals fetch failed", error);
+      console.error(
+        "[AdminDashboard] latest 7-day vitals fetch failed",
+        error
+      );
       return getEmptyVitals();
     }
   }
-
 
   async function fetchAll() {
     try {
       setLoading(true);
       setError("");
 
-
-      const patientsRes = await fetch(`${API}/api/admin/patients`);
-
-
-      if (!patientsRes.ok) {
-        const text = await patientsRes.text();
-        throw new Error(
-          `patients ${patientsRes.status} ${patientsRes.statusText} ${text}`
-        );
-      }
-
-
-      const patientsJson = await patientsRes.json();
-
+      // getPatients() automatically sends the current Supabase admin token
+      // as Authorization: Bearer <access_token>.
+      const patientsJson = await getPatients();
 
       const patientRows = [...(patientsJson.patients || [])].sort((a, b) => {
         return getDateTime(b.created_at) - getDateTime(a.created_at);
       });
 
-
       setUsers(patientRows);
-
 
       const rangeEndDate = new Date();
       const rangeStartDate = new Date(rangeEndDate);
@@ -191,11 +165,9 @@ export default function AdminDashboard() {
       const rangeStart = localDateKey(rangeStartDate);
       const rangeEnd = localDateKey(rangeEndDate);
 
-
       const detailed = await Promise.all(
         patientRows.map(async (patient, index) => {
           const realPatientId = patient.patient_id;
-
 
           const demoPatientId =
             DEMO_MODE && index === 0
@@ -203,7 +175,6 @@ export default function AdminDashboard() {
               : DEMO_MODE && index === 1
               ? "demo-warning"
               : realPatientId;
-
 
           const [
             patientInfoRes,
@@ -216,19 +187,15 @@ export default function AdminDashboard() {
               (r) => (r.ok ? r.json() : null)
             ),
 
-
             fetch(`${API}/patient/summary?patientId=${realPatientId}`).then(
               (r) => (r.ok ? r.json() : null)
             ),
 
-
             fetchLatestSevenDayVitals(realPatientId),
 
-
-            fetch(`${API}/patient/weekly-status?patientId=${realPatientId}&endDate=${rangeEnd}`).then(
-              (r) => (r.ok ? r.json() : null)
-            ),
-
+            fetch(
+              `${API}/patient/weekly-status?patientId=${realPatientId}&endDate=${rangeEnd}`
+            ).then((r) => (r.ok ? r.json() : null)),
 
             supabase
               .from("water_salt_logs")
@@ -238,16 +205,16 @@ export default function AdminDashboard() {
               .lte("entry_date", rangeEnd)
               .order("entry_date", { ascending: false })
               .limit(1)
-              .then(({ data, error }) => (error ? null : data?.[0] || null)),
+              .then(({ data, error }) =>
+                error ? null : data?.[0] || null
+              ),
           ]);
-
 
           const sevenDaySummary = buildLatestSevenDaySummary(
             summaryRes,
             vitalsRes,
             rangeEnd
           );
-
 
           const alerts = buildAlerts({
             patientId: demoPatientId,
@@ -256,7 +223,6 @@ export default function AdminDashboard() {
             weeklyStatus: weeklyStatusRes,
             demoMode: DEMO_MODE,
           });
-
 
           return {
             patientId: realPatientId,
@@ -277,39 +243,39 @@ export default function AdminDashboard() {
         })
       );
 
-
       detailed.sort((a, b) => {
         return getDateTime(b.createdAt) - getDateTime(a.createdAt);
       });
 
-
       setSummary(detailed);
     } catch (e) {
       console.error("[AdminDashboard] fetchAll error", e);
-      setError(String(e));
+
+      const message = e instanceof Error ? e.message : String(e);
+      setError(message);
+
+      if (message.toLowerCase().includes("session has expired")) {
+        await supabase.auth.signOut();
+        navigate("/admin/login", { replace: true });
+      }
     } finally {
       setLoading(false);
     }
   }
 
-
   useEffect(() => {
     fetchAll();
-
 
     const timer = setInterval(() => {
       fetchAll();
     }, 600000);
 
-
     return () => clearInterval(timer);
   }, [API]);
-
 
   const dashboardData = useMemo(() => {
     const totalPatients = users.length;
     const activePatients = summary.length;
-
 
     let avgSpo2 = 0;
     let avgHr = 0;
@@ -319,14 +285,11 @@ export default function AdminDashboard() {
     let hrCount = 0;
     let stepsCount = 0;
 
-
     let stable = 0;
     let warning = 0;
     let critical = 0;
 
-
     const alerts = [];
-
 
     summary.forEach((item) => {
       const vitals = item.vitalsData?.vitals || {};
@@ -340,33 +303,27 @@ export default function AdminDashboard() {
         .map((row) => Number(row?.count))
         .filter((value) => Number.isFinite(value) && value >= 0);
 
-
       spo2Values.forEach((value) => {
         avgSpo2 += value;
         spo2Count++;
       });
-
 
       hrValues.forEach((value) => {
         avgHr += value;
         hrCount++;
       });
 
-
       stepValues.forEach((value) => {
         avgSteps += value;
         stepsCount++;
       });
 
-
       if (item.status === "critical") critical++;
       else if (item.status === "warning") warning++;
       else stable++;
 
-
       const primaryAlert =
         item.alerts.find((a) => a.level !== "stable") || item.alerts[0];
-
 
       if (
         primaryAlert &&
@@ -383,9 +340,9 @@ export default function AdminDashboard() {
       }
     });
 
-
-    alerts.sort((a, b) => getDateTime(b.createdAt) - getDateTime(a.createdAt));
-
+    alerts.sort(
+      (a, b) => getDateTime(b.createdAt) - getDateTime(a.createdAt)
+    );
 
     return {
       totalPatients,
@@ -401,12 +358,10 @@ export default function AdminDashboard() {
     };
   }, [users, summary, acknowledgedAlerts]);
 
-
   const exportExcel = () => {
     const rows = summary.map((item) => {
       const patient = item.patientInfo?.patient || {};
       const s = item.summaryData?.summary || {};
-
 
       const latestSpo2 =
         item.vitalsData?.vitals?.spo2 &&
@@ -416,7 +371,6 @@ export default function AdminDashboard() {
             ]?.avg
           : "";
 
-
       const latestWeight =
         item.vitalsData?.vitals?.weight &&
         item.vitalsData.vitals.weight.length > 0
@@ -424,7 +378,6 @@ export default function AdminDashboard() {
               item.vitalsData.vitals.weight.length - 1
             ]?.value
           : "";
-
 
       return {
         "Patient ID": item.patientId,
@@ -445,7 +398,6 @@ export default function AdminDashboard() {
       };
     });
 
-
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, "Admin Dashboard");
@@ -453,11 +405,9 @@ export default function AdminDashboard() {
     toast.success("Excel file downloaded");
   };
 
-
   const exportPDF = async () => {
     try {
       if (!exportRef.current) return;
-
 
       const canvas = await html2canvas(exportRef.current, {
         scale: 2,
@@ -465,28 +415,22 @@ export default function AdminDashboard() {
         backgroundColor: "#eef2f7",
       });
 
-
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "pt", "a4");
-
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const imgWidth = pageWidth - 40;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-
       let heightLeft = imgHeight;
       let position = 40;
-
 
       pdf.setFontSize(16);
       pdf.text("MyHFGuard Admin Dashboard Report", 20, 25);
       pdf.addImage(imgData, "PNG", 20, position, imgWidth, imgHeight);
 
-
       heightLeft -= pageHeight - 40;
-
 
       while (heightLeft > 0) {
         position = heightLeft - imgHeight + 40;
@@ -494,7 +438,6 @@ export default function AdminDashboard() {
         pdf.addImage(imgData, "PNG", 20, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
       }
-
 
       pdf.save("admin_dashboard_report.pdf");
       toast.success("PDF downloaded");
@@ -504,22 +447,18 @@ export default function AdminDashboard() {
     }
   };
 
-
   const acknowledgeAlert = (alertId) => {
     setAcknowledgedAlerts((prev) => [...prev, alertId]);
     toast.success("Alert acknowledged");
   };
 
-
   const sendAlertEmail = (alert) => {
     const row = summary.find((x) => x.patientId === alert.patientId);
     const patient = row?.patientInfo?.patient || {};
 
-
     const patientName =
       `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
       "Patient";
-
 
     const subject = encodeURIComponent(`MyHFGuard Alert - ${patientName}`);
     const body = encodeURIComponent(
@@ -531,11 +470,9 @@ export default function AdminDashboard() {
       ].join("\n")
     );
 
-
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
     toast.success(`Email draft opened for ${patientName}`);
   };
-
 
   const goToPatient = (patientId) => {
     navigate(`/admin/patient/${patientId}`, {
@@ -543,9 +480,7 @@ export default function AdminDashboard() {
     });
   };
 
-
   const alertsToShow = dashboardData.alerts.slice(0, 6);
-
 
   return (
     <div className="min-h-screen bg-[#eef2f7]">
@@ -564,13 +499,11 @@ export default function AdminDashboard() {
                 onMenuClick={() => setSidebarOpen((prev) => !prev)}
               />
 
-
               {error ? (
                 <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                   {error}
                 </div>
               ) : null}
-
 
               {loading ? (
                 <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-8 text-slate-700 shadow-sm">
@@ -588,17 +521,14 @@ export default function AdminDashboard() {
                       summary={summary}
                     />
 
-
                     <AdminSummaryPanels dashboardData={dashboardData} />
                   </div>
-
 
                   <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
                     <AdminKeyMetricsPanel
                       dashboardData={dashboardData}
                       summary={summary}
                     />
-
 
                     <AdminActivityFeed summary={summary} />
                   </div>
@@ -607,7 +537,6 @@ export default function AdminDashboard() {
             </div>
           </main>
         </div>
-
 
         <AdminSidebar
           open={sidebarOpen}
