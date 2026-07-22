@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react"
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
+import {
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom"
 import {
   LayoutDashboard,
   Stethoscope,
@@ -7,10 +12,10 @@ import {
   BookOpen,
   LifeBuoy,
   User,
+  KeyRound,
   Dumbbell,
   Bot,
   Pill,
-  KeyRound,
   PanelRightClose,
   PanelRightOpen,
   LogOut,
@@ -18,21 +23,54 @@ import {
   X,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+
 import LanguageToggle from "@/components/LanguageToggle"
-import { cn } from "@/lib/utils"
 import BackToDashboard from "@/components/BackToDashboard"
+import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase"
 import logoImg from "@/assets/loginlogo.jpg"
 
 const navItems = [
-  { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { to: "/education", labelKey: "nav.education", icon: BookOpen },
-  { to: "/self-check", labelKey: "nav.selfCheck", icon: Stethoscope },
-  { to: "/water-salt", labelKey: "nav.waterDiet", icon: Droplets },
-  { to: "/exercise", labelKey: "nav.exercise", icon: Dumbbell },
-  { to: "/medication", labelKey: "nav.medication", icon: Pill },
-  { to: "/ai-assistant", labelKey: "nav.aiAssistant", icon: Bot },
-  { to: "/help-support", labelKey: "nav.helpSupport", icon: LifeBuoy },
+  {
+    to: "/dashboard",
+    labelKey: "nav.dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    to: "/education",
+    labelKey: "nav.education",
+    icon: BookOpen,
+  },
+  {
+    to: "/self-check",
+    labelKey: "nav.selfCheck",
+    icon: Stethoscope,
+  },
+  {
+    to: "/water-salt",
+    labelKey: "nav.waterDiet",
+    icon: Droplets,
+  },
+  {
+    to: "/exercise",
+    labelKey: "nav.exercise",
+    icon: Dumbbell,
+  },
+  {
+    to: "/medication",
+    labelKey: "nav.medication",
+    icon: Pill,
+  },
+  {
+    to: "/ai-assistant",
+    labelKey: "nav.aiAssistant",
+    icon: Bot,
+  },
+  {
+    to: "/help-support",
+    labelKey: "nav.helpSupport",
+    icon: LifeBuoy,
+  },
 ]
 
 export default function Navigation() {
@@ -42,28 +80,75 @@ export default function Navigation() {
 
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const isDashboard =
-    location.pathname === "/" || location.pathname.startsWith("/dashboard")
+    location.pathname === "/" ||
+    location.pathname.startsWith("/dashboard")
 
   const pageTitle = useMemo(() => {
-    if (location.pathname.startsWith("/change-password")) return "Change Password"
+    if (location.pathname.startsWith("/profile")) {
+      return t("nav.profile", "Profile")
+    }
+
+    if (location.pathname.startsWith("/change-password")) {
+      return t("nav.changePassword", "Change Password")
+    }
+
     const current = navItems.find((item) =>
       location.pathname.startsWith(item.to)
     )
-    return current ? t(current.labelKey) : t("common.appName", "MyHFGuard")
+
+    return current
+      ? t(current.labelKey)
+      : t("common.appName", "MyHFGuard")
   }, [location.pathname, t])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    navigate("/login")
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
+    setMobileSidebarOpen(false)
+
+    try {
+      const { error } = await supabase.auth.signOut()
+
+      if (error) {
+        console.error("Logout error:", error)
+      }
+
+      localStorage.removeItem("profileCompleted")
+      localStorage.removeItem("patientUserId")
+      sessionStorage.clear()
+
+      navigate("/login", {
+        replace: true,
+      })
+    } catch (error) {
+      console.error("Unexpected logout error:", error)
+
+      localStorage.removeItem("profileCompleted")
+      localStorage.removeItem("patientUserId")
+      sessionStorage.clear()
+
+      navigate("/login", {
+        replace: true,
+      })
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   const SidebarContent = () => (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0">
         <div className="mb-4">
-          <h2 className="text-lg font-semibold">{t("nav.menu", "Menu")}</h2>
+          <h2 className="text-lg font-semibold">
+            {t("nav.menu", "Menu")}
+          </h2>
+
           <p className="text-sm text-muted-foreground">
             {t("nav.quickAccess", "Quick access")}
           </p>
@@ -89,6 +174,7 @@ export default function Navigation() {
                 }
               >
                 <Icon className="h-5 w-5 shrink-0" />
+
                 <span>{t(item.labelKey)}</span>
               </NavLink>
             )
@@ -111,6 +197,7 @@ export default function Navigation() {
           }
         >
           <User className="h-5 w-5 shrink-0" />
+
           <span>{t("nav.profile", "Profile")}</span>
         </NavLink>
 
@@ -128,16 +215,30 @@ export default function Navigation() {
           }
         >
           <KeyRound className="h-5 w-5 shrink-0" />
-          <span>Change Password</span>
+
+          <span>
+            {t("nav.changePassword", "Change Password")}
+          </span>
         </NavLink>
 
         <button
           type="button"
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-600 transition-all hover:bg-red-50 hover:text-red-700"
+          disabled={isLoggingOut}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
+            "text-red-600 hover:bg-red-50 hover:text-red-700",
+            "dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300",
+            "disabled:cursor-not-allowed disabled:opacity-60"
+          )}
         >
           <LogOut className="h-5 w-5 shrink-0" />
-          <span>{t("nav.logout", "Logout")}</span>
+
+          <span>
+            {isLoggingOut
+              ? t("nav.loggingOut", "Logging out...")
+              : t("nav.logout", "Logout")}
+          </span>
         </button>
       </div>
     </div>
@@ -159,6 +260,7 @@ export default function Navigation() {
             <h1 className="truncate text-lg font-bold text-primary md:text-2xl">
               {pageTitle}
             </h1>
+
             <p className="hidden text-sm text-muted-foreground sm:block">
               {t(
                 "common.welcomeToMyHFGuard",
@@ -174,6 +276,7 @@ export default function Navigation() {
           <button
             type="button"
             onClick={() => setMobileSidebarOpen(true)}
+            aria-label={t("nav.openMenu", "Open menu")}
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-foreground transition hover:bg-accent lg:hidden"
           >
             <Menu className="h-5 w-5" />
@@ -181,7 +284,14 @@ export default function Navigation() {
 
           <button
             type="button"
-            onClick={() => setDesktopSidebarOpen((prev) => !prev)}
+            onClick={() =>
+              setDesktopSidebarOpen((previous) => !previous)
+            }
+            aria-label={
+              desktopSidebarOpen
+                ? t("nav.closeMenu", "Close menu")
+                : t("nav.openMenu", "Open menu")
+            }
             className="hidden h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-foreground transition hover:bg-accent lg:inline-flex"
           >
             {desktopSidebarOpen ? (
@@ -212,7 +322,7 @@ export default function Navigation() {
 
       {desktopSidebarOpen && (
         <aside className="fixed bottom-0 right-0 top-[73px] z-30 hidden w-72 border-l bg-card lg:block">
-          <div className="flex h-full w-full flex-col p-4">
+          <div className="h-full w-full overflow-y-auto p-4">
             <SidebarContent />
           </div>
         </aside>
@@ -222,6 +332,7 @@ export default function Navigation() {
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
             type="button"
+            aria-label={t("nav.closeMenu", "Close menu")}
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileSidebarOpen(false)}
           />
@@ -235,13 +346,16 @@ export default function Navigation() {
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(false)}
+                aria-label={t("nav.closeMenu", "Close menu")}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <SidebarContent />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <SidebarContent />
+            </div>
           </aside>
         </div>
       )}
