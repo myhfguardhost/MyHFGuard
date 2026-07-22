@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createAdminPatientAccount, getPatients, PatientProfile } from "@/lib/api";
+import { getPatients, PatientProfile, serverUrl } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import {
   Table,
   TableBody,
@@ -18,10 +19,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 
-
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 
+function normalizeUserId(value: string) {
+  return value.trim().toLowerCase();
+}
 
 export default function PatientList() {
   const [patients, setPatients] = useState<PatientProfile[]>([]);
@@ -32,34 +35,24 @@ export default function PatientList() {
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
 
-
   const navigate = useNavigate();
-
 
   useEffect(() => {
     fetchPatients();
   }, []);
-
 
   const getDateTime = (value: any) => {
     const time = new Date(value || 0).getTime();
     return Number.isNaN(time) ? 0 : time;
   };
 
-
   const fetchPatients = async () => {
     try {
       setLoading(true);
-
-
       const data = await getPatients();
-
-
       const sortedPatients = [...(data.patients || [])].sort((a: any, b: any) => {
         return getDateTime(b.created_at) - getDateTime(a.created_at);
       });
-
-
       setPatients(sortedPatients);
     } catch (error: any) {
       toast.error(error.message || "Failed to fetch patients");
@@ -68,20 +61,20 @@ export default function PatientList() {
     }
   };
 
-
   const openPatientDetails = (patientId: string) => {
     navigate(`/admin/patient/${patientId}`, {
       state: { from: "/admin/patients" },
     });
   };
 
-
   const createPatient = async () => {
-    const userId = newUserId.trim().toLowerCase();
+    const userId = normalizeUserId(newUserId);
+
     if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(userId)) {
       toast.error("User ID must be 3-30 characters using letters, numbers, dot, dash or underscore.");
       return;
     }
+
     if (newPassword.length < 8) {
       toast.error("Password must contain at least 8 characters.");
       return;
@@ -89,7 +82,68 @@ export default function PatientList() {
 
     try {
       setCreating(true);
-      await createAdminPatientAccount({ userId, password: newPassword });
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const loginEmail = `${userId}@myhfguard.local`;
+
+      const createResponse = await fetch(`${serverUrl()}/admin/create-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          email: loginEmail,
+          password: newPassword,
+          role: "patient",
+        }),
+      });
+
+      const createBody = await createResponse.json().catch(() => ({}));
+
+      if (!createResponse.ok) {
+        throw new Error(createBody?.error || `Failed to create account (${createResponse.status}).`);
+      }
+
+      const patientId = createBody?.user?.id;
+      if (!patientId) throw new Error("Supabase did not return the new patient ID.");
+
+      // The SQL migration creates these rows automatically. This fallback supports
+      // deployments that have not restarted since the migration was applied.
+      const ensureResponse = await fetch(`${serverUrl()}/admin/ensure-patient`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          patientId,
+          dateOfBirth: "1900-01-01",
+        }),
+      });
+
+      if (!ensureResponse.ok) {
+        const ensureBody = await ensureResponse.json().catch(() => ({}));
+        console.warn("Patient row fallback failed:", ensureBody);
+      }
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            user_id: patientId,
+            assigned_user_id: userId,
+            profile_completed: false,
+            baseline_locked: false,
+          },
+          { onConflict: "user_id" }
+        );
+
+      if (profileError) {
+        console.warn("Profile login ID save failed:", profileError.message);
+      }
+
       toast.success(`Patient account ${userId} created.`);
       setCreateOpen(false);
       setNewUserId("");
@@ -101,7 +155,6 @@ export default function PatientList() {
       setCreating(false);
     }
   };
-
 
   return (
     <div className="min-h-screen bg-[#eef2f7]">
@@ -115,7 +168,6 @@ export default function PatientList() {
               onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
             />
-
 
             {loading ? (
               <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -136,7 +188,6 @@ export default function PatientList() {
                         Latest registered patients are shown first.
                       </p>
                     </div>
-
 
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
@@ -195,7 +246,6 @@ export default function PatientList() {
                   </div>
                 </CardHeader>
 
-
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <Table>
@@ -208,7 +258,6 @@ export default function PatientList() {
                           <TableHead className="min-w-[140px] text-right text-slate-700">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
-
 
                       <TableBody>
                         {patients.length === 0 ? (
@@ -241,7 +290,6 @@ export default function PatientList() {
                                       <User className="h-4 w-4 text-blue-600" />
                                     </div>
 
-
                                     <div className="min-w-0">
                                       <p className="truncate font-semibold text-slate-900">
                                         {patientName}
@@ -249,7 +297,6 @@ export default function PatientList() {
                                     </div>
                                   </div>
                                 </TableCell>
-
 
                                 <TableCell className="font-mono text-sm text-slate-700">
                                   {patient.assigned_user_id || "-"}
@@ -266,7 +313,6 @@ export default function PatientList() {
                                     ? new Date(patient.created_at).toLocaleDateString()
                                     : "N/A"}
                                 </TableCell>
-
 
                                 <TableCell className="text-right">
                                   <Button
@@ -291,7 +337,6 @@ export default function PatientList() {
           </div>
         </main>
 
-
         <AdminSidebar
           open={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
@@ -300,4 +345,3 @@ export default function PatientList() {
     </div>
   );
 }
-

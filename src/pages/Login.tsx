@@ -17,13 +17,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
-import { serverUrl } from "@/lib/api";
-import { toast } from "sonner";
+
+function loginEmailFromIdentifier(identifier: string) {
+  const normalized = identifier.trim().toLowerCase();
+  if (normalized.includes("@")) return normalized;
+  return `${normalized}@myhfguard.local`;
+}
 
 const Login = () => {
   const navigate = useNavigate();
-  
-  const [formData, setFormData] = useState({ email: "", password: "" });
+
+  const [formData, setFormData] = useState({ userId: "", password: "" });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,19 +40,26 @@ const Login = () => {
     setError("");
     setIsSubmitting(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: formData.email,
-      password: formData.password,
-    });
-
-    if (error) {
-      setError(error.message);
+    const identifier = formData.userId.trim();
+    if (!identifier) {
+      setError("Please enter your User ID.");
       setIsSubmitting(false);
       return;
     }
 
-    let { data } = await supabase.auth.getSession();
-    let role = data?.session?.user?.app_metadata?.role;
+    const { error } = await supabase.auth.signInWithPassword({
+      email: loginEmailFromIdentifier(identifier),
+      password: formData.password,
+    });
+
+    if (error) {
+      setError("Invalid User ID or password.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const { data } = await supabase.auth.getSession();
+    const role = data?.session?.user?.app_metadata?.role;
 
     if (role === "admin") {
       await supabase.auth.signOut();
@@ -66,19 +77,25 @@ const Login = () => {
 
     setIsSubmitting(false);
 
-    const profileCompleted = localStorage.getItem("profileCompleted");
+    const userId = data?.session?.user?.id;
+    let profileCompleted = false;
 
-    if (profileCompleted === "true") {
-      navigate("/");
-    } else {
-      navigate("/profile");
+    if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("profile_completed")
+        .eq("user_id", userId)
+        .maybeSingle();
+      profileCompleted = !!profile?.profile_completed;
     }
+
+    localStorage.setItem("profileCompleted", profileCompleted ? "true" : "false");
+    navigate(profileCompleted ? "/" : "/profile");
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-blue-100 dark:from-slate-950 dark:via-blue-950 dark:to-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 overflow-hidden rounded-[32px] border border-slate-200 dark:border-white/10 shadow-[0_20px_80px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)] bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl">
-        {/* Left panel */}
         <div className="hidden lg:flex flex-col justify-between p-10 bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700 text-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,white,transparent_40%)]" />
 
@@ -109,7 +126,6 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Right panel */}
         <div className="flex items-center justify-center p-6 md:p-10 bg-white/70 dark:bg-slate-950/50">
           <Card className="w-full max-w-md border border-slate-200 dark:border-white/10 bg-white/80 dark:bg-white/5 shadow-none rounded-[28px] backdrop-blur-md">
             <CardHeader className="space-y-4 pt-8">
@@ -136,23 +152,24 @@ const Login = () => {
                 Sign in
               </CardTitle>
               <CardDescription className="text-center text-base text-slate-600 dark:text-slate-300">
-                Enter your email and password to continue
+                Enter the User ID assigned by the administrator
               </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-5 pt-2">
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-slate-800 dark:text-white">
-                    Email Address
+                  <Label htmlFor="userId" className="text-slate-800 dark:text-white">
+                    User ID
                   </Label>
                   <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="john.doe@example.com"
-                    value={formData.email}
+                    id="userId"
+                    name="userId"
+                    type="text"
+                    placeholder="patient001"
+                    value={formData.userId}
                     onChange={handleChange}
+                    autoComplete="username"
                     required
                     className="h-12 rounded-2xl border-slate-300 dark:border-white/10 bg-white dark:bg-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus-visible:ring-cyan-400"
                   />
@@ -168,6 +185,7 @@ const Login = () => {
                     placeholder="Enter your password"
                     value={formData.password}
                     onChange={handleChange}
+                    autoComplete="current-password"
                     required
                     className="h-12 rounded-2xl border-slate-300 dark:border-white/10 bg-white dark:bg-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus-visible:ring-cyan-400"
                   />
@@ -191,13 +209,7 @@ const Login = () => {
 
             <CardFooter className="justify-center pb-8">
               <p className="text-sm text-slate-600 dark:text-slate-300 text-center">
-                Don&apos;t have an account?{" "}
-                <Link
-                  to="/register"
-                  className="text-sky-600 dark:text-cyan-300 hover:text-sky-500 dark:hover:text-cyan-200 font-semibold"
-                >
-                  Register
-                </Link>
+                Need an account? Please contact the administrator.
               </p>
             </CardFooter>
           </Card>

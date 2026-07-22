@@ -12,6 +12,7 @@ import RequireAuth from "./components/RequireAuth"
 import RequireAdmin from "./components/RequireAdmin"
 
 import Profile from "./pages/Profile"
+import ChangePassword from "./pages/ChangePassword"
 import Dashboard from "./pages/Dashboard"
 import VitalsTracker from "./pages/VitalsTracker"
 import Education from "./pages/Education"
@@ -80,6 +81,14 @@ const App = () => {
                     element={
                       <RequireAuth>
                         <Profile />
+                      </RequireAuth>
+                    }
+                  />
+                  <Route
+                    path="/change-password"
+                    element={
+                      <RequireAuth>
+                        <ChangePassword />
                       </RequireAuth>
                     }
                   />

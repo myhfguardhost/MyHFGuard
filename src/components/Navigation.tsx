@@ -10,6 +10,7 @@ import {
   Dumbbell,
   Bot,
   Pill,
+  KeyRound,
   PanelRightClose,
   PanelRightOpen,
   LogOut,
@@ -46,6 +47,7 @@ export default function Navigation() {
     location.pathname === "/" || location.pathname.startsWith("/dashboard")
 
   const pageTitle = useMemo(() => {
+    if (location.pathname.startsWith("/change-password")) return "Change Password"
     const current = navItems.find((item) =>
       location.pathname.startsWith(item.to)
     )
@@ -110,6 +112,23 @@ export default function Navigation() {
         >
           <User className="h-5 w-5 shrink-0" />
           <span>{t("nav.profile", "Profile")}</span>
+        </NavLink>
+
+        <NavLink
+          to="/change-password"
+          onClick={() => setMobileSidebarOpen(false)}
+          className={({ isActive }) =>
+            cn(
+              "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
+              "hover:bg-primary/10 hover:text-primary",
+              isActive
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-foreground"
+            )
+          }
+        >
+          <KeyRound className="h-5 w-5 shrink-0" />
+          <span>Change Password</span>
         </NavLink>
 
         <button
