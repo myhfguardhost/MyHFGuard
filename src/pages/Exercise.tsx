@@ -171,8 +171,18 @@ const Exercise = () => {
   })
 
   const vitalsQuery = useQuery({
-    queryKey: ["patient-vitals-exercise", patientId],
-    queryFn: () => getPatientVitals(patientId, "hourly"),
+    queryKey: [
+      "patient-vitals-exercise",
+      patientId,
+      currentWeekKey,
+    ],
+    queryFn: () =>
+      getPatientVitals(
+        patientId,
+        "weekly",
+        format(new Date(), "yyyy-MM-dd"),
+        480
+      ),
     enabled: !!patientId,
     refetchOnWindowFocus: false,
   })
