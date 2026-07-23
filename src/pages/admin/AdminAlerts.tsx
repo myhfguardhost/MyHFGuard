@@ -11,7 +11,11 @@ import {
 import { toast } from "sonner";
 
 
-import { getAdminPatientFullData, serverUrl } from "@/lib/api";
+import {
+  getAdminPatientFullData,
+  getPatients,
+  serverUrl,
+} from "@/lib/api";
 import { buildAlerts } from "@/lib/adminAlertUtils";
 
 
@@ -210,17 +214,7 @@ export default function AdminAlerts() {
       setLoading(true);
       setError("");
 
-
-      const res = await fetch(`${API}/api/admin/patients`);
-
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch alerts");
-      }
-
-
-      const data = await res.json();
-
+      const data = await getPatients();
 
       const patientRows = [...(data.patients || [])].sort((a: any, b: any) => {
         return getDateTime(b.created_at) - getDateTime(a.created_at);

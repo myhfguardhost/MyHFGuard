@@ -9,7 +9,11 @@ import {
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
-import { getAdminPatientFullData, serverUrl } from "@/lib/api";
+import {
+  getAdminPatientFullData,
+  getPatients,
+  serverUrl,
+} from "@/lib/api";
 import { buildAlerts, pickWorstStatus } from "@/lib/adminAlertUtils";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -120,10 +124,8 @@ export default function AdminReports() {
       setLoading(true);
       setError("");
 
-      const patientsRes = await fetch(`${API}/api/admin/patients`);
-      if (!patientsRes.ok) throw new Error("Failed to fetch patients");
-
-      const patientsData = await patientsRes.json();
+      const patientsData = await getPatients();
+      
       const patientRows = [...(patientsData.patients || [])].sort((a: any, b: any) => {
         return getDateTime(b.created_at) - getDateTime(a.created_at);
       });
