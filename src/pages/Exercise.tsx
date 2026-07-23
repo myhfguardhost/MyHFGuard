@@ -179,6 +179,7 @@ const Exercise = () => {
 
   type PatientSummary = {
     stepsToday?: number | null
+    spo2?: number | null
     targetSteps?: number | null
     target_steps?: number | null
     lastSyncTs?: string | null
@@ -191,11 +192,21 @@ const Exercise = () => {
 
   const stepCount = Number(summary.stepsToday || 0)
 
-  const spo2 = vitals.spo2?.length
-    ? Math.round(
-        Number(vitals.spo2[vitals.spo2.length - 1]?.avg || 0)
+  const summarySpo2 = Number(summary.spo2)
+
+  const latestHourlySpo2 = vitals.spo2?.length
+    ? Number(
+        vitals.spo2[vitals.spo2.length - 1]?.avg
       )
-    : 98
+    : NaN
+
+  const spo2 =
+    Number.isFinite(summarySpo2) && summarySpo2 > 0
+      ? Math.round(summarySpo2)
+      : Number.isFinite(latestHourlySpo2) &&
+          latestHourlySpo2 > 0
+        ? Math.round(latestHourlySpo2)
+        : null
 
   const stepTargetValue = Number(
     summary.targetSteps ??
@@ -603,7 +614,9 @@ const Exercise = () => {
                   </h3>
                 </div>
 
-                <div className="text-3xl font-bold">{spo2}%</div>
+                <div className="text-3xl font-bold">
+                  {spo2 !== null ? `${spo2}%` : t("noData")}
+                </div>
 
                 <p className="mt-2 text-sm text-muted-foreground">
                   {t("spo2Desc")}

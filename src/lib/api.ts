@@ -40,17 +40,18 @@ export async function getAdminSummary() {
 
 
 export type PatientSummary = {
-  heartRate?: number
-  bpSystolic?: number
-  bpDiastolic?: number
-  bpPulse?: number
-  weightKg?: number
-  nextAppointmentDate?: string
-  stepsToday?: number
-  distanceToday?: number
-  lastSyncTs?: string
-  targetSteps?: number
-  target_steps?: number
+  heartRate?: number | null
+  spo2?: number | null
+  bpSystolic?: number | null
+  bpDiastolic?: number | null
+  bpPulse?: number | null
+  weightKg?: number | null
+  nextAppointmentDate?: string | null
+  stepsToday?: number | null
+  distanceToday?: number | null
+  lastSyncTs?: string | null
+  targetSteps?: number | null
+  target_steps?: number | null
 }
 
 
