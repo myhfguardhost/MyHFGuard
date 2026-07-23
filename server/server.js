@@ -1448,44 +1448,41 @@ app.post('/patient/sync-metrics', async (req, res) => {
       (val) => ({ spo2_min: Math.round(val.min), spo2_max: Math.round(val.max), spo2_avg: Math.round(val.sum / val.count), spo2_count: val.count })
     )
 
-    try {
-      const offsetMin = 480
-      const candidates = []
-        ; (steps_samples || []).forEach(s => {
-          if (s.endTime) {
-            const utcMs = new Date(s.endTime).getTime()
-            const localMs = utcMs + offsetMin * 60000
-            candidates.push({ utcMs, localMs, ts: s.endTime })
-          }
-        })
-        ; (distance_samples || []).forEach(s => {
-          if (s.endTime) {
-            const utcMs = new Date(s.endTime).getTime()
-            const localMs = utcMs + offsetMin * 60000
-            candidates.push({ utcMs, localMs, ts: s.endTime })
-          }
-        })
-        ; (hr_samples || []).forEach(s => {
-          if (s.time) {
-            const utcMs = new Date(s.time).getTime()
-            const localMs = utcMs + offsetMin * 60000
-            candidates.push({ utcMs, localMs, ts: s.time })
-          }
-        })
-        ; (spo2_samples || []).forEach(s => {
-          if (s.time) {
-            const utcMs = new Date(s.time).getTime()
-            const localMs = utcMs + offsetMin * 60000
-            candidates.push({ utcMs, localMs, ts: s.time })
-          }
-        })
-      if (candidates.length) {
-        const best = candidates.reduce((m, c) => (c.localMs > m.localMs ? c : m))
-        const maxTs = new Date(best.ts).toISOString()
-        await sb.from('device_sync_status').upsert({ patient_id, last_sync_ts: maxTs, updated_at: new Date().toISOString() }, { onConflict: 'patient_id' })
-      }
-    } catch (_) { }
-    return res.status(200).json({ ok: true })
+    // Record the actual time this patient successfully synced with the server.
+    const syncOriginId = String(
+      req.body?.origin_id ||
+      req.body?.originId ||
+      "health_connect"
+    ).trim() || "health_connect"
+
+    const actualSyncTime = new Date().toISOString()
+
+    const { error: syncStatusError } = await sb
+      .from("device_sync_status")
+      .upsert(
+        {
+          patient_id,
+          origin_id: syncOriginId,
+          last_sync_ts: actualSyncTime,
+          status: "success",
+          updated_at: actualSyncTime,
+        },
+        {
+          onConflict: "patient_id,origin_id",
+        }
+      )
+
+    if (syncStatusError) {
+      console.error(
+        "[sync-metrics] failed to save actual sync time:",
+        syncStatusError.message
+      )
+    }
+
+    return res.status(200).json({ 
+      ok: true,
+      lastSyncTs: actualSyncTime,
+    })
 
   } catch (e) {
     console.error('[sync-metrics] exception:', e)
@@ -1925,11 +1922,6 @@ app.get('/api/health', healthHandler)
 app.get('/health', healthHandler)
 
 
-// Sync metrics endpoint
-// const syncMetricsRoute = require('./routes/patient/syncMetrics')(supabase);
-// app.post('/patient/sync-metrics', syncMetricsRoute);
-
-
 // Check daily log status (weight, bp, symptoms)
 app.get('/patient/daily-status', async (req, res) => {
   const { patientId, date } = req.query
@@ -2083,27 +2075,34 @@ app.get('/patient/summary', async (req, res) => {
 
   let lastSyncTs = null
   try {
-    const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
-    const srow2 = (sync.data && sync.data[0]) || null
-    lastSyncTs = (srow2 && (srow2.last_sync_ts || srow2.updated_at)) || null
-  } catch (_) { }
-  if (!lastSyncTs) {
-    try {
-      const hrLast = await supabase.from('hr_sample').select('time_ts').eq('patient_id', pid).order('time_ts', { ascending: false }).limit(1)
-      const stepsLast = await supabase.from('steps_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
-      const distLast = await supabase.from('distance_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
-      const candidates = []
-      const hrTs = hrLast && hrLast.data && hrLast.data[0] && hrLast.data[0].time_ts
-      const stTs = stepsLast && stepsLast.data && stepsLast.data[0] && stepsLast.data[0].end_ts
-      const diTs = distLast && distLast.data && distLast.data[0] && distLast.data[0].end_ts
-      if (hrTs) candidates.push(hrTs)
-      if (stTs) candidates.push(stTs)
-      if (diTs) candidates.push(diTs)
-      if (candidates.length) {
-        const maxTs = Math.max(...candidates.map((d) => new Date(d).getTime()))
-        if (Number.isFinite(maxTs)) lastSyncTs = new Date(maxTs).toISOString()
-      }
-    } catch (_) { }
+    const { data: syncRows, error: syncError } = await supabase
+      .from("device_sync_status")
+      .select("last_sync_ts, updated_at")
+      .eq("patient_id", pid)
+      .order("last_sync_ts", {
+        ascending: false,
+        nullsFirst: false,
+      })
+      .limit(1)
+
+    if (syncError) {
+      console.error(
+        "[patient/summary] failed to read last sync:",
+        syncError.message
+      )
+    } else {
+      const latestSync = syncRows?.[0] || null
+
+      lastSyncTs =
+        latestSync?.last_sync_ts ||
+        latestSync?.updated_at ||
+        null
+    }
+  } catch (error) {
+    console.error(
+      "[patient/summary] failed to read last sync:",
+      error
+    )
   }
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
@@ -2115,7 +2114,6 @@ app.get('/patient/summary', async (req, res) => {
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
     lastSyncTs,
-    // Return both names temporarily for compatibility with existing pages.
     targetSteps,
     target_steps: targetSteps,
   }
