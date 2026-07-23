@@ -2172,10 +2172,12 @@ app.get('/patient/summary', async (req, res) => {
   }
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
+
     spo2:
       oxygenRow && Number.isFinite(Number(oxygenRow.spo2_avg))
         ? Math.round(Number(oxygenRow.spo2_avg))
         : null,
+
     bpSystolic: bpRow ? bpRow.systolic : null,
     bpDiastolic: bpRow ? bpRow.diastolic : null,
     bpPulse: bpRow ? bpRow.pulse : null,
