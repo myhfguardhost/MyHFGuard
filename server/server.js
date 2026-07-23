@@ -288,7 +288,10 @@ app.get('/admin/patient-info', async (req, res) => {
 const getPatientsRoute = require('./routes/admin/getPatients')(supabase);
 app.get('/api/admin/patients', requireAdmin, getPatientsRoute);
 
-const PATIENT_LOGIN_DOMAIN = process.env.PATIENT_LOGIN_DOMAIN || 'patients.myhfguard.local'
+const PATIENT_LOGIN_DOMAIN = String(process.env.PATIENT_LOGIN_DOMAIN || 'myhfguard.local')
+  .trim()
+  .toLowerCase()
+  .replace(/^@+/, '') || 'myhfguard.local'
 
 function normalizeAssignedUserId(value) {
   return String(value || '').trim().toLowerCase()
@@ -2038,6 +2041,8 @@ app.get('/patient/summary', async (req, res) => {
       stepsToday: null,
       distanceToday: null,
       lastSyncTs: null,
+      targetSteps: 3000,
+      target_steps: 3000,
     }
     return res.status(200).json({ summary })
   }
@@ -2053,6 +2058,29 @@ app.get('/patient/summary', async (req, res) => {
   const bpRow = (bp.data && bp.data[0]) || null
   const wt = await supabase.from('weight_day').select('date,kg_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   const wRow = (wt.data && wt.data[0]) || null
+
+  // The admin saves the patient's daily target in profiles.target_steps.
+  // Read it here so patient pages receive the latest configured value.
+  let targetSteps = 3000
+  try {
+    const profile = await supabase
+      .from('profiles')
+      .select('target_steps')
+      .eq('user_id', pid)
+      .maybeSingle()
+
+    if (profile.error) {
+      console.error('[patient/summary] target steps lookup failed:', profile.error.message)
+    } else {
+      const configuredTarget = Number(profile.data && profile.data.target_steps)
+      if (Number.isFinite(configuredTarget) && configuredTarget > 0) {
+        targetSteps = Math.round(configuredTarget)
+      }
+    }
+  } catch (error) {
+    console.error('[patient/summary] target steps lookup failed:', error)
+  }
+
   let lastSyncTs = null
   try {
     const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
@@ -2087,6 +2115,9 @@ app.get('/patient/summary', async (req, res) => {
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
     lastSyncTs,
+    // Return both names temporarily for compatibility with existing pages.
+    targetSteps,
+    target_steps: targetSteps,
   }
   console.log('[patient/summary] summary computed')
   return res.status(200).json({ summary })

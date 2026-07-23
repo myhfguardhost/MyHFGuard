@@ -164,7 +164,10 @@ const Exercise = () => {
     queryKey: ["patient-summary", patientId],
     queryFn: () => getPatientSummary(patientId),
     enabled: !!patientId,
-    refetchOnWindowFocus: false,
+    // Always reload when this page is opened or revisited so an admin's
+    // newly configured target is not hidden by an older cached response.
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   })
 
   const vitalsQuery = useQuery({
