@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getPatients, PatientProfile, serverUrl } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
+import { createAdminPatientAccount, getPatients, PatientProfile } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -71,7 +70,9 @@ export default function PatientList() {
     const userId = normalizeUserId(newUserId);
 
     if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(userId)) {
-      toast.error("User ID must be 3-30 characters using letters, numbers, dot, dash or underscore.");
+      toast.error(
+        "User ID must be 3-30 characters using letters, numbers, dot, dash or underscore."
+      );
       return;
     }
 
@@ -83,68 +84,13 @@ export default function PatientList() {
     try {
       setCreating(true);
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const loginEmail = `${userId}@myhfguard.local`;
-
-      const createResponse = await fetch(`${serverUrl()}/admin/create-user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          email: loginEmail,
-          password: newPassword,
-          role: "patient",
-        }),
+      const result = await createAdminPatientAccount({
+        userId,
+        password: newPassword,
       });
 
-      const createBody = await createResponse.json().catch(() => ({}));
-
-      if (!createResponse.ok) {
-        throw new Error(createBody?.error || `Failed to create account (${createResponse.status}).`);
-      }
-
-      const patientId = createBody?.user?.id;
-      if (!patientId) throw new Error("Supabase did not return the new patient ID.");
-
-      // The SQL migration creates these rows automatically. This fallback supports
-      // deployments that have not restarted since the migration was applied.
-      const ensureResponse = await fetch(`${serverUrl()}/admin/ensure-patient`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          patientId,
-          dateOfBirth: "1900-01-01",
-        }),
-      });
-
-      if (!ensureResponse.ok) {
-        const ensureBody = await ensureResponse.json().catch(() => ({}));
-        console.warn("Patient row fallback failed:", ensureBody);
-      }
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert(
-          {
-            user_id: patientId,
-            assigned_user_id: userId,
-            profile_completed: false,
-            baseline_locked: false,
-          },
-          { onConflict: "user_id" }
-        );
-
-      if (profileError) {
-        console.warn("Profile login ID save failed:", profileError.message);
-      }
-
-      toast.success(`Patient account ${userId} created.`);
+      const createdUserId = result.patient?.assigned_user_id || userId;
+      toast.success(`Patient account ${createdUserId} created.`);
       setCreateOpen(false);
       setNewUserId("");
       setNewPassword("");

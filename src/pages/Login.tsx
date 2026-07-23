@@ -18,10 +18,26 @@ import {
 } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 
-function loginEmailFromIdentifier(identifier: string) {
+const PATIENT_LOGIN_DOMAIN = (
+  (import.meta.env.VITE_PATIENT_LOGIN_DOMAIN as string | undefined)
+    ?.trim()
+    .toLowerCase() || "myhfguard.local"
+).replace(/^@+/, "");
+
+const LEGACY_PATIENT_LOGIN_DOMAINS = ["patients.myhfguard.local"];
+
+function loginEmailsFromIdentifier(identifier: string) {
   const normalized = identifier.trim().toLowerCase();
-  if (normalized.includes("@")) return normalized;
-  return `${normalized}@myhfguard.local`;
+  if (normalized.includes("@")) return [normalized];
+
+  return Array.from(
+    new Set([
+      `${normalized}@${PATIENT_LOGIN_DOMAIN}`,
+      ...LEGACY_PATIENT_LOGIN_DOMAINS.map(
+        (domain) => `${normalized}@${domain}`
+      ),
+    ])
+  );
 }
 
 const Login = () => {
@@ -47,12 +63,23 @@ const Login = () => {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: loginEmailFromIdentifier(identifier),
-      password: formData.password,
-    });
+    let signInError: Error | null = null;
 
-    if (error) {
+    for (const email of loginEmailsFromIdentifier(identifier)) {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: formData.password,
+      });
+
+      if (!error) {
+        signInError = null;
+        break;
+      }
+
+      signInError = error;
+    }
+
+    if (signInError) {
       setError("Invalid User ID or password.");
       setIsSubmitting(false);
       return;
