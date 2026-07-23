@@ -2080,6 +2080,7 @@ app.get('/patient/summary', async (req, res) => {
   if (supabaseMock) {
     const summary = {
       heartRate: null,
+      spo2: null,
       bpSystolic: null,
       bpDiastolic: null,
       bpPulse: null,
@@ -2096,6 +2097,16 @@ app.get('/patient/summary', async (req, res) => {
   const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (hr.error) return res.status(400).json({ error: hr.error.message })
   const row = (hr.data && hr.data[0]) || null
+
+  const oxygen = await supabase
+    .from('spo2_day')
+    .select('date,spo2_avg')
+    .eq('patient_id', pid)
+    .order('date', { ascending: false })
+    .limit(1)
+  if (oxygen.error) return res.status(400).json({ error: oxygen.error.message })
+  const oxygenRow = (oxygen.data && oxygen.data[0]) || null
+
   const st = await supabase.from('steps_day').select('date,steps_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (st.error) return res.status(400).json({ error: st.error.message })
   const srow = (st.data && st.data[0]) || null
@@ -2161,6 +2172,10 @@ app.get('/patient/summary', async (req, res) => {
   }
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
+    spo2:
+      oxygenRow && Number.isFinite(Number(oxygenRow.spo2_avg))
+        ? Math.round(Number(oxygenRow.spo2_avg))
+        : null,
     bpSystolic: bpRow ? bpRow.systolic : null,
     bpDiastolic: bpRow ? bpRow.diastolic : null,
     bpPulse: bpRow ? bpRow.pulse : null,
@@ -3129,11 +3144,11 @@ app.post('/ingest/hr-samples', async (req, res) => {
     console.error('hr_day upsert error', upd.error)
     return res.status(400).json({ error: upd.error.message })
   }
-  return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
   await updatePatientLastSync(
     patientId,
     origins[0] || "health_connect"
   )
+  return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 
 app.post('/ingest/spo2-samples', async (req, res) => {
@@ -3208,11 +3223,11 @@ app.post('/ingest/spo2-samples', async (req, res) => {
     console.error('spo2_day upsert error', upd.error)
     return res.status(400).json({ error: upd.error.message })
   }
-  return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
   await updatePatientLastSync(
     patientId,
     origins[0] || "health_connect"
   )
+  return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 
 // Ingest weight samples (manual/self-check)
