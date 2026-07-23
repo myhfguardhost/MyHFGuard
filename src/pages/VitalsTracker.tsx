@@ -12,6 +12,7 @@ import correctImage from "@/assets/correct_image.jpeg"
 import slantedImage from "@/assets/slanted_image.jpg"
 import { toast } from "sonner"
 import { useQueryClient } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
 
 export default function VitalsTracker() {
   const [activeTab, setActiveTab] = useState("scan")
@@ -32,6 +33,7 @@ export default function VitalsTracker() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
+  const { t } = useTranslation()
 
   useEffect(() => {
     async function init() {

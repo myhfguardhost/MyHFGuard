@@ -679,12 +679,6 @@ const resources = {
         },
 
 
-        buttons: {
-          saving: "Saving...",
-          save: "Save Today Entry",
-        },
-
-
         summary: {
           title: "Latest Summary",
           waterRestriction: "Water Restriction",
@@ -1431,12 +1425,6 @@ const resources = {
             breakfast: "Sarapan",
             lunch: "Makan Tengah Hari",
             dinner: "Makan Malam",
-          },
-
-
-          buttons: {
-            saving: "Menyimpan...",
-            save: "Simpan Entri Hari Ini",
           },
 
 

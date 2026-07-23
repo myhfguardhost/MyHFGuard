@@ -12,11 +12,11 @@
     "strictNullChecks": false,
     "noUnusedParameters": false,
     "noUnusedLocals": false,
-    "ignoreDeprecations": "6.0",
-    "baseUrl": ".",
+
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
+
     "types": ["vite/client"]
   },
   "include": ["src"]
