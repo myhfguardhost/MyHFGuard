@@ -76,12 +76,14 @@ async function validatePatientId(patientId) {
     return { ok: false, error: e && e.message ? e.message : String(e) }
   }
 }
+
 function toHourWithOffset(ts, offsetMin) {
   const off = (offsetMin === undefined || offsetMin === null) ? 480 : offsetMin
   const d = new Date(Date.parse(ts) + off * 60000)
   d.setUTCMinutes(0, 0, 0)
   return d.toISOString()
 }
+
 function toDateWithOffset(ts, offsetMin) {
   const off = (offsetMin === undefined || offsetMin === null) ? 480 : offsetMin
   const d = new Date(Date.parse(ts) + off * 60000)
@@ -90,6 +92,7 @@ function toDateWithOffset(ts, offsetMin) {
   const day = String(d.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
+
 async function ensurePatient(patientId, info) {
   if (!patientId) return { ok: false, error: 'missing patientId' }
 
@@ -145,6 +148,7 @@ async function ensurePatient(patientId, info) {
   console.log('[ensurePatient] success', row.patient_id)
   return { ok: true }
 }
+
 async function ensureOrigins(origins) {
   if (!origins.length) return { ok: true }
   const rows = origins.map((o) => ({ origin_id: o }))
@@ -155,6 +159,7 @@ async function ensureOrigins(origins) {
   }
   return { ok: true }
 }
+
 async function ensureDevices(devices, patientId) {
   if (!devices.length) return { ok: true }
   const rows = devices.map((d) => ({ device_id: d, patient_id: patientId }))
@@ -165,6 +170,56 @@ async function ensureDevices(devices, patientId) {
   }
   return { ok: true }
 }
+
+async function updatePatientLastSync(
+  patientId,
+  originId = "health_connect"
+) {
+  if (!patientId) return null
+
+  const safeOriginId =
+    String(originId || "health_connect").trim() ||
+    "health_connect"
+
+  const actualSyncTime = new Date().toISOString()
+
+  const { error } = await supabase
+    .from("device_sync_status")
+    .upsert(
+      {
+        patient_id: patientId,
+        origin_id: safeOriginId,
+        last_sync_ts: actualSyncTime,
+        status: "success",
+        updated_at: actualSyncTime,
+      },
+      {
+        onConflict: "patient_id,origin_id",
+      }
+    )
+
+  if (error) {
+    console.error(
+      "[last-sync] failed to update:",
+      error.message,
+      {
+        patientId,
+        originId: safeOriginId,
+      }
+    )
+
+    return null
+  }
+
+  console.log("[last-sync] updated", {
+    patientId,
+    originId: safeOriginId,
+    lastSyncTs: actualSyncTime,
+  })
+
+  return actualSyncTime
+}
+
 app.get('/health', (req, res) => {
   console.log('[health] ping ok')
   return res.status(200).send('ok')
@@ -2939,13 +2994,10 @@ app.post('/ingest/steps-events', async (req, res) => {
     console.error('steps_day upsert error', upd.error)
     return res.status(400).json({ error: upd.error.message })
   }
-  try {
-    const maxEnd = items.reduce((m, i) => (!m || (new Date(i.endTs).getTime() > new Date(m).getTime())) ? i.endTs : m, null)
-    const dev = devices && devices.length ? devices[0] : 'unknown'
-    if (maxEnd) {
-      await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
-    }
-  } catch (_) { }
+  await updatePatientLastSync(
+    patientId,
+    origins[0] || "health_connect"
+  )
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/distance-events', async (req, res) => {
@@ -2999,13 +3051,10 @@ app.post('/ingest/distance-events', async (req, res) => {
   if (uph.error) return res.status(400).json({ error: uph.error.message })
   const upd = await supabase.from('distance_day').upsert(dayRows, { onConflict: 'patient_id,date' })
   if (upd.error) return res.status(400).json({ error: upd.error.message })
-  try {
-    const maxEnd = items.reduce((m, i) => (!m || (new Date(i.endTs).getTime() > new Date(m).getTime())) ? i.endTs : m, null)
-    const dev = devices && devices.length ? devices[0] : 'unknown'
-    if (maxEnd) {
-      await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
-    }
-  } catch (_) { }
+  await updatePatientLastSync(
+    patientId,
+    origins[0] || "health_connect"
+  )
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/hr-samples', async (req, res) => {
@@ -3081,7 +3130,12 @@ app.post('/ingest/hr-samples', async (req, res) => {
     return res.status(400).json({ error: upd.error.message })
   }
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
+  await updatePatientLastSync(
+    patientId,
+    origins[0] || "health_connect"
+  )
 })
+
 app.post('/ingest/spo2-samples', async (req, res) => {
   const items = Array.isArray(req.body) ? req.body : [req.body]
   // console.log('POST /ingest/spo2-samples', { count: items.length })
@@ -3155,6 +3209,10 @@ app.post('/ingest/spo2-samples', async (req, res) => {
     return res.status(400).json({ error: upd.error.message })
   }
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
+  await updatePatientLastSync(
+    patientId,
+    origins[0] || "health_connect"
+  )
 })
 
 // Ingest weight samples (manual/self-check)
