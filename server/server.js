@@ -29,15 +29,43 @@ app.use(express.json({ limit: '100mb' }))
 // Manual CORS headers removed; using cors middleware
 
 let supabase
+let supabaseAnon = null
 let supabaseMock = false
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 
 if (process.env.SUPABASE_URL && supabaseKey) {
-  supabase = createClient(process.env.SUPABASE_URL, supabaseKey)
+  supabase = createClient(process.env.SUPABASE_URL, supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false
+    }
+  })
+
+  if (process.env.SUPABASE_ANON_KEY) {
+    supabaseAnon = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      }
+    )
+  }
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.warn('[server] SUPABASE_SERVICE_ROLE_KEY missing — using SUPABASE_ANON_KEY (admin routes may fail)')
   }
-  console.log('[server] supabase configured', { url_present: !!process.env.SUPABASE_URL, role_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY })
+  if (!process.env.SUPABASE_ANON_KEY) {
+    console.warn('[server] SUPABASE_ANON_KEY missing — P001 patient login route will be unavailable')
+  }
+
+  console.log('[server] supabase configured', {
+    url_present: !!process.env.SUPABASE_URL,
+    role_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    anon_key: !!process.env.SUPABASE_ANON_KEY
+  })
 } else {
   supabaseMock = true
   console.warn('[server] SUPABASE_URL / SUPABASE_KEY missing — using mock supabase (no writes)')
@@ -45,6 +73,9 @@ if (process.env.SUPABASE_URL && supabaseKey) {
     async upsert() { return { data: [], error: null } },
     async select() { return { data: [], error: null } },
     async insert() { return { data: [], error: null } },
+    async update() { return { data: [], error: null } },
+    async delete() { return { data: [], error: null } },
+    async maybeSingle() { return { data: null, error: null } },
     eq() { return this },
     gte() { return this },
     lte() { return this },
@@ -53,7 +84,15 @@ if (process.env.SUPABASE_URL && supabaseKey) {
     or() { return this },
     from() { return this }
   }
-  supabase = { from() { return api }, auth: { admin: { getUserById: async () => ({ error: 'mock' }) } } }
+  supabase = {
+    from() { return api },
+    auth: {
+      getUser: async () => ({ data: { user: null }, error: new Error('mock') }),
+      admin: {
+        getUserById: async () => ({ data: { user: null }, error: new Error('mock') })
+      }
+    }
+  }
 }
 
 async function validatePatientId(patientId) {
@@ -76,14 +115,12 @@ async function validatePatientId(patientId) {
     return { ok: false, error: e && e.message ? e.message : String(e) }
   }
 }
-
 function toHourWithOffset(ts, offsetMin) {
   const off = (offsetMin === undefined || offsetMin === null) ? 480 : offsetMin
   const d = new Date(Date.parse(ts) + off * 60000)
   d.setUTCMinutes(0, 0, 0)
   return d.toISOString()
 }
-
 function toDateWithOffset(ts, offsetMin) {
   const off = (offsetMin === undefined || offsetMin === null) ? 480 : offsetMin
   const d = new Date(Date.parse(ts) + off * 60000)
@@ -92,7 +129,6 @@ function toDateWithOffset(ts, offsetMin) {
   const day = String(d.getUTCDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
 }
-
 async function ensurePatient(patientId, info) {
   if (!patientId) return { ok: false, error: 'missing patientId' }
 
@@ -148,7 +184,6 @@ async function ensurePatient(patientId, info) {
   console.log('[ensurePatient] success', row.patient_id)
   return { ok: true }
 }
-
 async function ensureOrigins(origins) {
   if (!origins.length) return { ok: true }
   const rows = origins.map((o) => ({ origin_id: o }))
@@ -159,7 +194,6 @@ async function ensureOrigins(origins) {
   }
   return { ok: true }
 }
-
 async function ensureDevices(devices, patientId) {
   if (!devices.length) return { ok: true }
   const rows = devices.map((d) => ({ device_id: d, patient_id: patientId }))
@@ -170,56 +204,6 @@ async function ensureDevices(devices, patientId) {
   }
   return { ok: true }
 }
-
-async function updatePatientLastSync(
-  patientId,
-  originId = "health_connect"
-) {
-  if (!patientId) return null
-
-  const safeOriginId =
-    String(originId || "health_connect").trim() ||
-    "health_connect"
-
-  const actualSyncTime = new Date().toISOString()
-
-  const { error } = await supabase
-    .from("device_sync_status")
-    .upsert(
-      {
-        patient_id: patientId,
-        origin_id: safeOriginId,
-        last_sync_ts: actualSyncTime,
-        status: "success",
-        updated_at: actualSyncTime,
-      },
-      {
-        onConflict: "patient_id,origin_id",
-      }
-    )
-
-  if (error) {
-    console.error(
-      "[last-sync] failed to update:",
-      error.message,
-      {
-        patientId,
-        originId: safeOriginId,
-      }
-    )
-
-    return null
-  }
-
-  console.log("[last-sync] updated", {
-    patientId,
-    originId: safeOriginId,
-    lastSyncTs: actualSyncTime,
-  })
-
-  return actualSyncTime
-}
-
 app.get('/health', (req, res) => {
   console.log('[health] ping ok')
   return res.status(200).send('ok')
@@ -343,52 +327,57 @@ app.get('/admin/patient-info', async (req, res) => {
 const getPatientsRoute = require('./routes/admin/getPatients')(supabase);
 app.get('/api/admin/patients', requireAdmin, getPatientsRoute);
 
-const PATIENT_LOGIN_DOMAIN = String(process.env.PATIENT_LOGIN_DOMAIN || 'myhfguard.local')
-  .trim()
-  .toLowerCase()
-  .replace(/^@+/, '') || 'myhfguard.local'
+const PATIENT_LOGIN_DOMAIN = process.env.PATIENT_LOGIN_DOMAIN || 'patients.myhfguard.local'
 
 function normalizeAssignedUserId(value) {
-  return String(value || '').trim().toLowerCase()
+  return String(value || '').trim().toUpperCase()
 }
 
 function assignedUserIdToEmail(value) {
-  return `${normalizeAssignedUserId(value)}@${PATIENT_LOGIN_DOMAIN}`
+  return `${normalizeAssignedUserId(value).toLowerCase()}@${PATIENT_LOGIN_DOMAIN}`
 }
-
 
 function isValidAssignedUserId(value) {
-  return /^[a-z0-9][a-z0-9._-]{2,29}$/.test(normalizeAssignedUserId(value))
+  return /^P\d{3,9}$/.test(normalizeAssignedUserId(value))
 }
 
-function defaultAssignedUserId(patientId) {
-  const compact = String(patientId || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-  return `patient${compact.slice(0, 8) || 'user'}`.slice(0, 30)
+function assignedUserIdNumber(value) {
+  const normalized = normalizeAssignedUserId(value)
+  if (!isValidAssignedUserId(normalized)) return null
+  const number = Number(normalized.slice(1))
+  return Number.isSafeInteger(number) ? number : null
 }
 
-function reserveAssignedUserId(preferred, patientId, idOwners, emailOwners) {
-  let base = isValidAssignedUserId(preferred)
-    ? normalizeAssignedUserId(preferred)
-    : defaultAssignedUserId(patientId)
+function formatAssignedUserId(number) {
+  const safeNumber = Math.max(1, Math.trunc(Number(number) || 1))
+  return `P${String(safeNumber).padStart(3, '0')}`
+}
 
-  if (!isValidAssignedUserId(base)) base = 'patientuser'
+async function getNextAssignedUserId() {
+  const result = await supabase
+    .from('patients')
+    .select('assigned_user_id')
+    .limit(10000)
 
-  let candidate = base
-  let counter = 2
-  while (true) {
-    const idOwner = idOwners.get(candidate)
-    const emailOwner = emailOwners.get(assignedUserIdToEmail(candidate).toLowerCase())
-    const idAvailable = !idOwner || idOwner === patientId
-    const emailAvailable = !emailOwner || emailOwner === patientId
-    if (idAvailable && emailAvailable) break
+  if (result.error) throw result.error
 
-    const suffix = `-${counter}`
-    candidate = `${base.slice(0, Math.max(3, 30 - suffix.length))}${suffix}`
-    counter += 1
+  const used = new Set()
+  let maximum = 0
+
+  for (const row of result.data || []) {
+    const id = normalizeAssignedUserId(row.assigned_user_id)
+    if (!isValidAssignedUserId(id)) continue
+    used.add(id)
+    const number = assignedUserIdNumber(id)
+    if (number !== null) maximum = Math.max(maximum, number)
   }
 
-  idOwners.set(candidate, patientId)
-  emailOwners.set(assignedUserIdToEmail(candidate).toLowerCase(), patientId)
+  let candidateNumber = maximum + 1
+  let candidate = formatAssignedUserId(candidateNumber)
+  while (used.has(candidate)) {
+    candidateNumber += 1
+    candidate = formatAssignedUserId(candidateNumber)
+  }
   return candidate
 }
 
@@ -424,12 +413,93 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+async function patientLoginHandler(req, res) {
+  try {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(503).json({
+        error: 'Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.'
+      })
+    }
+    if (!supabaseAnon || !process.env.SUPABASE_ANON_KEY) {
+      return res.status(503).json({
+        error: 'Server setup is incomplete: add SUPABASE_ANON_KEY in Render Environment and redeploy.'
+      })
+    }
+
+    const assignedUserId = normalizeAssignedUserId(
+      (req.body && (req.body.userId || req.body.assignedUserId || req.body.assigned_user_id)) || ''
+    )
+    const password = String((req.body && req.body.password) || '')
+
+    if (!isValidAssignedUserId(assignedUserId) || !password) {
+      return res.status(400).json({ error: 'A valid User ID such as P001 and password are required.' })
+    }
+
+    const patientResult = await supabase
+      .from('patients')
+      .select('patient_id,user_id,assigned_user_id')
+      .ilike('assigned_user_id', assignedUserId)
+      .maybeSingle()
+
+    if (patientResult.error) {
+      console.error('[patient/login] patient lookup failed:', patientResult.error)
+      return res.status(500).json({ error: 'Unable to check the patient account.' })
+    }
+
+    const patient = patientResult.data
+    const authUserId = patient && (patient.user_id || patient.patient_id)
+    if (!patient || !authUserId) {
+      return res.status(401).json({ error: 'Invalid User ID or password.' })
+    }
+
+    const authUserResult = await supabase.auth.admin.getUserById(authUserId)
+    const authUser = authUserResult.data && authUserResult.data.user
+
+    if (authUserResult.error || !authUser || !authUser.email) {
+      console.error('[patient/login] auth account lookup failed:', authUserResult.error)
+      return res.status(401).json({ error: 'Patient account is not connected correctly.' })
+    }
+
+    const loginResult = await supabaseAnon.auth.signInWithPassword({
+      email: authUser.email,
+      password
+    })
+
+    if (loginResult.error || !loginResult.data || !loginResult.data.session) {
+      return res.status(401).json({ error: 'Invalid User ID or password.' })
+    }
+
+    return res.status(200).json({
+      success: true,
+      assignedUserId: patient.assigned_user_id,
+      patientId: authUserId,
+      user: loginResult.data.user,
+      session: loginResult.data.session
+    })
+  } catch (error) {
+    console.error('[patient/login] unexpected error:', error)
+    return res.status(500).json({
+      error: error && error.message ? error.message : 'Unable to log in.'
+    })
+  }
+}
+
+// Both paths are supported so the web and mobile app can use the same handler.
+app.post('/api/patient/login', patientLoginHandler)
+app.post('/patient/login', patientLoginHandler)
+
 app.post('/api/admin/patients', requireAdmin, async (req, res) => {
-  const assignedUserId = normalizeAssignedUserId(req.body && req.body.userId)
+  let assignedUserId = normalizeAssignedUserId(req.body && req.body.userId)
   const password = String((req.body && req.body.password) || '')
 
-  if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(assignedUserId)) {
-    return res.status(400).json({ error: 'User ID must be 3-30 characters using letters, numbers, dot, dash or underscore.' })
+  try {
+    if (!assignedUserId) assignedUserId = await getNextAssignedUserId()
+  } catch (error) {
+    return res.status(400).json({ error: `Unable to generate the next User ID: ${error.message}` })
+  }
+
+  if (!isValidAssignedUserId(assignedUserId)) {
+    return res.status(400).json({ error: 'User ID must use the format P001, P002, P003 and so on.' })
   }
   if (password.length < 8) {
     return res.status(400).json({ error: 'Password must contain at least 8 characters.' })
@@ -437,6 +507,15 @@ app.post('/api/admin/patients', requireAdmin, async (req, res) => {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(503).json({ error: 'Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.' })
   }
+
+  const duplicateResult = await supabase
+    .from('patients')
+    .select('patient_id')
+    .ilike('assigned_user_id', assignedUserId)
+    .maybeSingle()
+
+  if (duplicateResult.error) return res.status(400).json({ error: duplicateResult.error.message })
+  if (duplicateResult.data) return res.status(409).json({ error: `${assignedUserId} is already assigned to another patient.` })
 
   const email = assignedUserIdToEmail(assignedUserId)
   const created = await supabase.auth.admin.createUser({
@@ -451,33 +530,50 @@ app.post('/api/admin/patients', requireAdmin, async (req, res) => {
   const user = created.data && created.data.user
   if (!user || !user.id) return res.status(500).json({ error: 'Patient authentication account was not returned.' })
 
-  const patientResult = await supabase.from('patients').upsert({
+  const patientResult = await supabase.from('patients').insert({
     patient_id: user.id,
+    user_id: user.id,
     assigned_user_id: assignedUserId
-  }, { onConflict: 'patient_id' })
+  })
 
   if (patientResult.error) {
     await supabase.auth.admin.deleteUser(user.id)
     return res.status(400).json({ error: `Patient row failed: ${patientResult.error.message}` })
   }
 
-  const profileResult = await supabase.from('profiles').upsert({
-    user_id: user.id,
-    assigned_user_id: assignedUserId,
-    profile_completed: false,
-    baseline_locked: false,
-    target_steps: 3000
-  }, { onConflict: 'user_id' })
+  // Some Supabase projects automatically create a profile when an Auth user
+  // is created. Check first so we do not overwrite or trigger-lock that row.
+  const existingProfile = await supabase
+    .from('profiles')
+    .select('user_id')
+    .eq('user_id', user.id)
+    .maybeSingle()
 
-  if (profileResult.error) {
+  if (existingProfile.error) {
     await supabase.from('patients').delete().eq('patient_id', user.id)
     await supabase.auth.admin.deleteUser(user.id)
-    return res.status(400).json({ error: `Profile placeholder failed: ${profileResult.error.message}` })
+    return res.status(400).json({ error: `Profile check failed: ${existingProfile.error.message}` })
+  }
+
+  if (!existingProfile.data) {
+    const profileResult = await supabase.from('profiles').insert({
+      user_id: user.id,
+      profile_completed: false,
+      baseline_locked: false,
+      target_steps: 3000
+    })
+
+    if (profileResult.error) {
+      await supabase.from('patients').delete().eq('patient_id', user.id)
+      await supabase.auth.admin.deleteUser(user.id)
+      return res.status(400).json({ error: `Profile placeholder failed: ${profileResult.error.message}` })
+    }
   }
 
   return res.status(201).json({
     patient: {
       patient_id: user.id,
+      user_id: user.id,
       assigned_user_id: assignedUserId,
       profile_completed: false,
       target_steps: 3000
@@ -495,67 +591,76 @@ app.post('/api/admin/patients/backfill-user-ids', requireAdmin, async (req, res)
 
   try {
     const [patientResult, profileResult, authUsers] = await Promise.all([
-      supabase.from('patients').select('patient_id,assigned_user_id,first_name,last_name'),
-      supabase.from('profiles').select('user_id,assigned_user_id,profile_completed,baseline_locked,target_steps'),
+      supabase.from('patients').select('patient_id,user_id,assigned_user_id,first_name,last_name'),
+      supabase.from('profiles').select('user_id'),
       listAllAuthUsers()
     ])
 
     if (patientResult.error) return res.status(400).json({ error: patientResult.error.message })
     if (profileResult.error) return res.status(400).json({ error: profileResult.error.message })
 
-    const patients = patientResult.data || []
-    const profiles = profileResult.data || []
-    const profileMap = new Map(profiles.map((profile) => [profile.user_id, profile]))
-    const authMap = new Map(authUsers.map((user) => [user.id, user]))
+    const patients = [...(patientResult.data || [])].sort((a, b) =>
+      String(a.patient_id || '').localeCompare(String(b.patient_id || ''))
+    )
+    const profileUserIds = new Set((profileResult.data || []).map((profile) => String(profile.user_id)))
+    const authMap = new Map(authUsers.map((user) => [String(user.id), user]))
+    const usedIds = new Set()
     const idOwners = new Map()
-    const emailOwners = new Map()
-
-    for (const authUser of authUsers) {
-      if (authUser.email) emailOwners.set(String(authUser.email).toLowerCase(), authUser.id)
-    }
+    let nextNumber = 1
 
     for (const patient of patients) {
-      const profile = profileMap.get(patient.patient_id) || {}
-      const authUser = authMap.get(patient.patient_id)
-      const existingId = normalizeAssignedUserId(
-        patient.assigned_user_id ||
-        profile.assigned_user_id ||
-        (authUser && authUser.app_metadata && authUser.app_metadata.assigned_user_id) ||
-        (authUser && authUser.user_metadata && authUser.user_metadata.assigned_user_id)
-      )
-      if (isValidAssignedUserId(existingId) && !idOwners.has(existingId)) {
-        idOwners.set(existingId, patient.patient_id)
+      const patientId = String(patient.patient_id || '')
+      const existing = normalizeAssignedUserId(patient.assigned_user_id)
+      if (!isValidAssignedUserId(existing)) continue
+
+      if (!idOwners.has(existing)) {
+        idOwners.set(existing, patientId)
+        usedIds.add(existing)
       }
+
+      const number = assignedUserIdNumber(existing)
+      if (number !== null) nextNumber = Math.max(nextNumber, number + 1)
+    }
+
+    const takeNextId = () => {
+      let candidate = formatAssignedUserId(nextNumber)
+      while (usedIds.has(candidate)) {
+        nextNumber += 1
+        candidate = formatAssignedUserId(nextNumber)
+      }
+      usedIds.add(candidate)
+      nextNumber += 1
+      return candidate
     }
 
     const updated = []
     const errors = []
 
     for (const patient of patients) {
-      const patientId = patient.patient_id
-      const profile = profileMap.get(patientId) || null
-      const authUser = authMap.get(patientId)
+      const patientId = String(patient.patient_id || '')
+      const currentUserId = patient.user_id ? String(patient.user_id) : ''
+      const authUser = authMap.get(currentUserId) || authMap.get(patientId)
 
       if (!authUser) {
         errors.push({ patientId, error: 'Supabase Auth account not found.' })
         continue
       }
 
+      const authUserId = String(authUser.id)
       const previousAssignedId = normalizeAssignedUserId(
         patient.assigned_user_id ||
-        (profile && profile.assigned_user_id) ||
         (authUser.app_metadata && authUser.app_metadata.assigned_user_id) ||
         (authUser.user_metadata && authUser.user_metadata.assigned_user_id)
       )
+      const existingIdBelongsToPatient =
+        isValidAssignedUserId(previousAssignedId) &&
+        (!idOwners.has(previousAssignedId) || idOwners.get(previousAssignedId) === patientId)
 
-      const assignedUserId = reserveAssignedUserId(
-        previousAssignedId || defaultAssignedUserId(patientId),
-        patientId,
-        idOwners,
-        emailOwners
-      )
-      const expectedEmail = assignedUserIdToEmail(assignedUserId)
-      const currentEmail = String(authUser.email || '').toLowerCase()
+      const assignedUserId = existingIdBelongsToPatient
+        ? previousAssignedId
+        : takeNextId()
+
+      idOwners.set(assignedUserId, patientId)
 
       const appMetadata = {
         ...(authUser.app_metadata || {}),
@@ -567,21 +672,24 @@ app.post('/api/admin/patients/backfill-user-ids', requireAdmin, async (req, res)
         assigned_user_id: assignedUserId
       }
 
-      const authUpdate = await supabase.auth.admin.updateUserById(patientId, {
-        email: expectedEmail,
-        email_confirm: true,
+      // Keep the existing Auth email and password. The login route translates
+      // P001 to the real Auth account before calling signInWithPassword.
+      const authUpdate = await supabase.auth.admin.updateUserById(authUserId, {
         app_metadata: appMetadata,
         user_metadata: userMetadata
       })
 
       if (authUpdate.error) {
-        errors.push({ patientId, error: `Auth update failed: ${authUpdate.error.message}` })
+        errors.push({ patientId, error: `Auth metadata update failed: ${authUpdate.error.message}` })
         continue
       }
 
       const patientUpdate = await supabase
         .from('patients')
-        .update({ assigned_user_id: assignedUserId })
+        .update({
+          user_id: authUserId,
+          assigned_user_id: assignedUserId
+        })
         .eq('patient_id', patientId)
 
       if (patientUpdate.error) {
@@ -589,33 +697,29 @@ app.post('/api/admin/patients/backfill-user-ids', requireAdmin, async (req, res)
         continue
       }
 
-      let profileUpdate
-      if (profile) {
-        profileUpdate = await supabase
-          .from('profiles')
-          .update({ assigned_user_id: assignedUserId, updated_at: new Date().toISOString() })
-          .eq('user_id', patientId)
-      } else {
-        profileUpdate = await supabase.from('profiles').insert({
-          user_id: patientId,
-          assigned_user_id: assignedUserId,
+      // Never update an existing profile here: enforce_patient_profile_lock()
+      // may correctly block profile edits after completion. Only create a
+      // missing placeholder profile.
+      if (!profileUserIds.has(authUserId)) {
+        const profileInsert = await supabase.from('profiles').insert({
+          user_id: authUserId,
           profile_completed: false,
           baseline_locked: false,
-          target_steps: 3000,
-          updated_at: new Date().toISOString()
+          target_steps: 3000
         })
-      }
 
-      if (profileUpdate.error) {
-        errors.push({ patientId, error: `Profile update failed: ${profileUpdate.error.message}` })
-        continue
+        if (profileInsert.error) {
+          errors.push({ patientId, error: `Missing profile creation failed: ${profileInsert.error.message}` })
+          continue
+        }
+        profileUserIds.add(authUserId)
       }
 
       updated.push({
         patientId,
+        user_id: authUserId,
         assigned_user_id: assignedUserId,
-        newly_assigned: !previousAssignedId,
-        auth_email_changed: currentEmail !== expectedEmail.toLowerCase()
+        newly_assigned: !isValidAssignedUserId(previousAssignedId)
       })
     }
 
@@ -624,8 +728,9 @@ app.post('/api/admin/patients/backfill-user-ids', requireAdmin, async (req, res)
       processed: patients.length,
       updated: updated.length,
       newlyAssigned: updated.filter((item) => item.newly_assigned).length,
-      loginEmailsChanged: updated.filter((item) => item.auth_email_changed).length,
-      patients: updated,
+      // Existing Auth emails and passwords are deliberately preserved.
+      loginEmailsChanged: 0,
+      patients: updated.map((item) => ({ ...item, auth_email_changed: false })),
       errors
     })
   } catch (error) {
@@ -636,317 +741,89 @@ app.post('/api/admin/patients/backfill-user-ids', requireAdmin, async (req, res)
   }
 })
 
-function looksLikeUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    String(value || "").trim()
-  )
-}
-
-function isMissingColumnError(error, columnName) {
-  const message = String((error && error.message) || "").toLowerCase()
-  return (
-    message.includes(`column ${columnName.toLowerCase()} does not exist`) ||
-    message.includes(`column "${columnName.toLowerCase()}" does not exist`) ||
-    message.includes(`could not find the '${columnName.toLowerCase()}' column`)
-  )
-}
-
-async function findPatientForTargetSteps(patientReference) {
-  const reference = String(patientReference || "").trim()
-  const normalizedAssignedId = normalizeAssignedUserId(reference)
-
-  const attempts = []
-
-  if (isValidAssignedUserId(normalizedAssignedId)) {
-    attempts.push({
-      label: "assigned_user_id",
-      run: () =>
-        supabase
-          .from("patients")
-          .select("*")
-          .ilike("assigned_user_id", normalizedAssignedId)
-          .maybeSingle(),
-    })
-  }
-
-  attempts.push({
-    label: "patient_id",
-    run: () =>
-      supabase
-        .from("patients")
-        .select("*")
-        .eq("patient_id", reference)
-        .maybeSingle(),
-  })
-
-  if (looksLikeUuid(reference)) {
-    attempts.push({
-      label: "user_id",
-      run: () =>
-        supabase
-          .from("patients")
-          .select("*")
-          .eq("user_id", reference)
-          .maybeSingle(),
-    })
-  }
-
-  for (const attempt of attempts) {
-    const result = await attempt.run()
-
-    if (result.error) {
-      // Older database versions may not contain patients.user_id yet.
-      // Skip only that lookup and continue with the other identifiers.
-      if (
-        attempt.label === "user_id" &&
-        isMissingColumnError(result.error, "user_id")
-      ) {
-        continue
-      }
-
-      return {
-        data: null,
-        error: result.error,
-      }
-    }
-
-    if (result.data) {
-      return {
-        data: result.data,
-        error: null,
-      }
-    }
-  }
-
-  return {
-    data: null,
-    error: null,
-  }
-}
-
-async function findProfileForTargetSteps(candidateIds) {
-  const ids = [
-    ...new Set(
-      (candidateIds || [])
-        .filter(Boolean)
-        .map((value) => String(value).trim())
-        .filter(looksLikeUuid)
-    ),
-  ]
-
-  for (const userId of ids) {
-    const result = await supabase
-      .from("profiles")
-      .select("user_id,target_steps,profile_completed,baseline_locked")
-      .eq("user_id", userId)
-      .maybeSingle()
-
-    if (result.error) {
-      return {
-        data: null,
-        error: result.error,
-      }
-    }
-
-    if (result.data) {
-      return {
-        data: result.data,
-        error: null,
-      }
-    }
-  }
-
-  return {
-    data: null,
-    error: null,
-  }
-}
-
 async function updateAdminPatientTargetSteps(req, res) {
-  const patientReference = String(req.params.patientId || "").trim()
-  const targetSteps = Math.round(
-    Number(req.body && req.body.targetSteps)
-  )
+  const patientReference = String(req.params.patientId || '').trim()
+  const normalizedReference = normalizeAssignedUserId(patientReference)
+  const targetSteps = Math.round(Number(req.body && req.body.targetSteps))
 
-  if (!patientReference) {
-    return res.status(400).json({
-      error: "Missing patient ID.",
-    })
+  if (!patientReference) return res.status(400).json({ error: 'Missing patient ID.' })
+  if (!Number.isFinite(targetSteps) || targetSteps < 500 || targetSteps > 50000) {
+    return res.status(400).json({ error: 'Target steps must be between 500 and 50,000.' })
   }
-
-  if (
-    !Number.isFinite(targetSteps) ||
-    targetSteps < 500 ||
-    targetSteps > 50000
-  ) {
-    return res.status(400).json({
-      error: "Target steps must be between 500 and 50,000.",
-    })
-  }
-
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(503).json({
-      error:
-        "Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.",
-    })
+    return res.status(503).json({ error: 'Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.' })
   }
 
-  try {
-    const patientLookup =
-      await findPatientForTargetSteps(patientReference)
+  let patientLookup
+  if (isValidAssignedUserId(normalizedReference)) {
+    patientLookup = await supabase
+      .from('patients')
+      .select('patient_id,user_id,assigned_user_id')
+      .ilike('assigned_user_id', normalizedReference)
+      .maybeSingle()
+  } else {
+    patientLookup = await supabase
+      .from('patients')
+      .select('patient_id,user_id,assigned_user_id')
+      .eq('patient_id', patientReference)
+      .maybeSingle()
+  }
 
-    if (patientLookup.error) {
-      return res.status(400).json({
-        error: patientLookup.error.message,
-      })
-    }
+  if (patientLookup.error) return res.status(400).json({ error: patientLookup.error.message })
+  if (!patientLookup.data) return res.status(404).json({ error: 'Patient account was not found.' })
 
-    const patient = patientLookup.data
+  const authUserId = patientLookup.data.user_id || patientLookup.data.patient_id
+  if (!authUserId) {
+    return res.status(409).json({ error: 'Patient account is not linked to a Supabase Auth user.' })
+  }
 
-    const profileCandidates = [
-      patient && patient.user_id,
-      patient && patient.patient_id,
-      looksLikeUuid(patientReference) ? patientReference : null,
-    ]
+  // Update ONLY target_steps. Do not update assigned_user_id, profile fields,
+  // or updated_at here because the profile-lock trigger may reject them.
+  let result = await supabase
+    .from('profiles')
+    .update({ target_steps: targetSteps })
+    .eq('user_id', authUserId)
+    .select('user_id,target_steps')
+    .maybeSingle()
 
-    const existingProfile =
-      await findProfileForTargetSteps(profileCandidates)
-
-    if (existingProfile.error) {
-      return res.status(400).json({
-        error: existingProfile.error.message,
-      })
-    }
-
-    let profileUserId =
-      existingProfile.data && existingProfile.data.user_id
-
-    if (!profileUserId) {
-      profileUserId = profileCandidates
-        .filter(Boolean)
-        .map((value) => String(value).trim())
-        .find(looksLikeUuid)
-    }
-
-    if (!patient && !existingProfile.data) {
-      return res.status(404).json({
-        error:
-          `No patient or profile matched "${patientReference}". Open Patient List again and use the current patient record.`,
-      })
-    }
-
-    if (!profileUserId) {
+  if (result.error) {
+    const message = String(result.error.message || '')
+    if (message.includes('Profile is locked')) {
       return res.status(409).json({
-        error:
-          "This patient is not linked to a Supabase Auth UUID. Run the patient user_id linking SQL before updating target steps.",
+        error: 'The profile-lock trigger is still blocking target steps. Run server/migrations/20260722_p001_login_and_target_steps_fix.sql in Supabase SQL Editor.'
       })
     }
-
-    let result
-
-    if (existingProfile.data) {
-      // Update only target_steps. Updating assigned_user_id, updated_at,
-      // or other profile fields may activate the profile-lock trigger.
-      result = await supabase
-        .from("profiles")
-        .update({
-          target_steps: targetSteps,
-        })
-        .eq("user_id", profileUserId)
-        .select("user_id,target_steps")
-        .maybeSingle()
-    } else {
-      result = await supabase
-        .from("profiles")
-        .insert({
-          user_id: profileUserId,
-          target_steps: targetSteps,
-          profile_completed: false,
-          baseline_locked: false,
-        })
-        .select("user_id,target_steps")
-        .maybeSingle()
-    }
-
-    if (result.error) {
-      const message = String(result.error.message || "")
-
-      if (message.toLowerCase().includes("profile is locked")) {
-        return res.status(409).json({
-          error:
-            "The database profile-lock trigger is blocking target_steps. Run 20260722_target_steps_lock_fix.sql in Supabase SQL Editor.",
-        })
-      }
-
-      return res.status(400).json({
-        error: message,
-      })
-    }
-
-    if (!result.data) {
-      return res.status(500).json({
-        error: "Target steps were not saved.",
-      })
-    }
-
-    return res.status(200).json({
-      patientId:
-        (patient && patient.patient_id) ||
-        patientReference,
-      assignedUserId:
-        (patient && patient.assigned_user_id) ||
-        null,
-      userId: result.data.user_id,
-      targetSteps: result.data.target_steps,
-    })
-  } catch (error) {
-    console.error(
-      "[admin/target-steps] unexpected error:",
-      error
-    )
-
-    return res.status(500).json({
-      error:
-        error && error.message
-          ? error.message
-          : "Failed to update target steps.",
-    })
+    return res.status(400).json({ error: message })
   }
+
+  if (!result.data) {
+    result = await supabase
+      .from('profiles')
+      .insert({
+        user_id: authUserId,
+        target_steps: targetSteps,
+        profile_completed: false,
+        baseline_locked: false
+      })
+      .select('user_id,target_steps')
+      .maybeSingle()
+  }
+
+  if (result.error) return res.status(400).json({ error: result.error.message })
+  if (!result.data) return res.status(500).json({ error: 'Target steps were not saved.' })
+
+  return res.status(200).json({
+    patientId: patientLookup.data.patient_id,
+    assignedUserId: patientLookup.data.assigned_user_id,
+    userId: authUserId,
+    targetSteps: result.data.target_steps
+  })
 }
 
-// Canonical routes.
-app.patch(
-  "/api/admin/patients/:patientId/target-steps",
-  requireAdmin,
-  updateAdminPatientTargetSteps
-)
-app.post(
-  "/api/admin/patients/:patientId/target-steps",
-  requireAdmin,
-  updateAdminPatientTargetSteps
-)
-
-// Compatibility aliases for older frontend/backend folder deployments.
-app.patch(
-  "/api/admin/patient/:patientId/target-steps",
-  requireAdmin,
-  updateAdminPatientTargetSteps
-)
-app.post(
-  "/api/admin/patient/:patientId/target-steps",
-  requireAdmin,
-  updateAdminPatientTargetSteps
-)
-app.patch(
-  "/admin/patients/:patientId/target-steps",
-  requireAdmin,
-  updateAdminPatientTargetSteps
-)
-app.post(
-  "/admin/patients/:patientId/target-steps",
-  requireAdmin,
-  updateAdminPatientTargetSteps
-)
+// Keep PATCH for REST clients and POST for hosting/proxy configurations that
+// block PATCH during CORS preflight.
+app.patch('/api/admin/patients/:patientId/target-steps', requireAdmin, updateAdminPatientTargetSteps)
+app.post('/api/admin/patients/:patientId/target-steps', requireAdmin, updateAdminPatientTargetSteps)
 
 function adminDateOnly(value, fallback) {
   if (!value) return fallback
@@ -1152,7 +1029,7 @@ function adminBuildFullSummary({ hr, spo2, steps, distance, bp, weightDay, weigh
   }
 }
 
-app.get('/api/admin/patient-full-data', async (req, res) => {
+app.get('/api/admin/patient-full-data', requireAdmin, async (req, res) => {
   const patientId = req.query && req.query.patientId
   if (!patientId) return res.status(400).json({ error: 'missing patientId' })
 
@@ -1178,6 +1055,7 @@ app.get('/api/admin/patient-full-data', async (req, res) => {
         summary: {},
         vitals: { hr: [], spo2: [], steps: [], distance: [], bp: [], weight: [], weightSamples: [] },
         logs: { symptoms: [], waterSalt: [], medications: [], reminders: [] },
+        exerciseGoals: [],
         errors: {},
       })
     }
@@ -1198,7 +1076,7 @@ app.get('/api/admin/patient-full-data', async (req, res) => {
       profileQueries.push(() => supabase.from('profiles').select('*').eq('patient_id', lookupId).maybeSingle())
     }
 
-    const [profileByUser, devices, deviceSync, hr, spo2, steps, distance, bp, weightDay, weightSamples, symptoms, waterSalt, medicationsFromTable, reminders] = await Promise.all([
+    const [profileByUser, devices, deviceSync, hr, spo2, steps, distance, bp, weightDay, weightSamples, symptoms, waterSalt, medicationsFromTable, reminders, exerciseGoals] = await Promise.all([
       adminSafeFallback('profiles', profileQueries, errors).then((rows) => Array.isArray(rows) ? (rows[0] || null) : rows),
       adminSafeQuery('devices', supabase.from('devices').select('*').eq('patient_id', patientId).limit(30), errors),
       adminSafeQuery('device_sync_status', supabase.from('device_sync_status').select('*').eq('patient_id', patientId).limit(30), errors),
@@ -1216,6 +1094,16 @@ app.get('/api/admin/patient-full-data', async (req, res) => {
       ], errors),
       adminSafeQuery('medication', supabase.from('medication').select('*').eq('patient_id', patientId).limit(200), errors),
       adminSafeQuery('reminders', supabase.from('reminders').select('*').eq('patient_id', patientId).limit(200), errors),
+      adminSafeQuery(
+        'exercise_goals',
+        supabase
+          .from('exercise_goals')
+          .select('id,patient_id,week_key,goal,achievement_rating,created_at,updated_at')
+          .eq('patient_id', patientId)
+          .order('week_key', { ascending: false })
+          .limit(12),
+        errors
+      ),
     ])
 
     const medicationsFromProfile = adminMedicationRowsFromProfile(profileByUser)
@@ -1246,6 +1134,7 @@ app.get('/api/admin/patient-full-data', async (req, res) => {
       summary,
       vitals: { hr, spo2, steps, distance, bp, weight: weightDay, weightSamples },
       logs: { symptoms, waterSalt, medications, reminders },
+      exerciseGoals,
       errors,
     })
   } catch (error) {
@@ -1503,41 +1392,44 @@ app.post('/patient/sync-metrics', async (req, res) => {
       (val) => ({ spo2_min: Math.round(val.min), spo2_max: Math.round(val.max), spo2_avg: Math.round(val.sum / val.count), spo2_count: val.count })
     )
 
-    // Record the actual time this patient successfully synced with the server.
-    const syncOriginId = String(
-      req.body?.origin_id ||
-      req.body?.originId ||
-      "health_connect"
-    ).trim() || "health_connect"
-
-    const actualSyncTime = new Date().toISOString()
-
-    const { error: syncStatusError } = await sb
-      .from("device_sync_status")
-      .upsert(
-        {
-          patient_id,
-          origin_id: syncOriginId,
-          last_sync_ts: actualSyncTime,
-          status: "success",
-          updated_at: actualSyncTime,
-        },
-        {
-          onConflict: "patient_id,origin_id",
-        }
-      )
-
-    if (syncStatusError) {
-      console.error(
-        "[sync-metrics] failed to save actual sync time:",
-        syncStatusError.message
-      )
-    }
-
-    return res.status(200).json({ 
-      ok: true,
-      lastSyncTs: actualSyncTime,
-    })
+    try {
+      const offsetMin = 480
+      const candidates = []
+        ; (steps_samples || []).forEach(s => {
+          if (s.endTime) {
+            const utcMs = new Date(s.endTime).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.endTime })
+          }
+        })
+        ; (distance_samples || []).forEach(s => {
+          if (s.endTime) {
+            const utcMs = new Date(s.endTime).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.endTime })
+          }
+        })
+        ; (hr_samples || []).forEach(s => {
+          if (s.time) {
+            const utcMs = new Date(s.time).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.time })
+          }
+        })
+        ; (spo2_samples || []).forEach(s => {
+          if (s.time) {
+            const utcMs = new Date(s.time).getTime()
+            const localMs = utcMs + offsetMin * 60000
+            candidates.push({ utcMs, localMs, ts: s.time })
+          }
+        })
+      if (candidates.length) {
+        const best = candidates.reduce((m, c) => (c.localMs > m.localMs ? c : m))
+        const maxTs = new Date(best.ts).toISOString()
+        await sb.from('device_sync_status').upsert({ patient_id, last_sync_ts: maxTs, updated_at: new Date().toISOString() }, { onConflict: 'patient_id' })
+      }
+    } catch (_) { }
+    return res.status(200).json({ ok: true })
 
   } catch (e) {
     console.error('[sync-metrics] exception:', e)
@@ -1977,6 +1869,11 @@ app.get('/api/health', healthHandler)
 app.get('/health', healthHandler)
 
 
+// Sync metrics endpoint
+// const syncMetricsRoute = require('./routes/patient/syncMetrics')(supabase);
+// app.post('/patient/sync-metrics', syncMetricsRoute);
+
+
 // Check daily log status (weight, bp, symptoms)
 app.get('/patient/daily-status', async (req, res) => {
   const { patientId, date } = req.query
@@ -2080,7 +1977,6 @@ app.get('/patient/summary', async (req, res) => {
   if (supabaseMock) {
     const summary = {
       heartRate: null,
-      spo2: null,
       bpSystolic: null,
       bpDiastolic: null,
       bpPulse: null,
@@ -2089,24 +1985,12 @@ app.get('/patient/summary', async (req, res) => {
       stepsToday: null,
       distanceToday: null,
       lastSyncTs: null,
-      targetSteps: 3000,
-      target_steps: 3000,
     }
     return res.status(200).json({ summary })
   }
   const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (hr.error) return res.status(400).json({ error: hr.error.message })
   const row = (hr.data && hr.data[0]) || null
-
-  const oxygen = await supabase
-    .from('spo2_day')
-    .select('date,spo2_avg')
-    .eq('patient_id', pid)
-    .order('date', { ascending: false })
-    .limit(1)
-  if (oxygen.error) return res.status(400).json({ error: oxygen.error.message })
-  const oxygenRow = (oxygen.data && oxygen.data[0]) || null
-
   const st = await supabase.from('steps_day').select('date,steps_total').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   if (st.error) return res.status(400).json({ error: st.error.message })
   const srow = (st.data && st.data[0]) || null
@@ -2116,68 +2000,32 @@ app.get('/patient/summary', async (req, res) => {
   const bpRow = (bp.data && bp.data[0]) || null
   const wt = await supabase.from('weight_day').select('date,kg_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   const wRow = (wt.data && wt.data[0]) || null
-
-  // The admin saves the patient's daily target in profiles.target_steps.
-  // Read it here so patient pages receive the latest configured value.
-  let targetSteps = 3000
-  try {
-    const profile = await supabase
-      .from('profiles')
-      .select('target_steps')
-      .eq('user_id', pid)
-      .maybeSingle()
-
-    if (profile.error) {
-      console.error('[patient/summary] target steps lookup failed:', profile.error.message)
-    } else {
-      const configuredTarget = Number(profile.data && profile.data.target_steps)
-      if (Number.isFinite(configuredTarget) && configuredTarget > 0) {
-        targetSteps = Math.round(configuredTarget)
-      }
-    }
-  } catch (error) {
-    console.error('[patient/summary] target steps lookup failed:', error)
-  }
-
   let lastSyncTs = null
   try {
-    const { data: syncRows, error: syncError } = await supabase
-      .from("device_sync_status")
-      .select("last_sync_ts, updated_at")
-      .eq("patient_id", pid)
-      .order("last_sync_ts", {
-        ascending: false,
-        nullsFirst: false,
-      })
-      .limit(1)
-
-    if (syncError) {
-      console.error(
-        "[patient/summary] failed to read last sync:",
-        syncError.message
-      )
-    } else {
-      const latestSync = syncRows?.[0] || null
-
-      lastSyncTs =
-        latestSync?.last_sync_ts ||
-        latestSync?.updated_at ||
-        null
-    }
-  } catch (error) {
-    console.error(
-      "[patient/summary] failed to read last sync:",
-      error
-    )
+    const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
+    const srow2 = (sync.data && sync.data[0]) || null
+    lastSyncTs = (srow2 && (srow2.last_sync_ts || srow2.updated_at)) || null
+  } catch (_) { }
+  if (!lastSyncTs) {
+    try {
+      const hrLast = await supabase.from('hr_sample').select('time_ts').eq('patient_id', pid).order('time_ts', { ascending: false }).limit(1)
+      const stepsLast = await supabase.from('steps_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
+      const distLast = await supabase.from('distance_event').select('end_ts').eq('patient_id', pid).order('end_ts', { ascending: false }).limit(1)
+      const candidates = []
+      const hrTs = hrLast && hrLast.data && hrLast.data[0] && hrLast.data[0].time_ts
+      const stTs = stepsLast && stepsLast.data && stepsLast.data[0] && stepsLast.data[0].end_ts
+      const diTs = distLast && distLast.data && distLast.data[0] && distLast.data[0].end_ts
+      if (hrTs) candidates.push(hrTs)
+      if (stTs) candidates.push(stTs)
+      if (diTs) candidates.push(diTs)
+      if (candidates.length) {
+        const maxTs = Math.max(...candidates.map((d) => new Date(d).getTime()))
+        if (Number.isFinite(maxTs)) lastSyncTs = new Date(maxTs).toISOString()
+      }
+    } catch (_) { }
   }
   const summary = {
     heartRate: row ? Math.round(row.hr_avg || 0) : null,
-
-    spo2:
-      oxygenRow && Number.isFinite(Number(oxygenRow.spo2_avg))
-        ? Math.round(Number(oxygenRow.spo2_avg))
-        : null,
-
     bpSystolic: bpRow ? bpRow.systolic : null,
     bpDiastolic: bpRow ? bpRow.diastolic : null,
     bpPulse: bpRow ? bpRow.pulse : null,
@@ -2186,8 +2034,6 @@ app.get('/patient/summary', async (req, res) => {
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
     lastSyncTs,
-    targetSteps,
-    target_steps: targetSteps,
   }
   console.log('[patient/summary] summary computed')
   return res.status(200).json({ summary })
@@ -3011,10 +2857,13 @@ app.post('/ingest/steps-events', async (req, res) => {
     console.error('steps_day upsert error', upd.error)
     return res.status(400).json({ error: upd.error.message })
   }
-  await updatePatientLastSync(
-    patientId,
-    origins[0] || "health_connect"
-  )
+  try {
+    const maxEnd = items.reduce((m, i) => (!m || (new Date(i.endTs).getTime() > new Date(m).getTime())) ? i.endTs : m, null)
+    const dev = devices && devices.length ? devices[0] : 'unknown'
+    if (maxEnd) {
+      await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
+    }
+  } catch (_) { }
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/distance-events', async (req, res) => {
@@ -3068,10 +2917,13 @@ app.post('/ingest/distance-events', async (req, res) => {
   if (uph.error) return res.status(400).json({ error: uph.error.message })
   const upd = await supabase.from('distance_day').upsert(dayRows, { onConflict: 'patient_id,date' })
   if (upd.error) return res.status(400).json({ error: upd.error.message })
-  await updatePatientLastSync(
-    patientId,
-    origins[0] || "health_connect"
-  )
+  try {
+    const maxEnd = items.reduce((m, i) => (!m || (new Date(i.endTs).getTime() > new Date(m).getTime())) ? i.endTs : m, null)
+    const dev = devices && devices.length ? devices[0] : 'unknown'
+    if (maxEnd) {
+      await supabase.from('device_sync_status').upsert({ patient_id: patientId, device_id: dev, last_sync_ts: maxEnd }, { onConflict: 'patient_id,device_id' })
+    }
+  } catch (_) { }
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 app.post('/ingest/hr-samples', async (req, res) => {
@@ -3146,13 +2998,8 @@ app.post('/ingest/hr-samples', async (req, res) => {
     console.error('hr_day upsert error', upd.error)
     return res.status(400).json({ error: upd.error.message })
   }
-  await updatePatientLastSync(
-    patientId,
-    origins[0] || "health_connect"
-  )
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
-
 app.post('/ingest/spo2-samples', async (req, res) => {
   const items = Array.isArray(req.body) ? req.body : [req.body]
   // console.log('POST /ingest/spo2-samples', { count: items.length })
@@ -3225,10 +3072,6 @@ app.post('/ingest/spo2-samples', async (req, res) => {
     console.error('spo2_day upsert error', upd.error)
     return res.status(400).json({ error: upd.error.message })
   }
-  await updatePatientLastSync(
-    patientId,
-    origins[0] || "health_connect"
-  )
   return res.status(200).json({ inserted: (ins.data || []).length, upserted_hour: hourRows.length, upserted_day: dayRows.length })
 })
 
@@ -3393,4 +3236,3 @@ app.get("/water-salt", async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
-
