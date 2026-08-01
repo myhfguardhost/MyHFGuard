@@ -1976,16 +1976,18 @@ app.get('/patient/summary', async (req, res) => {
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
   if (supabaseMock) {
     const summary = {
-      heartRate: null,
-      bpSystolic: null,
-      bpDiastolic: null,
-      bpPulse: null,
-      weightKg: null,
-      nextAppointmentDate: null,
-      stepsToday: null,
-      distanceToday: null,
-      lastSyncTs: null,
-    }
+    heartRate: null,
+    bpSystolic: null,
+    bpDiastolic: null,
+    bpPulse: null,
+    weightKg: null,
+    nextAppointmentDate: null,
+    stepsToday: null,
+    distanceToday: null,
+    targetSteps: 3000,
+    target_steps: 3000,
+    lastSyncTs: null,
+  }
     return res.status(200).json({ summary })
   }
   const hr = await supabase.from('hr_day').select('date,hr_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
@@ -2000,6 +2002,24 @@ app.get('/patient/summary', async (req, res) => {
   const bpRow = (bp.data && bp.data[0]) || null
   const wt = await supabase.from('weight_day').select('date,kg_avg').eq('patient_id', pid).order('date', { ascending: false }).limit(1)
   const wRow = (wt.data && wt.data[0]) || null
+
+  const profileResult = await supabase
+    .from('profiles')
+    .select('target_steps')
+    .eq('user_id', pid)
+    .maybeSingle()
+
+  if (profileResult.error) {
+    console.error(
+      '[patient/summary] Failed to load target steps:',
+      profileResult.error.message
+    )
+  }
+
+  const targetSteps = Number(
+    profileResult.data?.target_steps ?? 3000
+  )
+
   let lastSyncTs = null
   try {
     const sync = await supabase.from('device_sync_status').select('last_sync_ts,updated_at').eq('patient_id', pid).order('last_sync_ts', { ascending: false }).limit(1)
@@ -2033,6 +2053,10 @@ app.get('/patient/summary', async (req, res) => {
     nextAppointmentDate: null,
     stepsToday: srow ? Math.round(srow.steps_total || 0) : null,
     distanceToday: drow ? Math.round(drow.meters_total || 0) : null,
+
+    targetSteps,
+    target_steps: targetSteps,
+
     lastSyncTs,
   }
   console.log('[patient/summary] summary computed')
