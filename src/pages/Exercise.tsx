@@ -13,10 +13,11 @@ import {
   CalendarDays,
   Download,
   TrendingUp,
+  Star,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { getPatientSummary, getPatientVitals } from "@/lib/api"
-import { format, formatDistanceToNow, startOfWeek } from "date-fns"
+import { format, formatDistanceToNow, startOfWeek, subWeeks } from "date-fns"
 import { toast } from "sonner"
 import { useLanguage } from "@/contexts/LanguageContext"
 import {
@@ -34,6 +35,14 @@ const getWeekKey = () => {
   return format(weekStart, "yyyy-MM-dd")
 }
 
+type PreviousExerciseGoal = {
+  id: string
+  goal: string
+  week_key: string
+  achievement_rating: number | null
+  created_at?: string | null
+}
+
 const Exercise = () => {
   const { t } = useLanguage()
 
@@ -45,11 +54,26 @@ const Exercise = () => {
   const [goalLoading, setGoalLoading] = useState(false)
   const [savingGoal, setSavingGoal] = useState(false)
   const [collecting, setCollecting] = useState(false)
+  const [previousGoal, setPreviousGoal] =
+    useState<PreviousExerciseGoal | null>(null)
+  const [selectedRating, setSelectedRating] =
+    useState<number | null>(null)
+  const [ratingLoading, setRatingLoading] = useState(false)
+  const [savingRating, setSavingRating] = useState(false)
 
   const currentWeekKey = getWeekKey()
+  const previousWeekKey = format(
+    subWeeks(new Date(`${currentWeekKey}T00:00:00`), 1),
+    "yyyy-MM-dd"
+  )
 
   const currentWeekLabel = `${t("weekOf")} ${format(
     new Date(`${currentWeekKey}T00:00:00`),
+    "d MMM yyyy"
+  )}`
+
+  const previousWeekLabel = `${t("weekOf")} ${format(
+    new Date(`${previousWeekKey}T00:00:00`),
     "d MMM yyyy"
   )}`
 
@@ -145,6 +169,55 @@ const Exercise = () => {
     }
   }
 
+  const loadPreviousWeekGoal = async (uid: string) => {
+    setRatingLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from("exercise_goals")
+        .select(
+          "id, goal, week_key, achievement_rating, created_at"
+        )
+        .eq("patient_id", uid)
+        .lt("week_key", currentWeekKey)
+        .order("week_key", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (error) throw error
+
+      if (data) {
+        const savedRating =
+          typeof data.achievement_rating === "number"
+            ? data.achievement_rating
+            : null
+
+        setPreviousGoal({
+          id: data.id,
+          goal: data.goal,
+          week_key: data.week_key,
+          achievement_rating: savedRating,
+          created_at: data.created_at,
+        })
+        setSelectedRating(savedRating)
+      } else {
+        setPreviousGoal(null)
+        setSelectedRating(null)
+      }
+    } catch (err) {
+      console.error(
+        "Failed to load previous exercise goal rating",
+        err
+      )
+      setPreviousGoal(null)
+      setSelectedRating(null)
+      toast.error(t("ratingLoadFailed"))
+    } finally {
+      setRatingLoading(false)
+    }
+  }
+
   useEffect(() => {
     async function init() {
       const { data } = await supabase.auth.getSession()
@@ -153,12 +226,15 @@ const Exercise = () => {
       setPatientId(uid)
 
       if (uid) {
-        await loadWeeklyGoal(uid)
+        await Promise.all([
+          loadWeeklyGoal(uid),
+          loadPreviousWeekGoal(uid),
+        ])
       }
     }
 
     init()
-  }, [currentWeekKey])
+  }, [currentWeekKey, previousWeekKey])
 
   const summaryQuery = useQuery({
     queryKey: ["patient-summary", patientId],
@@ -363,6 +439,65 @@ const Exercise = () => {
     }
   }
 
+  const handleSaveRating = async () => {
+    if (!patientId) {
+      toast.error(t("userNotFound"))
+      return
+    }
+
+    if (!previousGoal) {
+      toast.error(t("noPreviousGoal"))
+      return
+    }
+
+    if (previousGoal.achievement_rating !== null) {
+      toast.info(t("ratingAlreadySubmitted"))
+      return
+    }
+
+    if (selectedRating === null) {
+      toast.error(t("selectRatingFirst"))
+      return
+    }
+
+    setSavingRating(true)
+
+    try {
+      const { data, error } = await supabase
+        .from("exercise_goals")
+        .update({
+          achievement_rating: selectedRating,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", previousGoal.id)
+        .eq("patient_id", patientId)
+        .select(
+          "id, goal, week_key, achievement_rating, created_at"
+        )
+        .single()
+
+      if (error) throw error
+
+      setPreviousGoal({
+        id: data.id,
+        goal: data.goal,
+        week_key: data.week_key,
+        achievement_rating: data.achievement_rating,
+        created_at: data.created_at,
+      })
+      setSelectedRating(data.achievement_rating)
+      toast.success(t("ratingSaved"))
+    } catch (err) {
+      console.error(
+        "Failed to save previous exercise goal rating",
+        err
+      )
+      toast.error(t("ratingSaveFailed"))
+    } finally {
+      setSavingRating(false)
+    }
+  }
+
   const handleCollectData = async () => {
     if (!patientId) {
       toast.error(t("userNotFound"))
@@ -389,6 +524,15 @@ const Exercise = () => {
   const currentGoalLabel =
     weeklyGoals.find((goal) => goal.key === selectedGoal)?.label ||
     t("goalBetterSleep")
+
+  const previousGoalLabel = previousGoal
+    ? weeklyGoals.find((goal) => goal.key === previousGoal.goal)
+        ?.label || previousGoal.goal
+    : ""
+
+  const ratingSubmitted =
+    previousGoal?.achievement_rating !== null &&
+    previousGoal?.achievement_rating !== undefined
 
   return (
     <div className="min-h-screen bg-background px-3 py-4 text-foreground sm:px-4 md:px-6 md:py-8">
@@ -653,6 +797,141 @@ const Exercise = () => {
             </Card>
           </div>
         </div>
+
+        <section className="mt-6 w-full">
+          {ratingLoading ? (
+            <Card className="w-full rounded-3xl border border-border bg-card shadow-sm">
+              <CardContent className="p-6 text-sm text-muted-foreground">
+                {t("loadingLastWeekGoal")}
+              </CardContent>
+            </Card>
+          ) : previousGoal ? (
+            <Card className="w-full overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+              <div className="border-b border-border bg-muted/30 px-5 py-5 sm:px-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
+                      <Star className="h-5 w-5 text-primary" />
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold">
+                        {t("lastWeekGoalReview")}
+                      </h2>
+
+                      <p className="text-sm text-muted-foreground">
+                        {t("lastWeekGoalReviewDesc")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    {previousWeekLabel}
+                  </div>
+                </div>
+              </div>
+
+              <CardContent className="p-5 sm:p-6">
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(420px,1fr)_190px] lg:items-center">
+                  <div className="min-w-0">
+                    <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {t("lastWeekGoal")}
+                      </p>
+
+                      <p className="mt-1 text-lg font-semibold text-primary">
+                        {previousGoalLabel}
+                      </p>
+                    </div>
+
+                    <h3 className="mt-4 text-base font-semibold leading-6">
+                      {t("achievementQuestion")}
+                    </h3>
+
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {t("ratingScaleHint")}
+                    </p>
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                      {[1, 2, 3, 4, 5].map((rating) => {
+                        const isSelected = selectedRating === rating
+                        const isFilled =
+                          selectedRating !== null && rating <= selectedRating
+
+                        return (
+                          <button
+                            key={rating}
+                            type="button"
+                            onClick={() => {
+                              if (!ratingSubmitted && !savingRating) {
+                                setSelectedRating(rating)
+                              }
+                            }}
+                            disabled={ratingSubmitted || savingRating}
+                            aria-label={`${t("achievementRating")} ${rating}`}
+                            aria-pressed={isSelected}
+                            className={`flex min-h-[82px] flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-3 transition-all disabled:cursor-not-allowed disabled:opacity-75 ${
+                              isSelected
+                                ? "border-primary bg-primary text-primary-foreground shadow-md"
+                                : "border-border bg-background hover:-translate-y-0.5 hover:border-primary/50 hover:bg-accent hover:shadow-sm"
+                            }`}
+                          >
+                            <Star
+                              className={`h-6 w-6 ${
+                                isSelected
+                                  ? "fill-current"
+                                  : isFilled
+                                    ? "fill-primary text-primary"
+                                    : "text-muted-foreground"
+                              }`}
+                            />
+
+                            <span className="text-sm font-semibold">
+                              {rating}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                      <span>{t("ratingOneLabel")}</span>
+                      <span>{t("ratingFiveLabel")}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex h-full flex-col justify-center">
+                    <Button
+                      onClick={handleSaveRating}
+                      disabled={
+                        ratingSubmitted ||
+                        savingRating ||
+                        selectedRating === null
+                      }
+                      className="h-12 w-full rounded-xl"
+                    >
+                      {savingRating
+                        ? t("saving")
+                        : ratingSubmitted
+                          ? t("ratingSubmitted")
+                          : t("saveRating")}
+                    </Button>
+
+                    {ratingSubmitted && (
+                      <p className="mt-3 flex items-start gap-2 text-sm font-medium text-green-600 dark:text-green-400">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                        {t("ratingAlreadySubmitted")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+        </section>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
           <Card className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">

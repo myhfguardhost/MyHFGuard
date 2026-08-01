@@ -5,15 +5,13 @@ import {
   FileSpreadsheet,
   FileText,
   Loader2,
+  Star,
+  Target,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
-import {
-  getAdminPatientFullData,
-  getPatients,
-  serverUrl,
-} from "@/lib/api";
+import { getAdminPatientFullData, getPatients, serverUrl } from "@/lib/api";
 import { buildAlerts, pickWorstStatus } from "@/lib/adminAlertUtils";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -100,6 +98,37 @@ function latestSymptomScore(rows: any[]) {
   );
 }
 
+const EXERCISE_GOAL_LABELS: Record<string, string> = {
+  goalBetterSleep: "Better sleep",
+  goalBoostedEnergy: "Boosted energy",
+  goalWalkWithEase: "Walk with ease",
+  goalLessPain: "Less pain",
+  goalFeelBetter: "Feel better",
+  goalReducedBreathlessness: "Less breathlessness",
+  goalLessFatigue: "Less fatigue",
+  goalMoreHouseEnergy: "Energy at home",
+  goalMoreSocialEnergy: "Social energy",
+  goalImprovedAppetite: "Better appetite",
+};
+
+function exerciseGoalLabel(goal: any) {
+  const key = String(goal || "");
+  return EXERCISE_GOAL_LABELS[key] || key || "-";
+}
+
+function exerciseRows(item: any) {
+  return [...(item?.fullData?.exerciseGoals || [])].sort((a: any, b: any) =>
+    String(b?.week_key || "").localeCompare(String(a?.week_key || ""))
+  );
+}
+
+function currentExerciseWeekKey() {
+  const now = new Date();
+  const local = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  local.setDate(local.getDate() - local.getDay());
+  return dateKey(local);
+}
+
 export default function AdminReports() {
   const API = serverUrl();
   const reportRef = useRef<HTMLDivElement>(null);
@@ -125,7 +154,6 @@ export default function AdminReports() {
       setError("");
 
       const patientsData = await getPatients();
-      
       const patientRows = [...(patientsData.patients || [])].sort((a: any, b: any) => {
         return getDateTime(b.created_at) - getDateTime(a.created_at);
       });
@@ -147,6 +175,7 @@ export default function AdminReports() {
               summary: {},
               vitals: { hr: [], spo2: [], steps: [], distance: [], bp: [], weight: [], weightSamples: [] },
               logs: { symptoms: [], waterSalt: [], medications: [], reminders: [] },
+              exerciseGoals: [],
               devices: [],
               profile: null,
               deviceSync: [],
@@ -244,6 +273,9 @@ export default function AdminReports() {
       const s = item.summaryData?.summary || {};
       const logs = item.fullData?.logs || {};
       const latestWaterSalt = latestBy(logs.waterSalt || [], (row) => row.entry_date || row.date || row.created_at);
+      const goals = exerciseRows(item);
+      const latestGoal = goals[0] || null;
+      const latestRatedGoal = goals.find((row: any) => Number(row?.achievement_rating) >= 1 && Number(row?.achievement_rating) <= 5) || null;
 
       return {
         "Patient ID": item.patientId,
@@ -257,6 +289,11 @@ export default function AdminReports() {
         "Water Intake (ml)": valueOf(latestWaterSalt, ["water_intake_ml", "water_intake"]) ?? "",
         "Salt Score": valueOf(latestWaterSalt, ["salt_score", "salt_intake"]) ?? "",
         "Symptom Score": latestSymptomScore(logs.symptoms || []),
+        "Latest Exercise Goal": latestGoal ? exerciseGoalLabel(latestGoal.goal) : "",
+        "Latest Goal Week": latestGoal?.week_key || "",
+        "Latest Rated Goal": latestRatedGoal ? exerciseGoalLabel(latestRatedGoal.goal) : "",
+        "Rated Goal Week": latestRatedGoal?.week_key || "",
+        "Achievement Rating (1-5)": latestRatedGoal?.achievement_rating ?? "",
         "Last Sync": s.lastSyncTs ?? "",
         Status: item.status,
         "Primary Alert": item.alerts?.[0]?.title || "",
@@ -352,6 +389,58 @@ export default function AdminReports() {
       missingLogs: summary.filter((item) =>
         hasAlert(item, ["missing", "log"])
       ).length,
+    };
+  }, [summary]);
+
+  const exerciseAnalytics = useMemo(() => {
+    const currentWeek = currentExerciseWeekKey();
+    const allRows = summary.flatMap((item) => {
+      const patient = item.patientInfo?.patient || {};
+      return exerciseRows(item).map((row: any) => ({
+        ...row,
+        patientId: item.patientId,
+        patientName: getName(patient, item.patientId),
+      }));
+    });
+
+    const ratedRows = allRows.filter((row: any) => {
+      const rating = Number(row?.achievement_rating);
+      return rating >= 1 && rating <= 5;
+    });
+    const completedRows = allRows.filter((row: any) => String(row?.week_key || "") < currentWeek);
+    const pendingRows = completedRows.filter((row: any) => {
+      const rating = Number(row?.achievement_rating);
+      return !(rating >= 1 && rating <= 5);
+    });
+
+    const distribution = [1, 2, 3, 4, 5].map((rating) => ({
+      rating,
+      count: ratedRows.filter((row: any) => Number(row.achievement_rating) === rating).length,
+    }));
+
+    const goalCounts = new Map<string, number>();
+    allRows.forEach((row: any) => {
+      const key = String(row?.goal || "");
+      if (!key) return;
+      goalCounts.set(key, (goalCounts.get(key) || 0) + 1);
+    });
+    const popularGoals = [...goalCounts.entries()]
+      .map(([goal, count]) => ({ goal, label: exerciseGoalLabel(goal), count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .slice(0, 5);
+
+    const totalRating = ratedRows.reduce((sum: number, row: any) => sum + Number(row.achievement_rating), 0);
+    const patientsWithGoals = summary.filter((item) => exerciseRows(item).length > 0).length;
+
+    return {
+      allRows,
+      ratedRows,
+      pendingRows,
+      distribution,
+      popularGoals,
+      averageRating: ratedRows.length ? (totalRating / ratedRows.length).toFixed(1) : "-",
+      patientsWithGoals,
+      mostSelectedGoal: popularGoals[0]?.label || "-",
     };
   }, [summary]);
 
@@ -469,6 +558,155 @@ export default function AdminReports() {
                   </div>
 
                   <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
+                    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Target className="h-5 w-5 text-blue-600" />
+                          <h2 className="font-bold text-slate-900">Exercise Target Goal Achievement</h2>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Weekly goals selected by patients and their 1–5 achievement ratings saved in Supabase.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <ExerciseMetricCard
+                        label="Patients With Goals"
+                        value={exerciseAnalytics.patientsWithGoals}
+                        detail={`${reportData.totalPatients} total patients`}
+                      />
+                      <ExerciseMetricCard
+                        label="Average Achievement"
+                        value={exerciseAnalytics.averageRating === "-" ? "-" : `${exerciseAnalytics.averageRating}/5`}
+                        detail={`${exerciseAnalytics.ratedRows.length} ratings submitted`}
+                      />
+                      <ExerciseMetricCard
+                        label="Pending Past-Week Ratings"
+                        value={exerciseAnalytics.pendingRows.length}
+                        detail="Completed weeks without a rating"
+                      />
+                      <ExerciseMetricCard
+                        label="Most Selected Goal"
+                        value={exerciseAnalytics.mostSelectedGoal}
+                        detail="Across the latest 12 goal records per patient"
+                        compact
+                      />
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <h3 className="font-semibold text-slate-900">Achievement Rating Distribution</h3>
+                        <p className="mt-1 text-xs text-slate-500">1 = not achieved, 5 = fully achieved</p>
+                        <div className="mt-4 space-y-3">
+                          {exerciseAnalytics.distribution.map((entry) => {
+                            const maximum = Math.max(1, ...exerciseAnalytics.distribution.map((item) => item.count));
+                            return (
+                              <div key={entry.rating}>
+                                <div className="mb-1 flex items-center justify-between text-sm">
+                                  <span className="flex items-center gap-2 font-medium text-slate-700">
+                                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                                    Rating {entry.rating}
+                                  </span>
+                                  <span className="font-semibold text-slate-900">{entry.count}</span>
+                                </div>
+                                <div className="h-2.5 rounded-full bg-slate-200">
+                                  <div
+                                    className="h-2.5 rounded-full bg-amber-400"
+                                    style={{ width: `${(entry.count / maximum) * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <h3 className="font-semibold text-slate-900">Most Selected Target Goals</h3>
+                        <p className="mt-1 text-xs text-slate-500">Selection frequency from recent weekly records</p>
+                        <div className="mt-4 space-y-3">
+                          {exerciseAnalytics.popularGoals.length === 0 ? (
+                            <p className="py-8 text-center text-sm text-slate-500">No exercise goals recorded yet.</p>
+                          ) : (
+                            exerciseAnalytics.popularGoals.map((entry) => {
+                              const maximum = Math.max(1, exerciseAnalytics.popularGoals[0]?.count || 1);
+                              return (
+                                <div key={entry.goal}>
+                                  <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                                    <span className="font-medium text-slate-700">{entry.label}</span>
+                                    <span className="font-semibold text-slate-900">{entry.count}</span>
+                                  </div>
+                                  <div className="h-2.5 rounded-full bg-slate-200">
+                                    <div
+                                      className="h-2.5 rounded-full bg-blue-500"
+                                      style={{ width: `${(entry.count / maximum) * 100}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="min-w-[1050px] w-full text-sm text-slate-900">
+                        <thead className="bg-slate-100 text-slate-700">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold">Patient</th>
+                            <th className="px-4 py-3 text-left font-semibold">Latest Target Goal</th>
+                            <th className="px-4 py-3 text-left font-semibold">Goal Week</th>
+                            <th className="px-4 py-3 text-left font-semibold">Latest Rated Goal</th>
+                            <th className="px-4 py-3 text-left font-semibold">Rated Week</th>
+                            <th className="px-4 py-3 text-left font-semibold">Achievement</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white text-slate-800">
+                          {summary.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                                No patient goal records found.
+                              </td>
+                            </tr>
+                          ) : (
+                            summary.map((item, index) => {
+                              const patient = item.patientInfo?.patient || {};
+                              const goals = exerciseRows(item);
+                              const latestGoal = goals[0] || null;
+                              const latestRatedGoal = goals.find((row: any) => {
+                                const rating = Number(row?.achievement_rating);
+                                return rating >= 1 && rating <= 5;
+                              }) || null;
+
+                              return (
+                                <tr key={`exercise-${item.patientId || index}`} className="border-b border-slate-200 hover:bg-slate-50">
+                                  <td className="px-4 py-3">
+                                    <div className="font-medium text-slate-900">{getName(patient, item.patientId)}</div>
+                                    <div className="mt-0.5 text-xs text-slate-500">{item.patientId}</div>
+                                  </td>
+                                  <td className="px-4 py-3 font-medium text-slate-800">
+                                    {latestGoal ? exerciseGoalLabel(latestGoal.goal) : "-"}
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">{latestGoal?.week_key || "-"}</td>
+                                  <td className="px-4 py-3 text-slate-700">
+                                    {latestRatedGoal ? exerciseGoalLabel(latestRatedGoal.goal) : "-"}
+                                  </td>
+                                  <td className="px-4 py-3 text-slate-600">{latestRatedGoal?.week_key || "-"}</td>
+                                  <td className="px-4 py-3">
+                                    <ExerciseRating rating={latestRatedGoal?.achievement_rating} />
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
                     <h2 className="mb-4 font-bold text-slate-900">Complete Patient Report Table</h2>
                     <div className="overflow-x-auto rounded-xl border border-slate-200">
                       <table className="min-w-[950px] w-full text-sm text-slate-900">
@@ -530,6 +768,30 @@ export default function AdminReports() {
         <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
     </div>
+  );
+}
+
+function ExerciseMetricCard({ label, value, detail, compact = false }: any) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`mt-2 font-bold text-slate-900 ${compact ? "text-lg" : "text-2xl"}`}>{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function ExerciseRating({ rating }: { rating?: number | null }) {
+  const value = Number(rating);
+  if (!(value >= 1 && value <= 5)) {
+    return <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">Pending</span>;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+      {value}/5
+    </span>
   );
 }
 
