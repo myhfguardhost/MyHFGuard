@@ -81,7 +81,7 @@ const resources = {
 
 
         symptomsTitle: "Symptoms Rating",
-        symptomsGuide: "Rate each symptom: 0 = No symptom, 1 = Mild, 5 = Severe",
+        symptomsGuide: "Rate each symptom: 0 = No symptom, 2-3 = Mild, 4-5 = Severe",
         logSymptoms: "Log Symptoms",
         symptomsLoggedMessage: "You have already logged symptoms for {{date}}.",
         noSymptom: "No symptom",
