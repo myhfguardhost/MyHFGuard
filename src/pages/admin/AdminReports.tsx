@@ -572,7 +572,7 @@ export default function AdminReports() {
         "Weight Tracking Days": engagement.typeDayCounts["Weight"],
         "Symptom Tracking Days": engagement.typeDayCounts["Symptoms"],
         "Water & Diet Tracking Days": engagement.typeDayCounts["Water & Diet"],
-        "Last Manual Entry": engagement.lastActivity?.timestamp || "",
+        "Latest Record": engagement.lastActivity?.timestamp || "",
         "SpO2": s.spo2 ?? "",
         "BP Systolic": s.bpSystolic ?? "",
         "BP Diastolic": s.bpDiastolic ?? "",
@@ -902,7 +902,7 @@ export default function AdminReports() {
                             <th className="px-4 py-3 text-left font-semibold">Active Days</th>
                             <th className="px-4 py-3 text-left font-semibold">Engagement</th>
                             <th className="px-4 py-3 text-left font-semibold">Monitoring Adherence</th>
-                            <th className="px-4 py-3 text-left font-semibold">Last Manual Entry</th>
+                            <th className="px-4 py-3 text-left font-semibold">Latest record</th>
                             <th className="px-4 py-3 text-left font-semibold">History</th>
                           </tr>
                         </thead>
