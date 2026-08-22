@@ -306,8 +306,18 @@ function engagementActivities(
   addRows(logs.waterSalt || [], "Water & Diet");
 
   return rows.sort((a, b) => {
-    const ta = new Date(a.timestamp || a.date).getTime();
-    const tb = new Date(b.timestamp || b.date).getTime();
+    // Always sort by the date shown in the table first (newest -> oldest).
+    // This prevents created_at / recorded_at timestamps from moving an entry
+    // above a newer displayed health-record date.
+    const dateCompare = String(b.date).localeCompare(String(a.date));
+    if (dateCompare !== 0) return dateCompare;
+
+    // For records on the same day, show the latest exact time first.
+    // Entries without an exact time stay below timestamped entries for that day.
+    if (a.hasExactTime !== b.hasExactTime) return b.hasExactTime ? 1 : -1;
+
+    const ta = a.hasExactTime ? new Date(a.timestamp).getTime() : 0;
+    const tb = b.hasExactTime ? new Date(b.timestamp).getTime() : 0;
     return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
   });
 }
