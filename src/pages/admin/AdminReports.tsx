@@ -1233,7 +1233,7 @@ export default function AdminReports() {
             >
               <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Engagement & Adherence History</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Patient Engagement History</h2>
                   <p className="mt-1 text-sm text-slate-500">
                     {engagementDetails.patientName} · {engagementDetails.patientId}
                   </p>
