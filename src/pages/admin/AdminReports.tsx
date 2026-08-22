@@ -960,61 +960,6 @@ export default function AdminReports() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
-                      <h2 className="mb-4 font-bold text-slate-900">Patient Status Overview</h2>
-                      <div className="space-y-4">
-                        <Bar label="Stable Patients" value={reportData.stable} total={reportData.totalPatients} />
-                        <Bar label="Warning Patients" value={reportData.warning} total={reportData.totalPatients} />
-                        <Bar label="Critical Patients" value={reportData.critical} total={reportData.totalPatients} />
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
-                      <h2 className="mb-1 font-bold text-slate-900">Patient Alert Distribution</h2>
-                      <p className="mb-4 text-sm text-slate-500">
-                        Number of patients triggered by each alert category.
-                      </p>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {[
-                          ["Blood Pressure", alertData.bp, "BP"],
-                          ["Weight", alertData.weight, "KG"],
-                          ["SpO₂", alertData.spo2, "O₂"],
-                          ["Symptoms", alertData.symptoms, "SYM"],
-                          ["Steps", alertData.steps, "STEP"],
-                          ["Missing Logs", alertData.missingLogs, "MISS"],
-                        ].map(([label, value, tag]) => (
-                          <div
-                            key={label}
-                            className="rounded-xl border border-slate-200 bg-slate-50 p-4"
-                          >
-                            <div className="mb-2 flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-500">{tag}</span>
-                              <span className="text-2xl font-bold text-blue-600">{value}</span>
-                            </div>
-
-                            <p className="text-sm font-semibold text-slate-800">{label} Alerts</p>
-
-                            <div className="mt-3 h-2 rounded-full bg-slate-200">
-                              <div
-                                className="h-2 rounded-full bg-blue-500"
-                                style={{
-                                  width: `${Math.min(
-                                    100,
-                                    reportData.totalPatients > 0
-                                      ? (Number(value) / reportData.totalPatients) * 100
-                                      : 0
-                                  )}%`,
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
                   <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
                     <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -1050,63 +995,6 @@ export default function AdminReports() {
                         detail="Across the latest 12 goal records per patient"
                         compact
                       />
-                    </div>
-
-                    <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <h3 className="font-semibold text-slate-900">Achievement Rating Distribution</h3>
-                        <p className="mt-1 text-xs text-slate-500">1 = not achieved, 5 = fully achieved</p>
-                        <div className="mt-4 space-y-3">
-                          {exerciseAnalytics.distribution.map((entry) => {
-                            const maximum = Math.max(1, ...exerciseAnalytics.distribution.map((item) => item.count));
-                            return (
-                              <div key={entry.rating}>
-                                <div className="mb-1 flex items-center justify-between text-sm">
-                                  <span className="flex items-center gap-2 font-medium text-slate-700">
-                                    <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                                    Rating {entry.rating}
-                                  </span>
-                                  <span className="font-semibold text-slate-900">{entry.count}</span>
-                                </div>
-                                <div className="h-2.5 rounded-full bg-slate-200">
-                                  <div
-                                    className="h-2.5 rounded-full bg-amber-400"
-                                    style={{ width: `${(entry.count / maximum) * 100}%` }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <h3 className="font-semibold text-slate-900">Most Selected Target Goals</h3>
-                        <p className="mt-1 text-xs text-slate-500">Selection frequency from recent weekly records</p>
-                        <div className="mt-4 space-y-3">
-                          {exerciseAnalytics.popularGoals.length === 0 ? (
-                            <p className="py-8 text-center text-sm text-slate-500">No exercise goals recorded yet.</p>
-                          ) : (
-                            exerciseAnalytics.popularGoals.map((entry) => {
-                              const maximum = Math.max(1, exerciseAnalytics.popularGoals[0]?.count || 1);
-                              return (
-                                <div key={entry.goal}>
-                                  <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-                                    <span className="font-medium text-slate-700">{entry.label}</span>
-                                    <span className="font-semibold text-slate-900">{entry.count}</span>
-                                  </div>
-                                  <div className="h-2.5 rounded-full bg-slate-200">
-                                    <div
-                                      className="h-2.5 rounded-full bg-blue-500"
-                                      style={{ width: `${(entry.count / maximum) * 100}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
                     </div>
 
                     <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
