@@ -838,16 +838,8 @@ export default function AdminReports() {
                           <Activity className="h-5 w-5 text-blue-600" />
                           <h2 className="text-lg font-bold text-slate-900">General User Engagement Report</h2>
                         </div>
-                        <p className="mt-1 text-sm text-slate-500">
-                          Engagement counts days with at least one patient-entered BP, weight, symptom, or Water & Diet record. Monitoring adherence requires the daily core Self Check: BP + weight + symptoms.
-                        </p>
-                        <p className="mt-1 text-xs text-slate-400">
-                          {formatActivityDate(engagementAnalytics.startDate)} - {formatActivityDate(engagementAnalytics.endDate)}
-                        </p>
-                      </div>
 
-                      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
-                        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
+                        <div className="mt-3 flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
                           <span className="px-2 text-xs font-semibold text-slate-500">Quick Range:</span>
                           {(["7D", "1M", "3M"] as EngagementRangeKey[]).map((range) => (
                             <button
@@ -868,11 +860,14 @@ export default function AdminReports() {
                           ))}
                         </div>
 
-                        <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-right">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Overall engagement</p>
-                          <p className="mt-1 text-2xl font-bold text-blue-800">{engagementAnalytics.overallPercentage}%</p>
-                          <p className="text-xs text-blue-600">{engagementAnalytics.totalActiveDays} active patient-days</p>
-                        </div>
+                        <p className="mt-2 text-xs text-slate-400">
+                          {formatActivityDate(engagementAnalytics.startDate)} - {formatActivityDate(engagementAnalytics.endDate)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-right">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Overall engagement</p>
+                        <p className="mt-1 text-2xl font-bold text-blue-800">{engagementAnalytics.overallPercentage}%</p>
                       </div>
                     </div>
 
