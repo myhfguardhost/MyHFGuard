@@ -2,11 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import {
+  Activity,
+  CalendarDays,
+  Clock3,
+  Eye,
   FileSpreadsheet,
   FileText,
   Loader2,
   Star,
   Target,
+  X,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
@@ -129,6 +134,113 @@ function currentExerciseWeekKey() {
   return dateKey(local);
 }
 
+type EngagementActivity = {
+  date: string;
+  timestamp: string;
+  type: "Blood Pressure" | "Weight" | "Symptoms" | "Water & Diet";
+  hasExactTime: boolean;
+};
+
+function normaliseDateValue(value: any) {
+  if (!value) return "";
+  const text = String(value);
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (match) return match[1];
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? "" : dateKey(parsed);
+}
+
+function activityDateTime(row: any, type: EngagementActivity["type"]) {
+  if (type === "Blood Pressure") {
+    if (row?.created_at) return { timestamp: String(row.created_at), hasExactTime: true };
+    if (row?.reading_date && row?.reading_time) {
+      return { timestamp: `${row.reading_date}T${row.reading_time}`, hasExactTime: true };
+    }
+    return { timestamp: String(row?.reading_date || ""), hasExactTime: false };
+  }
+
+  if (type === "Weight") {
+    if (row?.time_ts) return { timestamp: String(row.time_ts), hasExactTime: true };
+    if (row?.created_at) return { timestamp: String(row.created_at), hasExactTime: true };
+    return { timestamp: String(row?.date || ""), hasExactTime: false };
+  }
+
+  if (type === "Symptoms") {
+    if (row?.time_ts) return { timestamp: String(row.time_ts), hasExactTime: true };
+    if (row?.created_at) return { timestamp: String(row.created_at), hasExactTime: true };
+    return { timestamp: String(row?.date || ""), hasExactTime: false };
+  }
+
+  if (row?.created_at) return { timestamp: String(row.created_at), hasExactTime: true };
+  if (row?.updated_at) return { timestamp: String(row.updated_at), hasExactTime: true };
+  return { timestamp: String(row?.entry_date || row?.date || ""), hasExactTime: false };
+}
+
+function engagementActivities(item: any): EngagementActivity[] {
+  const fullData = item?.fullData || {};
+  const vitals = fullData?.vitals || {};
+  const logs = fullData?.logs || {};
+  const rows: EngagementActivity[] = [];
+
+  const addRows = (sourceRows: any[], type: EngagementActivity["type"]) => {
+    (sourceRows || []).forEach((row) => {
+      const dateTime = activityDateTime(row, type);
+      const date = normaliseDateValue(
+        type === "Blood Pressure"
+          ? row?.reading_date || dateTime.timestamp
+          : type === "Water & Diet"
+          ? row?.entry_date || row?.date || dateTime.timestamp
+          : row?.date || row?.time_ts || row?.created_at || dateTime.timestamp
+      );
+
+      if (!date) return;
+      rows.push({ date, timestamp: dateTime.timestamp || date, type, hasExactTime: dateTime.hasExactTime });
+    });
+  };
+
+  addRows(vitals.bp || [], "Blood Pressure");
+
+  // Prefer timestamped weight samples. If the device/database only has a daily
+  // weight row, use that instead so the engagement day is still counted once.
+  if ((vitals.weightSamples || []).length > 0) addRows(vitals.weightSamples, "Weight");
+  else addRows(vitals.weight || [], "Weight");
+
+  addRows(logs.symptoms || [], "Symptoms");
+  addRows(logs.waterSalt || [], "Water & Diet");
+
+  return rows.sort((a, b) => {
+    const ta = new Date(a.timestamp || a.date).getTime();
+    const tb = new Date(b.timestamp || b.date).getTime();
+    return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+  });
+}
+
+function engagementSummary(item: any) {
+  const activities = engagementActivities(item);
+  const activeDates = [...new Set(activities.map((row) => row.date))];
+  const activeDays = activeDates.length;
+  const percentage = Math.round((activeDays / 7) * 100);
+  return { activities, activeDates, activeDays, percentage, lastActivity: activities[0] || null };
+}
+
+function formatActivityDate(value: string) {
+  if (!value) return "-";
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-MY", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatActivityTime(activity: EngagementActivity) {
+  if (!activity?.hasExactTime) return "Time not available";
+  const parsed = new Date(activity.timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    const timeMatch = String(activity.timestamp).match(/T(\d{2}:\d{2})/);
+    return timeMatch ? timeMatch[1] : "Time not available";
+  }
+  return parsed.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function AdminReports() {
   const API = serverUrl();
   const reportRef = useRef<HTMLDivElement>(null);
@@ -137,6 +249,7 @@ export default function AdminReports() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [engagementDetails, setEngagementDetails] = useState<any | null>(null);
 
   useEffect(() => {
     fetchReports();
@@ -280,6 +393,9 @@ export default function AdminReports() {
       return {
         "Patient ID": item.patientId,
         Name: getName(patient, item.patientId),
+        "Weekly Engagement": `${engagementSummary(item).percentage}%`,
+        "Active Days (Latest 7 Days)": `${engagementSummary(item).activeDays}/7`,
+        "Last Manual Entry": engagementSummary(item).lastActivity?.timestamp || "",
         "SpO2": s.spo2 ?? "",
         "BP Systolic": s.bpSystolic ?? "",
         "BP Diastolic": s.bpDiastolic ?? "",
@@ -389,6 +505,31 @@ export default function AdminReports() {
       missingLogs: summary.filter((item) =>
         hasAlert(item, ["missing", "log"])
       ).length,
+    };
+  }, [summary]);
+
+  const engagementAnalytics = useMemo(() => {
+    const rows = summary.map((item) => {
+      const patient = item.patientInfo?.patient || {};
+      const engagement = engagementSummary(item);
+      return {
+        ...engagement,
+        item,
+        patientId: item.patientId,
+        patientName: getName(patient, item.patientId),
+      };
+    });
+
+    const totalActiveDays = rows.reduce((sum, row) => sum + row.activeDays, 0);
+    const possibleDays = rows.length * 7;
+    const overallPercentage = possibleDays ? Math.round((totalActiveDays / possibleDays) * 100) : 0;
+
+    return {
+      rows,
+      totalActiveDays,
+      overallPercentage,
+      fullyActive: rows.filter((row) => row.activeDays === 7).length,
+      noActivity: rows.filter((row) => row.activeDays === 0).length,
     };
   }, [summary]);
 
@@ -502,6 +643,104 @@ export default function AdminReports() {
                 </div>
               ) : (
                 <>
+                  <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-5 w-5 text-blue-600" />
+                          <h2 className="text-lg font-bold text-slate-900">General User Engagement Report</h2>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Latest 7 days. An active day means the patient manually keyed in at least one BP, weight, symptom, or Water & Diet record.
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-right">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Overall engagement</p>
+                        <p className="mt-1 text-2xl font-bold text-blue-800">{engagementAnalytics.overallPercentage}%</p>
+                        <p className="text-xs text-blue-600">{engagementAnalytics.totalActiveDays} active patient-days</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                      <EngagementMetricCard
+                        label="Average Weekly Engagement"
+                        value={`${engagementAnalytics.overallPercentage}%`}
+                        detail="All patients across the latest 7 days"
+                      />
+                      <EngagementMetricCard
+                        label="Fully Active Patients"
+                        value={engagementAnalytics.fullyActive}
+                        detail="Patients active on all 7 days"
+                      />
+                      <EngagementMetricCard
+                        label="No Manual Activity"
+                        value={engagementAnalytics.noActivity}
+                        detail="Patients with 0 active days"
+                      />
+                    </div>
+
+                    <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+                      <table className="min-w-[820px] w-full text-sm text-slate-900">
+                        <thead className="bg-slate-100 text-slate-700">
+                          <tr>
+                            <th className="px-4 py-3 text-left font-semibold">Patient</th>
+                            <th className="px-4 py-3 text-left font-semibold">Active Days</th>
+                            <th className="px-4 py-3 text-left font-semibold">Weekly Engagement</th>
+                            <th className="px-4 py-3 text-left font-semibold">Last Manual Entry</th>
+                            <th className="px-4 py-3 text-left font-semibold">History</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white text-slate-800">
+                          {engagementAnalytics.rows.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-slate-500">No patient engagement data found.</td>
+                            </tr>
+                          ) : (
+                            engagementAnalytics.rows.map((row) => (
+                              <tr key={`engagement-${row.patientId}`} className="border-b border-slate-200 hover:bg-slate-50">
+                                <td className="px-4 py-3">
+                                  <div className="font-medium text-slate-900">{row.patientName}</div>
+                                  <div className="mt-0.5 text-xs text-slate-500">{row.patientId}</div>
+                                </td>
+                                <td className="px-4 py-3 font-semibold text-slate-800">{row.activeDays}/7 days</td>
+                                <td className="px-4 py-3">
+                                  <div className="flex min-w-[190px] items-center gap-3">
+                                    <div className="h-2.5 flex-1 rounded-full bg-slate-200">
+                                      <div
+                                        className="h-2.5 rounded-full bg-blue-500"
+                                        style={{ width: `${row.percentage}%` }}
+                                      />
+                                    </div>
+                                    <span className="w-12 text-right font-bold text-slate-900">{row.percentage}%</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">
+                                  {row.lastActivity ? (
+                                    <div>
+                                      <div>{formatActivityDate(row.lastActivity.date)}</div>
+                                      <div className="mt-0.5 text-xs text-slate-500">{formatActivityTime(row.lastActivity)}</div>
+                                    </div>
+                                  ) : "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEngagementDetails(row)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 hover:bg-blue-100"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                    Details
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
                       <h2 className="mb-4 font-bold text-slate-900">Patient Status Overview</h2>
@@ -766,7 +1005,94 @@ export default function AdminReports() {
         </main>
 
         <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+        {engagementDetails && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/45 p-4" onClick={() => setEngagementDetails(null)}>
+            <div
+              className="max-h-[86vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Weekly Engagement History</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {engagementDetails.patientName} · {engagementDetails.patientId}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEngagementDetails(null)}
+                  className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  aria-label="Close engagement history"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <EngagementMetricCard label="Engagement" value={`${engagementDetails.percentage}%`} detail="Latest 7 days" />
+                  <EngagementMetricCard label="Active Days" value={`${engagementDetails.activeDays}/7`} detail="Unique days with manual entry" />
+                  <EngagementMetricCard label="Total Entries" value={engagementDetails.activities.length} detail="Manual records in this period" />
+                </div>
+              </div>
+
+              <div className="max-h-[55vh] overflow-y-auto p-5">
+                {engagementDetails.activities.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                    No BP, weight, symptom, or Water & Diet entries were recorded during the latest 7 days.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="min-w-[620px] w-full text-sm">
+                      <thead className="sticky top-0 bg-slate-100 text-slate-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-semibold">Date</th>
+                          <th className="px-4 py-3 text-left font-semibold">Time</th>
+                          <th className="px-4 py-3 text-left font-semibold">Record Type</th>
+                          <th className="px-4 py-3 text-left font-semibold">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white text-slate-800">
+                        {engagementDetails.activities.map((activity: EngagementActivity, index: number) => (
+                          <tr key={`${activity.type}-${activity.timestamp}-${index}`} className="border-b border-slate-200">
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-2">
+                                <CalendarDays className="h-4 w-4 text-slate-400" />
+                                {formatActivityDate(activity.date)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">
+                              <span className="inline-flex items-center gap-2">
+                                <Clock3 className="h-4 w-4 text-slate-400" />
+                                {formatActivityTime(activity)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-medium text-slate-900">{activity.type}</td>
+                            <td className="px-4 py-3">
+                              <span className="rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">Recorded</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function EngagementMetricCard({ label, value, detail }: any) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{detail}</p>
     </div>
   );
 }
