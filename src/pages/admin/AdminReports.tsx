@@ -564,11 +564,11 @@ export default function AdminReports() {
       return {
         "Patient ID": item.patientId,
         Name: getName(patient, item.patientId),
-        "Engagement Period": engagementRange,
-        "Engagement Rate": `${engagement.percentage}%`,
+        "Activity Period": engagementRange,
+        "App Activity Rate": `${engagement.percentage}%`,
         "Active Days": `${engagement.activeDays}/${currentEngagementRange.totalDays}`,
-        "Monitoring Adherence Rate": `${engagement.adherencePercentage}%`,
-        "Fully Completed Self-Check Days": `${engagement.adherentDays}/${currentEngagementRange.totalDays}`,
+        "Complete Self-Check Rate": `${engagement.adherencePercentage}%`,
+        "Complete Self-Check Days": `${engagement.adherentDays}/${currentEngagementRange.totalDays}`,
         "BP Tracking Days": engagement.typeDayCounts["Blood Pressure"],
         "Weight Tracking Days": engagement.typeDayCounts["Weight"],
         "Symptom Tracking Days": engagement.typeDayCounts["Symptoms"],
@@ -715,6 +715,7 @@ export default function AdminReports() {
       rows,
       totalActiveDays,
       totalAdherentDays,
+      possibleDays,
       overallPercentage,
       overallAdherence,
       fullyActive: rows.filter((row) => row.activeDays === range.totalDays).length,
@@ -781,7 +782,7 @@ export default function AdminReports() {
           <div className="mx-auto w-full max-w-7xl">
             <AdminTopBar
               title="Reports"
-              subtitle="Patient reports with selectable engagement and adherence monitoring."
+              subtitle="Patient reports with app activity and complete self-check monitoring."
               onRefresh={fetchReports}
               onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
@@ -837,7 +838,7 @@ export default function AdminReports() {
                       <div>
                         <div className="flex items-center gap-2">
                           <Activity className="h-5 w-5 text-blue-600" />
-                          <h2 className="text-lg font-bold text-slate-900">General User Engagement Report</h2>
+                          <h2 className="text-lg font-bold text-slate-900">Patient Activity &amp; Self-Check Report</h2>
                         </div>
 
                         <div className="mt-3 flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
@@ -864,38 +865,43 @@ export default function AdminReports() {
                         <p className="mt-2 text-xs text-slate-400">
                           {formatActivityDate(engagementAnalytics.startDate)} - {formatActivityDate(engagementAnalytics.endDate)}
                         </p>
-                        <div className="mt-3 max-w-3xl rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
-                          <p><strong>Engagement:</strong> an active day means the patient recorded at least one Blood Pressure, Weight, Symptoms, or Water &amp; Diet entry. Entries means the total number of these manual records. Engagement = active days ÷ days in the selected range × 100.</p>
-                          <p className="mt-1"><strong>Monitoring adherence:</strong> a complete day must contain all three core Self Check logs: Blood Pressure + Weight + Symptoms. Adherence = complete days ÷ days in the selected range × 100. Passive steps, heart rate, and SpO₂ are not counted.</p>
+                        <div className="mt-3 grid max-w-3xl gap-2 sm:grid-cols-2">
+                          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
+                            <p className="font-bold">App Activity — did the patient record anything?</p>
+                            <p>Counts a day when there is at least one manual Blood Pressure, Weight, Symptoms, or Water &amp; Diet record.</p>
+                          </div>
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">
+                            <p className="font-bold">Complete Self-Check — did the patient finish all required checks?</p>
+                            <p>Counts a day only when Blood Pressure + Weight + Symptoms were all recorded on the same day.</p>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-right">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">Overall engagement</p>
-                        <p className="mt-1 text-2xl font-bold text-blue-800">{engagementAnalytics.overallPercentage}%</p>
+                        <p className="mt-2 text-xs text-slate-500">Entries = total manual records. Passive steps, heart rate, and SpO₂ are not included.</p>
                       </div>
                     </div>
 
                     <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       <EngagementMetricCard
-                        label="Average Engagement"
+                        label="Average App Activity"
                         value={`${engagementAnalytics.overallPercentage}%`}
-                        detail={`All patients · ${engagementRange}`}
+                        detail={`${engagementAnalytics.totalActiveDays}/${engagementAnalytics.possibleDays} active patient-days`}
+                        tone="blue"
                       />
                       <EngagementMetricCard
-                        label="Monitoring Adherence"
+                        label="Complete Self-Check Rate"
                         value={`${engagementAnalytics.overallAdherence}%`}
-                        detail="Days with BP + weight + symptoms completed"
+                        detail={`${engagementAnalytics.totalAdherentDays}/${engagementAnalytics.possibleDays} complete patient-days`}
+                        tone="green"
                       />
                       <EngagementMetricCard
-                        label="Fully Active Patients"
+                        label="Active Every Day"
                         value={engagementAnalytics.fullyActive}
                         detail={`Active on all ${engagementAnalytics.totalDays} days`}
                       />
                       <EngagementMetricCard
-                        label="No Manual Activity"
+                        label="No Activity Patients"
                         value={engagementAnalytics.noActivity}
                         detail={`0 active days in ${engagementRange}`}
+                        tone="amber"
                       />
                     </div>
 
@@ -904,10 +910,9 @@ export default function AdminReports() {
                         <thead className="bg-slate-100 text-slate-700">
                           <tr>
                             <th className="px-4 py-3 text-left font-semibold">Patient</th>
-                            <th className="px-4 py-3 text-left font-semibold">Active Days</th>
+                            <th className="px-4 py-3 text-left font-semibold">App Activity</th>
                             <th className="px-4 py-3 text-left font-semibold">Entries</th>
-                            <th className="px-4 py-3 text-left font-semibold">Engagement</th>
-                            <th className="px-4 py-3 text-left font-semibold">Monitoring Adherence</th>
+                            <th className="px-4 py-3 text-left font-semibold">Complete Self-Check</th>
                             <th className="px-4 py-3 text-left font-semibold">Latest record</th>
                             <th className="px-4 py-3 text-left font-semibold">History</th>
                           </tr>
@@ -915,7 +920,7 @@ export default function AdminReports() {
                         <tbody className="bg-white text-slate-800">
                           {engagementAnalytics.rows.length === 0 ? (
                             <tr>
-                              <td colSpan={7} className="px-4 py-8 text-center text-slate-500">No patient engagement data found.</td>
+                              <td colSpan={6} className="px-4 py-8 text-center text-slate-500">No patient activity data found.</td>
                             </tr>
                           ) : (
                             engagementAnalytics.rows.map((row) => (
@@ -924,22 +929,11 @@ export default function AdminReports() {
                                   <div className="font-medium text-slate-900">{row.patientName}</div>
                                   <div className="mt-0.5 text-xs text-slate-500">{row.patientId}</div>
                                 </td>
-                                <td className="px-4 py-3 font-semibold text-slate-800">{row.activeDays}/{engagementAnalytics.totalDays} days</td>
+                                <td className="px-4 py-3"><div className="font-bold text-blue-700">{row.activeDays}/{engagementAnalytics.totalDays} days</div><div className="mt-0.5 text-xs text-slate-500">{row.percentage}% had any manual record</div></td>
                                 <td className="px-4 py-3 font-semibold text-slate-800">{row.activities.length}</td>
                                 <td className="px-4 py-3">
-                                  <div className="flex min-w-[160px] items-center gap-3">
-                                    <div className="h-2.5 flex-1 rounded-full bg-slate-200">
-                                      <div
-                                        className="h-2.5 rounded-full bg-blue-500"
-                                        style={{ width: `${row.percentage}%` }}
-                                      />
-                                    </div>
-                                    <span className="w-12 text-right font-bold text-slate-900">{row.percentage}%</span>
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <div className="font-bold text-slate-900">{row.adherencePercentage}%</div>
-                                  <div className="mt-0.5 text-xs text-slate-500">{row.adherentDays}/{engagementAnalytics.totalDays} complete days</div>
+                                  <div className="font-bold text-emerald-700">{row.adherentDays}/{engagementAnalytics.totalDays} days</div>
+                                  <div className="mt-0.5 text-xs text-slate-500">{row.adherencePercentage}% completed all 3 checks</div>
                                 </td>
                                 <td className="px-4 py-3 text-slate-600">
                                   {row.lastActivity ? (
@@ -1128,7 +1122,7 @@ export default function AdminReports() {
             >
               <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">Patient Engagement History</h2>
+                  <h2 className="text-lg font-bold text-slate-900">Patient Activity History</h2>
                   <p className="mt-1 text-sm text-slate-500">
                     {engagementDetails.patientName} · {engagementDetails.patientId}
                   </p>
@@ -1140,7 +1134,7 @@ export default function AdminReports() {
                   type="button"
                   onClick={() => setEngagementDetails(null)}
                   className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-                  aria-label="Close engagement history"
+                  aria-label="Close patient activity history"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1148,10 +1142,10 @@ export default function AdminReports() {
 
               <div className="border-b border-slate-200 bg-slate-50 px-5 py-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <EngagementMetricCard label="Engagement" value={`${engagementDetails.percentage}%`} detail={engagementAnalytics.label} />
-                  <EngagementMetricCard label="Monitoring Adherence" value={`${engagementDetails.adherencePercentage}%`} detail="BP + weight + symptoms" />
-                  <EngagementMetricCard label="Active Days" value={`${engagementDetails.activeDays}/${engagementAnalytics.totalDays}`} detail="Days with any manual update" />
+                  <EngagementMetricCard label="Active Days" value={`${engagementDetails.activeDays}/${engagementAnalytics.totalDays}`} detail={`${engagementDetails.percentage}% of days had any manual record`} tone="blue" />
                   <EngagementMetricCard label="Total Entries" value={engagementDetails.activities.length} detail="Manual records in this period" />
+                  <EngagementMetricCard label="Complete Self-Check" value={`${engagementDetails.adherentDays}/${engagementAnalytics.totalDays}`} detail={`${engagementDetails.adherencePercentage}% completed BP + weight + symptoms`} tone="green" />
+                  <EngagementMetricCard label="No Activity Days" value={engagementAnalytics.totalDays - engagementDetails.activeDays} detail="Days without a manual record" tone="amber" />
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1217,11 +1211,19 @@ export default function AdminReports() {
   );
 }
 
-function EngagementMetricCard({ label, value, detail }: any) {
+function EngagementMetricCard({ label, value, detail, tone = "slate" }: any) {
+  const styles = tone === "blue"
+    ? "border-blue-200 bg-blue-50"
+    : tone === "green"
+    ? "border-emerald-200 bg-emerald-50"
+    : tone === "amber"
+    ? "border-amber-200 bg-amber-50"
+    : "border-slate-200 bg-white";
+  const valueStyle = tone === "blue" ? "text-blue-800" : tone === "green" ? "text-emerald-800" : tone === "amber" ? "text-amber-800" : "text-slate-900";
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className={`rounded-xl border p-4 ${styles}`}>
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+      <p className={`mt-2 text-2xl font-bold ${valueStyle}`}>{value}</p>
       <p className="mt-1 text-xs text-slate-500">{detail}</p>
     </div>
   );
