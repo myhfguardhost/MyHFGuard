@@ -139,6 +139,7 @@ type EngagementActivity = {
   timestamp: string;
   type: "Blood Pressure" | "Weight" | "Symptoms" | "Water & Diet";
   hasExactTime: boolean;
+  timeInferred?: boolean;
 };
 
 type EngagementRangeKey = "7D" | "1M" | "3M";
@@ -242,9 +243,25 @@ function activityDateTime(row: any, type: EngagementActivity["type"]) {
   }
 
   if (type === "Weight") {
-    if (row?.time_ts) return { timestamp: String(row.time_ts), hasExactTime: true };
-    if (row?.created_at) return { timestamp: String(row.created_at), hasExactTime: true };
-    return { timestamp: String(row?.date || ""), hasExactTime: false };
+    if (row?.time_ts) {
+      return {
+        timestamp: String(row.time_ts),
+        hasExactTime: true,
+        timeInferred: row?.time_inferred === true,
+      };
+    }
+
+    if (row?.created_at) {
+      return {
+        timestamp: String(row.created_at),
+        hasExactTime: true,
+      };
+    }
+
+    return {
+      timestamp: String(row?.date || ""),
+      hasExactTime: false,
+    };
   }
 
   if (type === "Symptoms") {
@@ -280,7 +297,13 @@ function engagementActivities(
       );
 
       if (!date || !isDateInRange(date, startDate, endDate)) return;
-      rows.push({ date, timestamp: dateTime.timestamp || date, type, hasExactTime: dateTime.hasExactTime });
+      rows.push({
+        date,
+        timestamp: dateTime.timestamp || date,
+        type,
+        hasExactTime: dateTime.hasExactTime,
+        timeInferred: dateTime.timeInferred,
+      });
     });
   };
 
@@ -375,17 +398,31 @@ function formatActivityDate(value: string) {
 }
 
 function formatActivityTime(activity: EngagementActivity) {
-  if (!activity?.hasExactTime) return "Time not available";
-  const parsed = new Date(activity.timestamp);
-  if (Number.isNaN(parsed.getTime())) {
-    const timeMatch = String(activity.timestamp).match(/T(\d{2}:\d{2})/);
-    return timeMatch ? timeMatch[1] : "Time not available";
+  if (!activity?.hasExactTime) {
+    return "Time not available";
   }
-  return parsed.toLocaleTimeString("en-MY", {
+
+  const parsed = new Date(activity.timestamp);
+
+  if (Number.isNaN(parsed.getTime())) {
+    const timeMatch = String(activity.timestamp).match(
+      /T(\d{2}:\d{2})/
+    );
+
+    return timeMatch
+      ? timeMatch[1]
+      : "Time not available";
+  }
+
+  const formattedTime = parsed.toLocaleTimeString("en-MY", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Asia/Kuala_Lumpur",
   });
+
+  return activity.timeInferred
+    ? `${formattedTime} (estimated)`
+    : formattedTime;
 }
 
 export default function AdminReports() {
