@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import {
   Bell,
   CircleAlert,
-  Mail,
+  Send,
   TriangleAlert,
   ChevronDown,
   ChevronUp,
@@ -13,7 +13,7 @@ export default function AdminRecentAlerts({
   alertsToShow = [],
   acknowledgeAlert,
   goToPatient,
-  sendAlertEmail,
+  sendAlertNotification,
   summary = [],
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -155,11 +155,11 @@ export default function AdminRecentAlerts({
 
                     <button
                       type="button"
-                      onClick={() => sendAlertEmail(alert)}
+                      onClick={() => sendAlertNotification(alert)}
                       className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
                     >
-                      <Mail size={12} />
-                      Send Email
+                      <Send size={12} />
+                      Send via MyHFGuard
                     </button>
                   </div>
                 </div>

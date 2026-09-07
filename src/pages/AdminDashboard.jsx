@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 
-import { getPatients, serverUrl } from "@/lib/api";
+import { getPatients, sendPatientNotification, serverUrl } from "@/lib/api";
 import { buildAlerts, pickWorstStatus } from "@/lib/adminAlertUtils";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -452,26 +452,13 @@ export default function AdminDashboard() {
     toast.success("Alert acknowledged");
   };
 
-  const sendAlertEmail = (alert) => {
-    const row = summary.find((x) => x.patientId === alert.patientId);
-    const patient = row?.patientInfo?.patient || {};
-
-    const patientName =
-      `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
-      "Patient";
-
-    const subject = encodeURIComponent(`MyHFGuard Alert - ${patientName}`);
-    const body = encodeURIComponent(
-      [
-        `Patient: ${patientName}`,
-        `Alert Level: ${alert.level.toUpperCase()}`,
-        `Alert: ${alert.title}`,
-        `Details: ${alert.message}`,
-      ].join("\n")
-    );
-
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    toast.success(`Email draft opened for ${patientName}`);
+  const sendAlertNotification = async (alert) => {
+    try {
+      await sendPatientNotification({ patientId: alert.patientId, title: alert.title, message: alert.message, alertType: alert.type || alert.level, sourceAlertId: alert.id });
+      toast.success("MyHFGuard notification sent to the patient");
+    } catch (error) {
+      toast.error(error?.message || "Failed to send notification");
+    }
   };
 
   const goToPatient = (patientId) => {
@@ -517,7 +504,7 @@ export default function AdminDashboard() {
                       alertsToShow={alertsToShow}
                       acknowledgeAlert={acknowledgeAlert}
                       goToPatient={goToPatient}
-                      sendAlertEmail={sendAlertEmail}
+                      sendAlertNotification={sendAlertNotification}
                       summary={summary}
                     />
 

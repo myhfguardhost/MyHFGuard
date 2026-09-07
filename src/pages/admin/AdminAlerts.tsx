@@ -4,7 +4,7 @@ import {
   AlertTriangle,
   CircleAlert,
   Loader2,
-  Mail,
+  Send,
   Search,
   TriangleAlert,
 } from "lucide-react";
@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import {
   getAdminPatientFullData,
   getPatients,
+  sendPatientNotification,
   serverUrl,
 } from "@/lib/api";
 import { buildAlerts } from "@/lib/adminAlertUtils";
@@ -397,24 +398,13 @@ export default function AdminAlerts() {
   };
 
 
-  const sendAlertEmail = (alert: any) => {
-    const subject = encodeURIComponent(`MyHFGuard Alert - ${alert.patientName}`);
-    const body = encodeURIComponent(
-      [
-        `Patient: ${alert.patientName}`,
-        `Alert Level: ${String(alert.level || "").toUpperCase()}`,
-        `Alert: ${alert.title}`,
-        `Details: ${alert.message}`,
-        `${alert.timeLabel || "Latest record"}: ${formatDateTime(
-          alert.createdAt,
-          alert.dateOnly
-        )}`,
-      ].join("\n")
-    );
-
-
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    toast.success("Email draft opened");
+  const sendAlertNotification = async (alert: any) => {
+    try {
+      await sendPatientNotification({ patientId: alert.patientId, title: alert.title, message: alert.message, alertType: alert.type || alert.level, sourceAlertId: alert.alertKey });
+      toast.success("MyHFGuard notification sent to the patient");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to send notification");
+    }
   };
 
 
@@ -552,11 +542,11 @@ export default function AdminAlerts() {
 
                         <button
                           type="button"
-                          onClick={() => sendAlertEmail(alert)}
+                          onClick={() => sendAlertNotification(alert)}
                           className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                         >
-                          <Mail className="h-4 w-4" />
-                          Email
+                          <Send className="h-4 w-4" />
+                          Send via MyHFGuard
                         </button>
                       </div>
                     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createAdminPatientAccount, getPatients, PatientProfile } from "@/lib/api";
+import { createAdminPatientAccount, deletePatientPermanently, getPatients, PatientProfile } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, User } from "lucide-react";
+import { Loader2, Lock, LockOpen, Plus, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,8 @@ export default function PatientList() {
   const [newUserId, setNewUserId] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [creating, setCreating] = useState(false);
+  const [unlockedPatients, setUnlockedPatients] = useState<Set<string>>(new Set());
+  const [deletingPatientId, setDeletingPatientId] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -99,6 +101,29 @@ export default function PatientList() {
       toast.error(error?.message || "Failed to create patient account.");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const toggleDeleteLock = (patientId: string) => {
+    setUnlockedPatients((current) => {
+      const next = new Set(current);
+      next.has(patientId) ? next.delete(patientId) : next.add(patientId);
+      return next;
+    });
+  };
+
+  const permanentlyDeletePatient = async (patient: PatientProfile) => {
+    if (!unlockedPatients.has(patient.patient_id)) return;
+    if (window.prompt("Type DELETE to permanently delete this patient and all records.") !== "DELETE") return;
+    try {
+      setDeletingPatientId(patient.patient_id);
+      await deletePatientPermanently(patient.patient_id);
+      setPatients((current) => current.filter((row) => row.patient_id !== patient.patient_id));
+      toast.success("Patient permanently deleted.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete patient.");
+    } finally {
+      setDeletingPatientId(null);
     }
   };
 
@@ -201,7 +226,7 @@ export default function PatientList() {
                           <TableHead className="min-w-[160px] text-slate-700">User ID</TableHead>
                           <TableHead className="min-w-[150px] text-slate-700">Profile</TableHead>
                           <TableHead className="min-w-[160px] text-slate-700">Joined</TableHead>
-                          <TableHead className="min-w-[140px] text-right text-slate-700">Actions</TableHead>
+                          <TableHead className="min-w-[260px] text-right text-slate-700">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
 
@@ -261,6 +286,7 @@ export default function PatientList() {
                                 </TableCell>
 
                                 <TableCell className="text-right">
+                                  <div className="flex justify-end gap-2">
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -269,6 +295,13 @@ export default function PatientList() {
                                   >
                                     View Details
                                   </Button>
+                                  <Button variant="outline" size="icon" onClick={() => toggleDeleteLock(patient.patient_id)} aria-label={unlockedPatients.has(patient.patient_id) ? "Lock deletion" : "Unlock deletion"}>
+                                    {unlockedPatients.has(patient.patient_id) ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                  </Button>
+                                  <Button variant="destructive" size="sm" disabled={!unlockedPatients.has(patient.patient_id) || deletingPatientId === patient.patient_id} onClick={() => permanentlyDeletePatient(patient)}>
+                                    {deletingPatientId === patient.patient_id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}Delete
+                                  </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );

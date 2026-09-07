@@ -184,7 +184,8 @@ function engagementRangeInfo(range: EngagementRangeKey) {
     startLocal = new Date(endLocal);
     startLocal.setDate(startLocal.getDate() - 6);
   } else if (range === "1M") {
-    startLocal = subtractMonthsClamped(endLocal, 1);
+    startLocal = new Date(endLocal);
+    startLocal.setDate(startLocal.getDate() - 30);
   } else {
     startLocal = subtractMonthsClamped(endLocal, 3);
   }
@@ -396,7 +397,7 @@ export default function AdminReports() {
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [engagementDetails, setEngagementDetails] = useState<any | null>(null);
-  const [engagementRange, setEngagementRange] = useState<EngagementRangeKey>("7D");
+  const [engagementRange, setEngagementRange] = useState<EngagementRangeKey>("1M");
 
   useEffect(() => {
     fetchReports();
@@ -863,6 +864,10 @@ export default function AdminReports() {
                         <p className="mt-2 text-xs text-slate-400">
                           {formatActivityDate(engagementAnalytics.startDate)} - {formatActivityDate(engagementAnalytics.endDate)}
                         </p>
+                        <div className="mt-3 max-w-3xl rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
+                          <p><strong>Engagement:</strong> an active day means the patient recorded at least one Blood Pressure, Weight, Symptoms, or Water &amp; Diet entry. Entries means the total number of these manual records. Engagement = active days ÷ days in the selected range × 100.</p>
+                          <p className="mt-1"><strong>Monitoring adherence:</strong> a complete day must contain all three core Self Check logs: Blood Pressure + Weight + Symptoms. Adherence = complete days ÷ days in the selected range × 100. Passive steps, heart rate, and SpO₂ are not counted.</p>
+                        </div>
                       </div>
 
                       <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-right">
@@ -900,6 +905,7 @@ export default function AdminReports() {
                           <tr>
                             <th className="px-4 py-3 text-left font-semibold">Patient</th>
                             <th className="px-4 py-3 text-left font-semibold">Active Days</th>
+                            <th className="px-4 py-3 text-left font-semibold">Entries</th>
                             <th className="px-4 py-3 text-left font-semibold">Engagement</th>
                             <th className="px-4 py-3 text-left font-semibold">Monitoring Adherence</th>
                             <th className="px-4 py-3 text-left font-semibold">Latest record</th>
@@ -909,7 +915,7 @@ export default function AdminReports() {
                         <tbody className="bg-white text-slate-800">
                           {engagementAnalytics.rows.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="px-4 py-8 text-center text-slate-500">No patient engagement data found.</td>
+                              <td colSpan={7} className="px-4 py-8 text-center text-slate-500">No patient engagement data found.</td>
                             </tr>
                           ) : (
                             engagementAnalytics.rows.map((row) => (
@@ -919,6 +925,7 @@ export default function AdminReports() {
                                   <div className="mt-0.5 text-xs text-slate-500">{row.patientId}</div>
                                 </td>
                                 <td className="px-4 py-3 font-semibold text-slate-800">{row.activeDays}/{engagementAnalytics.totalDays} days</td>
+                                <td className="px-4 py-3 font-semibold text-slate-800">{row.activities.length}</td>
                                 <td className="px-4 py-3">
                                   <div className="flex min-w-[160px] items-center gap-3">
                                     <div className="h-2.5 flex-1 rounded-full bg-slate-200">

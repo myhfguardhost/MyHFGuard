@@ -10,9 +10,9 @@ import { useEffect, useState, memo } from "react"
 import { useNavigate } from "react-router-dom"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Smartphone } from "lucide-react"
+import { Bell, Check, Smartphone } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
-import { getPatientSummary, getPatientInfo, serverUrl } from "@/lib/api"
+import { getPatientSummary, getPatientInfo, getPatientNotifications, markPatientNotificationRead, PatientNotification, serverUrl } from "@/lib/api"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { supabase } from "@/lib/supabase"
 import { formatDistanceToNow, format } from "date-fns"
@@ -55,6 +55,7 @@ const Dashboard = () => {
 
 
   const [showSyncNotice, setShowSyncNotice] = useState(true)
+  const [notifications, setNotifications] = useState<PatientNotification[]>([])
 
 
   useEffect(() => {
@@ -74,6 +75,21 @@ const Dashboard = () => {
       mounted = false
     }
   }, [patientId])
+
+  useEffect(() => {
+    if (!patientId) return
+    let active = true
+    const load = () => getPatientNotifications(patientId).then((result) => active && setNotifications(result.notifications || [])).catch(() => {})
+    load()
+    const timer = setInterval(load, 60000)
+    return () => { active = false; clearInterval(timer) }
+  }, [patientId])
+
+  async function markNotificationRead(notificationId: string) {
+    if (!patientId) return
+    await markPatientNotificationRead(patientId, notificationId)
+    setNotifications((current) => current.map((item) => item.id === notificationId ? { ...item, read_at: new Date().toISOString() } : item))
+  }
 
 
   const { data } = useQuery({
@@ -214,6 +230,20 @@ const Dashboard = () => {
               >
                 {t("dismiss")}
               </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {notifications.some((item) => !item.read_at) && (
+          <Alert className="mb-8 border-cyan-300 bg-cyan-50 dark:bg-cyan-950/30">
+            <Bell className="h-4 w-4 text-cyan-700" />
+            <AlertDescription className="space-y-3">
+              {notifications.filter((item) => !item.read_at).map((item) => (
+                <div key={item.id} className="flex items-start justify-between gap-3">
+                  <div><strong>{item.title}</strong><p>{item.message}</p><small>{new Date(item.sent_at).toLocaleString()}</small></div>
+                  <Button variant="outline" size="sm" onClick={() => markNotificationRead(item.id)}><Check className="mr-1 h-4 w-4" />Mark read</Button>
+                </div>
+              ))}
             </AlertDescription>
           </Alert>
         )}

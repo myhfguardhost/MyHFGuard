@@ -413,6 +413,22 @@ async function requireAdmin(req, res, next) {
   }
 }
 
+async function requirePatientSelf(req, res, next) {
+  try {
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '')
+    if (!token) return res.status(401).json({ error: 'Patient login required' })
+    const { data, error } = await supabase.auth.getUser(token)
+    const user = data && data.user
+    if (error || !user) return res.status(401).json({ error: 'Invalid patient session' })
+    const patientId = String(req.query.patientId || req.body.patientId || '')
+    if (user.id !== patientId && user.app_metadata?.role !== 'admin') return res.status(403).json({ error: 'Access denied' })
+    req.authUser = user
+    next()
+  } catch (error) {
+    return res.status(401).json({ error: error?.message || 'Patient validation failed' })
+  }
+}
+
 async function patientLoginHandler(req, res) {
   try {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -1039,8 +1055,8 @@ app.get('/api/admin/patient-full-data', requireAdmin, async (req, res) => {
 
   const startDate = adminDateOnly(req.query.startDate, defaultStart.toISOString().slice(0, 10))
   const endDate = adminDateOnly(req.query.endDate, malaysiaToday)
-  const startTs = `${startDate}T00:00:00.000Z`
-  const endTs = `${endDate}T23:59:59.999Z`
+  const startTs = `${startDate}T00:00:00+08:00`
+  const endTs = `${endDate}T23:59:59.999+08:00`
   const errors = {}
 
   try {
@@ -2727,6 +2743,9 @@ app.post('/admin/promote', async (req, res) => {
 async function deletePatientCascade(pid) {
   const out = {}
   const tables = [
+    'patient_notifications', 'exercise_goals', 'reminders', 'medication',
+    'water_salt_logs', 'symptom_log', 'bp_readings', 'weight_sample', 'weight_day',
+    'distance_event', 'distance_hour', 'distance_day', 'device_sync_status',
     'steps_event', 'steps_hour', 'steps_day',
     'hr_sample', 'hr_hour', 'hr_day',
     'spo2_sample', 'spo2_hour', 'spo2_day',
@@ -2736,6 +2755,8 @@ async function deletePatientCascade(pid) {
     const del = await supabase.from(t).delete().eq('patient_id', pid)
     out[t] = { count: (del.data || []).length, error: del.error ? del.error.message : null }
   }
+  const profileDelete = await supabase.from('profiles').delete().eq('user_id', pid)
+  out.profiles = { count: (profileDelete.data || []).length, error: profileDelete.error ? profileDelete.error.message : null }
   const delp = await supabase.from('patients').delete().eq('patient_id', pid)
   out.patients_delete = { count: (delp.data || []).length, error: delp.error ? delp.error.message : null }
   return out
@@ -2810,6 +2831,17 @@ app.post('/admin/delete-patient', async (req, res) => {
   if (!pid) return res.status(400).json({ error: 'missing patientId' })
   const result = await deletePatientCascade(pid)
   return res.status(200).json({ ok: true, patientId: pid, result })
+})
+
+app.delete('/api/admin/patients/:patientId', requireAdmin, async (req, res) => {
+  const patientId = req.params.patientId
+  if (req.body?.confirmation !== 'DELETE') return res.status(400).json({ error: 'Type DELETE to confirm permanent deletion.' })
+  const result = await deletePatientCascade(patientId)
+  const failed = Object.entries(result).find(([, value]) => value && value.error)
+  if (failed) return res.status(400).json({ error: `Could not delete ${failed[0]}: ${failed[1].error}` })
+  const authResult = await supabase.auth.admin.deleteUser(patientId)
+  if (authResult.error && !/not found/i.test(authResult.error.message || '')) return res.status(400).json({ error: authResult.error.message })
+  return res.json({ ok: true, patientId })
 })
 
 app.post('/admin/update-email', async (req, res) => {
@@ -3204,11 +3236,87 @@ app.get('/debug-db', async (req, res) => {
   return res.json({ hr: hr.data, steps: steps.data })
 })
 
+function malaysiaNotificationClock(now = new Date()) {
+  const local = new Date(now.getTime() + 480 * 60000)
+  return { date: local.toISOString().slice(0, 10), minutes: local.getUTCHours() * 60 + local.getUTCMinutes() }
+}
+
+async function insertPatientNotification(row) {
+  const result = await supabase.from('patient_notifications').upsert(row, { onConflict: 'dedupe_key', ignoreDuplicates: true }).select()
+  return { data: result.data?.[0] || null, error: result.error }
+}
+
+async function processDuePatientNotifications(onlyPatientId) {
+  if (supabaseMock) return
+  const clock = malaysiaNotificationClock()
+  let patientQuery = supabase.from('patients').select('patient_id')
+  if (onlyPatientId) patientQuery = patientQuery.eq('patient_id', onlyPatientId)
+  const patients = await patientQuery
+  if (patients.error) throw patients.error
+
+  for (const patient of patients.data || []) {
+    const patientId = patient.patient_id
+    if (clock.minutes >= 16 * 60) {
+      const [stepResult, profileResult] = await Promise.all([
+        supabase.from('steps_day').select('steps_total').eq('patient_id', patientId).eq('date', clock.date).maybeSingle(),
+        supabase.from('profiles').select('target_steps').eq('user_id', patientId).maybeSingle(),
+      ])
+      const steps = Number(stepResult.data?.steps_total || 0)
+      const target = Number(profileResult.data?.target_steps || 3000)
+      if (!stepResult.error && steps < target) {
+        await insertPatientNotification({ patient_id: patientId, notification_type: 'low_steps', dedupe_key: `${patientId}:low_steps:${clock.date}`, title: 'Daily step reminder', message: `You have recorded ${steps.toLocaleString()} of your ${target.toLocaleString()}-step daily target.`, notification_date: clock.date, scheduled_for: `${clock.date}T16:00:00+08:00`, metadata: { steps, target, delivery: 'in_app' } })
+      }
+    }
+
+    if (clock.minutes >= 21 * 60) {
+      const [weight, bp, symptoms] = await Promise.all([
+        supabase.from('weight_sample').select('time_ts').eq('patient_id', patientId).gte('time_ts', `${clock.date}T00:00:00+08:00`).lte('time_ts', `${clock.date}T23:59:59.999+08:00`).limit(1),
+        supabase.from('bp_readings').select('reading_date').eq('patient_id', patientId).eq('reading_date', clock.date).limit(1),
+        supabase.from('symptom_log').select('date').eq('patient_id', patientId).eq('date', clock.date).limit(1),
+      ])
+      const missing = []
+      if (!weight.data?.length) missing.push('weight')
+      if (!bp.data?.length) missing.push('blood pressure')
+      if (!symptoms.data?.length) missing.push('symptom check')
+      if (missing.length) {
+        await insertPatientNotification({ patient_id: patientId, notification_type: 'incomplete_vitals', dedupe_key: `${patientId}:incomplete_vitals:${clock.date}`, title: 'Complete today\'s vital log', message: `Your daily vital log is incomplete. Please record: ${missing.join(', ')}.`, notification_date: clock.date, scheduled_for: `${clock.date}T21:00:00+08:00`, metadata: { missing, delivery: 'in_app' } })
+      }
+    }
+  }
+}
+
+app.get('/patient/notifications', requirePatientSelf, async (req, res) => {
+  try {
+    await processDuePatientNotifications(req.query.patientId)
+    const result = await supabase.from('patient_notifications').select('*').eq('patient_id', req.query.patientId).order('sent_at', { ascending: false }).limit(20)
+    if (result.error) return res.status(400).json({ error: result.error.message })
+    return res.json({ notifications: result.data || [] })
+  } catch (error) { return res.status(500).json({ error: error.message }) }
+})
+
+app.patch('/patient/notifications/:id/read', requirePatientSelf, async (req, res) => {
+  const result = await supabase.from('patient_notifications').update({ read_at: new Date().toISOString() }).eq('id', req.params.id).eq('patient_id', req.body.patientId)
+  if (result.error) return res.status(400).json({ error: result.error.message })
+  return res.json({ ok: true })
+})
+
+app.post('/api/admin/patient-notifications', requireAdmin, async (req, res) => {
+  const { patientId, title, message, alertType, sourceAlertId } = req.body || {}
+  if (!patientId || !title || !message) return res.status(400).json({ error: 'patientId, title and message are required' })
+  const clock = malaysiaNotificationClock()
+  const type = String(alertType || 'admin_alert').replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+  const result = await insertPatientNotification({ patient_id: patientId, notification_type: type, dedupe_key: `${patientId}:${type}:${sourceAlertId || clock.date}`, title: String(title).slice(0, 120), message: String(message).slice(0, 500), notification_date: clock.date, scheduled_for: new Date().toISOString(), metadata: { source: 'admin', delivery: 'in_app' } })
+  if (result.error) return res.status(400).json({ error: result.error.message })
+  return res.status(201).json({ notification: result.data, delivery: 'in_app' })
+})
+
 // updated
 app.post("/api/ocr/weight", processWeightImage(supabase, upload.single("image")))
 
 const port = process.env.PORT || 3001
 const server = app.listen(port, '0.0.0.0', () => process.stdout.write(`server:${port}\n`))
+
+setInterval(() => processDuePatientNotifications().catch((error) => console.error('[notifications]', error.message)), 60000)
 
 // Keep alive
 setInterval(() => {

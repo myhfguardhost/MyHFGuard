@@ -1111,3 +1111,76 @@ export async function getAdminPatientFullData(
 
   return res.json() as Promise<AdminPatientFullData>
 }
+
+export async function deletePatientPermanently(patientId: string) {
+  const res = await fetch(
+    `${serverUrl()}/api/admin/patients/${encodeURIComponent(patientId)}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await adminAuthHeaders()),
+      },
+      body: JSON.stringify({ confirmation: "DELETE" }),
+    }
+  )
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body?.error || "Failed to delete patient")
+  return body as { ok: boolean; patientId: string }
+}
+
+export type PatientNotification = {
+  id: string
+  title: string
+  message: string
+  notification_type: string
+  sent_at: string
+  read_at?: string | null
+}
+
+export async function sendPatientNotification(payload: {
+  patientId: string
+  title: string
+  message: string
+  alertType?: string
+  sourceAlertId?: string
+}) {
+  const res = await fetch(`${serverUrl()}/api/admin/patient-notifications`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await adminAuthHeaders()),
+    },
+    body: JSON.stringify(payload),
+  })
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body?.error || "Failed to send MyHFGuard notification")
+  return body
+}
+
+export async function getPatientNotifications(patientId: string) {
+  const res = await fetch(
+    `${serverUrl()}/patient/notifications?patientId=${encodeURIComponent(patientId)}`,
+    { headers: await adminAuthHeaders() }
+  )
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body?.error || "Failed to load notifications")
+  return body as { notifications: PatientNotification[] }
+}
+
+export async function markPatientNotificationRead(patientId: string, notificationId: string) {
+  const res = await fetch(
+    `${serverUrl()}/patient/notifications/${encodeURIComponent(notificationId)}/read`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await adminAuthHeaders()),
+      },
+      body: JSON.stringify({ patientId }),
+    }
+  )
+  if (!res.ok) throw new Error("Failed to mark notification as read")
+}
