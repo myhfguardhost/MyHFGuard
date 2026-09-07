@@ -27,7 +27,6 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '100mb' }))
 
 // Manual CORS headers removed; using cors middleware
-
 let supabase
 let supabaseAnon = null
 let supabaseMock = false
@@ -330,7 +329,7 @@ app.get('/api/admin/patients', requireAdmin, getPatientsRoute);
 const PATIENT_LOGIN_DOMAIN = process.env.PATIENT_LOGIN_DOMAIN || 'patients.myhfguard.local'
 
 function normalizeAssignedUserId(value) {
-  return String(value || '').trim().toUpperCase()
+  return String(value || '').trim().toLowerCase()
 }
 
 function assignedUserIdToEmail(value) {
@@ -338,19 +337,19 @@ function assignedUserIdToEmail(value) {
 }
 
 function isValidAssignedUserId(value) {
-  return /^P\d{3,9}$/.test(normalizeAssignedUserId(value))
+  return /^[a-z0-9][a-z0-9._-]{2,29}$/.test(normalizeAssignedUserId(value))
 }
 
 function assignedUserIdNumber(value) {
   const normalized = normalizeAssignedUserId(value)
-  if (!isValidAssignedUserId(normalized)) return null
+  if (!/^p\d{3,9}$/.test(normalized)) return null
   const number = Number(normalized.slice(1))
   return Number.isSafeInteger(number) ? number : null
 }
 
 function formatAssignedUserId(number) {
   const safeNumber = Math.max(1, Math.trunc(Number(number) || 1))
-  return `P${String(safeNumber).padStart(3, '0')}`
+  return `p${String(safeNumber).padStart(3, '0')}`
 }
 
 async function getNextAssignedUserId() {
@@ -448,7 +447,7 @@ async function patientLoginHandler(req, res) {
     const password = String((req.body && req.body.password) || '')
 
     if (!isValidAssignedUserId(assignedUserId) || !password) {
-      return res.status(400).json({ error: 'A valid User ID such as P001 and password are required.' })
+      return res.status(400).json({ error: 'A valid User ID and password are required.' })
     }
 
     const patientResult = await supabase
@@ -515,7 +514,7 @@ app.post('/api/admin/patients', requireAdmin, async (req, res) => {
   }
 
   if (!isValidAssignedUserId(assignedUserId)) {
-    return res.status(400).json({ error: 'User ID must use the format P001, P002, P003 and so on.' })
+    return res.status(400).json({ error: 'User ID must be 3-30 characters using letters, numbers, dots, dashes or underscores.' })
   }
   if (password.length < 8) {
     return res.status(400).json({ error: 'Password must contain at least 8 characters.' })
