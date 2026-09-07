@@ -243,25 +243,28 @@ function activityDateTime(row: any, type: EngagementActivity["type"]) {
   }
 
   if (type === "Weight") {
+    // For a backdated weight, time_ts represents the selected health-record
+    // date (and may use noon), while recorded_at is the real submission time.
+    // Keep explicitly backfilled rows labelled with their inferred time.
+    if (row?.time_inferred === true && row?.time_ts) {
+      return {
+        timestamp: String(row.time_ts),
+        hasExactTime: true,
+        timeInferred: true,
+      };
+    }
+    if (row?.recorded_at) {
+      return { timestamp: String(row.recorded_at), hasExactTime: true };
+    }
     if (row?.time_ts) {
       return {
         timestamp: String(row.time_ts),
         hasExactTime: true,
-        timeInferred: row?.time_inferred === true,
+        timeInferred: false,
       };
     }
-
-    if (row?.created_at) {
-      return {
-        timestamp: String(row.created_at),
-        hasExactTime: true,
-      };
-    }
-
-    return {
-      timestamp: String(row?.date || ""),
-      hasExactTime: false,
-    };
+    if (row?.created_at) return { timestamp: String(row.created_at), hasExactTime: true };
+    return { timestamp: String(row?.date || ""), hasExactTime: false };
   }
 
   if (type === "Symptoms") {
@@ -398,31 +401,18 @@ function formatActivityDate(value: string) {
 }
 
 function formatActivityTime(activity: EngagementActivity) {
-  if (!activity?.hasExactTime) {
-    return "Time not available";
-  }
-
+  if (!activity?.hasExactTime) return "Time not available";
   const parsed = new Date(activity.timestamp);
-
   if (Number.isNaN(parsed.getTime())) {
-    const timeMatch = String(activity.timestamp).match(
-      /T(\d{2}:\d{2})/
-    );
-
-    return timeMatch
-      ? timeMatch[1]
-      : "Time not available";
+    const timeMatch = String(activity.timestamp).match(/T(\d{2}:\d{2})/);
+    return timeMatch ? timeMatch[1] : "Time not available";
   }
-
   const formattedTime = parsed.toLocaleTimeString("en-MY", {
     hour: "2-digit",
     minute: "2-digit",
     timeZone: "Asia/Kuala_Lumpur",
   });
-
-  return activity.timeInferred
-    ? `${formattedTime} (estimated)`
-    : formattedTime;
+  return activity.timeInferred ? `${formattedTime} (estimated)` : formattedTime;
 }
 
 export default function AdminReports() {
@@ -1208,7 +1198,7 @@ export default function AdminReports() {
                       <thead className="sticky top-0 bg-slate-100 text-slate-700">
                         <tr>
                           <th className="px-4 py-3 text-left font-semibold">Date</th>
-                          <th className="px-4 py-3 text-left font-semibold">Time</th>
+                          <th className="px-4 py-3 text-left font-semibold">Submitted Time</th>
                           <th className="px-4 py-3 text-left font-semibold">Record Type</th>
                           <th className="px-4 py-3 text-left font-semibold">Status</th>
                         </tr>
