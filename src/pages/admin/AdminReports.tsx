@@ -835,7 +835,7 @@ export default function AdminReports() {
                 <>
                   <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <Activity className="h-5 w-5 text-blue-600" />
                           <h2 className="text-lg font-bold text-slate-900">Patient Activity &amp; Self-Check Report</h2>
@@ -865,14 +865,14 @@ export default function AdminReports() {
                         <p className="mt-2 text-xs text-slate-400">
                           {formatActivityDate(engagementAnalytics.startDate)} - {formatActivityDate(engagementAnalytics.endDate)}
                         </p>
-                        <div className="mt-3 grid max-w-3xl gap-2 sm:grid-cols-2">
-                          <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-xs leading-5 text-blue-900">
+                        <div className="mt-3 grid w-full gap-3 md:grid-cols-2">
+                          <div className="min-h-[96px] rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
                             <p className="font-bold">App Activity — did the patient record anything?</p>
-                            <p>Counts a day when there is at least one manual Blood Pressure, Weight, Symptoms, or Water &amp; Diet record.</p>
+                            <p className="mt-1">Counts a day when there is at least one manual Blood Pressure, Weight, Symptoms, or Water &amp; Diet record.</p>
                           </div>
-                          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-5 text-emerald-900">
+                          <div className="min-h-[96px] rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
                             <p className="font-bold">Complete Self-Check — did the patient finish all required checks?</p>
-                            <p>Counts a day only when Blood Pressure + Weight + Symptoms were all recorded on the same day.</p>
+                            <p className="mt-1">Counts a day only when Blood Pressure + Weight + Symptoms were all recorded on the same day.</p>
                           </div>
                         </div>
                         <p className="mt-2 text-xs text-slate-500">Entries = total manual records. Passive steps, heart rate, and SpO₂ are not included.</p>

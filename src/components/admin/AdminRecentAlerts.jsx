@@ -121,7 +121,7 @@ export default function AdminRecentAlerts({
 
                         {alertTime && (
                           <p className="shrink-0 text-xs text-slate-500">
-                            {alertTime}
+                            Last data update: {alertTime}
                           </p>
                         )}
                       </div>
@@ -192,4 +192,3 @@ export default function AdminRecentAlerts({
     </section>
   )
 }
-
