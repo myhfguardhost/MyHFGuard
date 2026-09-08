@@ -8,6 +8,7 @@ from imutils import contours
 import os
 import numpy as np
 import base64
+import pytesseract
 from roboflow import Roboflow
 import dotenv
 
@@ -27,6 +28,13 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 1, 1, 1, 1): 8,
     (1, 1, 1, 1, 0, 1, 1): 9
 }
+
+def seven_segment_tesseract(lcd):
+    enlarged = cv2.resize(lcd, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    raw = pytesseract.image_to_string(enlarged, config="--tessdata-dir /app/tessdata -l 7seg --psm 6 -c tessedit_char_whitelist=0123456789")
+    rows = ["".join(ch for ch in row if ch.isdigit()) for row in raw.splitlines()]
+    rows = [row for row in rows if row]
+    return (rows[0], rows[1], rows[2]) if len(rows) >= 3 else None
 
 def process_image(image_path):
     try:
@@ -199,6 +207,9 @@ def process_image(image_path):
         sys_value = readings[0] if len(readings) > 0 else ""
         dia_value = readings[1] if len(readings) > 1 else ""
         pulse_value = readings[2] if len(readings) > 2 else ""
+        if not (sys_value.isdigit() and dia_value.isdigit() and pulse_value.isdigit()):
+            local_ocr = seven_segment_tesseract(roi_gray)
+            if local_ocr: sys_value, dia_value, pulse_value = local_ocr
 
 
         print(json.dumps({

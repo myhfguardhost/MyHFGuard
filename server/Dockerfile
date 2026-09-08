@@ -5,7 +5,7 @@ FROM node:20-slim
 # libgl1 and libglib2.0-0 are REQUIRED for cv2 to work on Linux
 RUN apt-get update && apt-get install -y \
     python3 \
-    python3-pip \
+    python3-pip \`r`n    tesseract-ocr \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
