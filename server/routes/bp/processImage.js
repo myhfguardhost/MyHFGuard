@@ -6,20 +6,32 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 async function readBloodPressureWithGemini(imageBuffer, mimeType) {
     const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_KEY;
     if (!key) return null;
-    const model = new GoogleGenerativeAI(key).getGenerativeModel({
-        model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-        generationConfig: { temperature: 0, responseMimeType: 'application/json' }
-    });
-    const result = await model.generateContent([
+    const names = [...new Set(['gemini-2.0-flash', process.env.GEMINI_MODEL || 'gemini-2.5-flash'])];
+    const parts = [
         { inlineData: { data: imageBuffer.toString('base64'), mimeType: mimeType || 'image/jpeg' } },
         { text: 'Read only the blood-pressure monitor LCD. Return JSON exactly as {"sys":"number","dia":"number","pulse":"number"}. Do not guess. Return empty strings if all three values are not clearly visible.' }
-    ]);
-    const text = result.response.text().replace(/^```json\s*|\s*```$/g, '').trim();
-    const values = JSON.parse(text);
-    const sys = Number(values.sys), dia = Number(values.dia), pulse = Number(values.pulse);
-    if (Number.isInteger(sys) && Number.isInteger(dia) && Number.isInteger(pulse) &&
-        sys >= 40 && sys <= 260 && dia >= 25 && dia <= 160 && pulse >= 30 && pulse <= 240 && sys > dia) {
-        return { sys: String(sys), dia: String(dia), pulse: String(pulse) };
+    ];
+    for (const name of names) {
+        const model = new GoogleGenerativeAI(key).getGenerativeModel({
+            model: name, generationConfig: { temperature: 0, responseMimeType: 'application/json' }
+        });
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const result = await model.generateContent(parts);
+                const text = result.response.text().replace(/^```json\s*|\s*```$/g, '').trim();
+                const values = JSON.parse(text);
+                const sys = Number(values.sys), dia = Number(values.dia), pulse = Number(values.pulse);
+                if (Number.isInteger(sys) && Number.isInteger(dia) && Number.isInteger(pulse) &&
+                    sys >= 40 && sys <= 260 && dia >= 25 && dia <= 160 && pulse >= 30 && pulse <= 240 && sys > dia) {
+                    return { sys: String(sys), dia: String(dia), pulse: String(pulse) };
+                }
+                return null;
+            } catch (error) {
+                const retryable = String(error.message || error).includes('503');
+                if (!retryable || attempt === 1) break;
+                await new Promise(resolve => setTimeout(resolve, 1200));
+            }
+        }
     }
     return null;
 }
