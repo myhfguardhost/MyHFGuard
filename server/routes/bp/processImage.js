@@ -116,7 +116,10 @@ module.exports = (supabase, uploadMiddleware) => async (req, res) => {
                 }
                 const jsonString = rawOutput.substring(jsonStartIndex);
                 const jsonResult = JSON.parse(jsonString);
-                console.log('[processImage] Parsed result:', jsonResult);
+                console.log('[processImage] Parsed result:', {
+                    sys: jsonResult.sys, dia: jsonResult.dia, pulse: jsonResult.pulse,
+                    method: jsonResult.method, error: jsonResult.error
+                });
 
                 if (jsonResult.error) {
                     return res.status(400).json({ error: jsonResult.error, debugImage: jsonResult.debugImage });

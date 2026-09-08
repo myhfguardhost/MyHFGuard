@@ -1,238 +1,28 @@
-# FILE: backend/digit_recognition_backend.py
-
-import sys
-import json
+"""Command-line adapter for the local BP scanner."""
+import sys,json,base64
 import cv2
-import imutils
-from imutils import contours
-import os
-import numpy as np
-import base64
-import pytesseract
-from roboflow import Roboflow
-import dotenv
+from local_bp import recognize
 
-dotenv.load_dotenv()
+def process_image(path):
+    image=cv2.imread(path)
+    if image is None:return {'error':'Could not open image.'}
+    candidates,preview=recognize(image)
+    if not candidates:return {'error':'No complete BP reading detected. Please retake a clear photo of the complete display.'}
+    if len(candidates)>1 and len(candidates[0][1])<=len(candidates[1][1]):
+        return {'error':'Conflicting digit readings. Please retake the photo.'}
+    values,observations=candidates[0]
+    rows=observations[0]
+    for label,(_,boxes) in zip(('SYS','DIA','Pulse'),rows):
+        x=min(b[0] for b in boxes); y=min(b[1] for b in boxes)
+        right=max(b[0]+b[2] for b in boxes); bottom=max(b[1]+b[3] for b in boxes)
+        cv2.rectangle(preview,(x-3,y-3),(right+3,bottom+3),(0,0,220),2)
+        cv2.putText(preview,label,(x,max(15,y-8)),cv2.FONT_HERSHEY_SIMPLEX,.5,(0,0,220),1)
+    encoded=cv2.imencode('.jpg',preview)[1]
+    return dict(zip(('sys','dia','pulse'),map(str,values)),annotatedImage=base64.b64encode(encoded).decode(),method='local-segment-v2')
 
-# --- 7-segment recognition lookup table ---
-DIGITS_LOOKUP = {
-    (1, 1, 1, 0, 1, 1, 1): 0,
-    (0, 0, 1, 0, 0, 1, 0): 1,
-    (1, 0, 1, 1, 1, 1, 0): 2,
-    (1, 0, 1, 1, 0, 1, 1): 3,
-    (0, 1, 1, 1, 0, 1, 0): 4,
-    (1, 1, 0, 1, 0, 1, 1): 5,
-    (1, 1, 0, 1, 1, 1, 1): 6,
-    (1, 0, 1, 0, 0, 1, 0): 7,
-    (1, 1, 1, 0, 0, 1, 0): 7,
-    (1, 1, 1, 1, 1, 1, 1): 8,
-    (1, 1, 1, 1, 0, 1, 1): 9
-}
-
-def seven_segment_tesseract(lcd):
-    """Read SYS, DIA and pulse from three separate LCD rows."""
-    h, w = lcd.shape[:2]
-    values = []
-    config = "--tessdata-dir /app/tessdata -l 7seg --psm 7 -c tessedit_char_whitelist=0123456789"
-    for start, end in ((0.05, 0.36), (0.34, 0.68), (0.65, 0.98)):
-        row = lcd[int(h * start):int(h * end), int(w * 0.08):int(w * 0.96)]
-        row = cv2.resize(row, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
-        row = cv2.threshold(row, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        text = pytesseract.image_to_string(row, config=config)
-        values.append("".join(ch for ch in text if ch.isdigit()))
-    return tuple(values) if all(values) else None
-def process_image(image_path):
-    try:
-        # --- Load full image and resize ---
-        full = cv2.imread(image_path)
-        if full is None:
-            print(json.dumps({"error": "Could not load image"}))
-            return
-
-        (orig_h, orig_w) = full.shape[:2]
-        resized = imutils.resize(full, height=500)
-        (resized_h, resized_w) = resized.shape[:2]
-        ratio = resized_h / float(orig_h)
-
-        # Prefer the trained Roboflow detector, but do not stop when it misses
-        # an otherwise clear home monitor. The supplied Omron photos place the
-        # LCD centrally, so this crop reliably preserves SYS, DIA and pulse.
-        detected = None
-        try:
-            rf = Roboflow(api_key=os.environ.get("ROBOFLOW_API_KEY"))
-            project = rf.workspace().project(os.environ.get("ROBOFLOW_PROJECT_ID"))
-            model = project.version(int(os.environ.get("ROBOFLOW_VERSION_NUMBER"))).model
-            prediction = model.predict(image_path, confidence=40, overlap=30).json()
-            if prediction.get('predictions'):
-                best = max(prediction['predictions'], key=lambda p: p['confidence'])
-                detected = (
-                    int((best['x'] - best['width'] / 2) * ratio),
-                    int((best['y'] - best['height'] / 2) * ratio),
-                    int(best['width'] * ratio), int(best['height'] * ratio)
-                )
-        except Exception:
-            detected = None
-
-        if detected:
-            x, y, w, h = detected
-        else:
-            # Find the LCD border locally. This avoids treating printed SYS,
-            # DIA and PULSE labels as digits on different monitor models.
-            gray_for_lcd = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-            edges = cv2.Canny(cv2.GaussianBlur(gray_for_lcd, (5, 5), 0), 35, 110)
-            candidates = []
-            for contour in cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0]:
-                area = cv2.contourArea(contour)
-                if area < resized_w * resized_h * 0.04 or area > resized_w * resized_h * 0.38:
-                    continue
-                perimeter = cv2.arcLength(contour, True)
-                polygon = cv2.approxPolyDP(contour, 0.03 * perimeter, True)
-                if len(polygon) != 4:
-                    continue
-                bx, by, bw, bh = cv2.boundingRect(polygon)
-                aspect = bw / float(max(bh, 1))
-                centre_x, centre_y = bx + bw / 2, by + bh / 2
-                if 0.42 <= aspect <= 1.45 and resized_w * .20 < centre_x < resized_w * .80 and resized_h * .12 < centre_y < resized_h * .78:
-                    candidates.append((area, bx, by, bw, bh))
-            if candidates:
-                _, x, y, w, h = max(candidates, key=lambda item: item[0])
-                pad_x, pad_y = int(w * .03), int(h * .03)
-                x -= pad_x; y -= pad_y; w += pad_x * 2; h += pad_y * 2
-            else:
-                # A conservative centre crop remains available for monitors
-                # whose LCD border is too faint to form an edge contour.
-                x = int(resized_w * 0.27)
-                y = int(resized_h * 0.18)
-                w = int(resized_w * 0.46)
-                h = int(resized_h * 0.58)
-
-        x = max(0, x); y = max(0, y)
-        w = min(w, resized_w - x); h = min(h, resized_h - y)
-
-        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-        roi_gray = gray[y:y+h, x:x+w]
-
-        # --- FINAL, ROBUST PREPROCESSING PIPELINE ---
-        # 1. Enhance Contrast
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced = clahe.apply(roi_gray)
-        
-        # 2. **CRITICAL FIX**: Add a gentle blur to smooth noise AFTER enhancement
-        blurred = cv2.medianBlur(enhanced, 3)
-
-        # 3. Threshold the blurred and enhanced image
-        thresh = cv2.adaptiveThreshold(blurred, 255,
-                                       cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY_INV, 21, 10)
-
-        # 4. **CRITICAL FIX**: Use a slightly stronger Closing kernel to heal breaks
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-
-        # --- Find digit contours ---
-        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        digitCnts = []
-        for c in cnts:
-            bx, by, bw, bh = cv2.boundingRect(c)
-            if bh > 20 and (bw/float(bh) > 0.1 and bw/float(bh) < 1.0):
-                digitCnts.append(c)
-
-        if not digitCnts:
-            print(json.dumps({"error": "No valid digit contours found"}))
-            return
-
-        (digitCnts, boxes) = contours.sort_contours(digitCnts, method="top-to-bottom")
-
-        # --- Group digits into lines ---
-        groups = []
-        current = []
-        if not boxes:
-            print(json.dumps({"error": "Sorting contours failed."}))
-            return
-        base_y = boxes[0][1]
-
-        for (c, (bx, by, bw, bh)) in zip(digitCnts, boxes):
-            if by < base_y + bh:
-                current.append((c, (bx, by, bw, bh)))
-            else:
-                current.sort(key=lambda it: it[1][0])
-                groups.append(current)
-                current = [(c, (bx, by, bw, bh))]
-                base_y = by
-
-        current.sort(key=lambda it: it[1][0])
-        groups.append(current)
-
-        # --- Recognize digits and annotate ---
-        out = resized.copy()
-        readings = []
-
-        for line in groups:
-            line_digits = ""
-            for (c, (bx, by, bw, bh)) in line:
-                roi = thresh[by:by+bh, bx:bx+bw]
-                aspect = bw / float(bh)
-                digit = None
-
-                if aspect < 0.4:
-                    digit = 1
-                else:
-                    on = [0]*7
-                    (roiH, roiW) = roi.shape
-                    (dW, dH) = (int(roiW*0.25), int(roiH*0.15))
-                    dHC = int(roiH * 0.05)
-                    segments = [
-                        ((0, 0), (bw, dH)), ((0, 0), (dW, bh//2)), ((bw - dW, 0), (bw, bh//2)),
-                        ((0, (bh//2)-dHC), (bw, (bh//2)+dHC)), ((0, bh//2), (dW, bh)),
-                        ((bw - dW, bh//2), (bw, bh)), ((0, bh-dH), (bw, bh))
-                    ]
-                    for i, ((xA, yA), (xB, yB)) in enumerate(segments):
-                        seg = roi[yA:yB, xA:xB]
-                        if seg.size == 0: continue
-                        total = cv2.countNonZero(seg)
-                        area = seg.shape[0]*seg.shape[1]
-                        if area > 0 and total/area > 0.45: on[i] = 1
-                    try: digit = DIGITS_LOOKUP[tuple(on)]
-                    except: digit = None
-
-                if digit is not None:
-                    line_digits += str(digit)
-                    # Draw on the full resized image with the proper offset
-                    cv2.rectangle(out, (bx+x, by+y), (bx+x+bw, by+y+bh), (0,255,0), 2)
-                    cv2.putText(out, str(digit), (bx+x-10, by+y-10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0,255,0), 2)
-
-            readings.append(line_digits)
-
-        # --- Encode annotated image ---
-        _, buf = cv2.imencode('.jpg', out)
-        encoded = base64.b64encode(buf).decode('utf-8')
-
-        sys_value = readings[0] if len(readings) > 0 else ""
-        dia_value = readings[1] if len(readings) > 1 else ""
-        pulse_value = readings[2] if len(readings) > 2 else ""
-        if not (sys_value.isdigit() and dia_value.isdigit() and pulse_value.isdigit()):
-            local_ocr = seven_segment_tesseract(roi_gray)
-            if local_ocr: sys_value, dia_value, pulse_value = local_ocr
-
-
-        print(json.dumps({
-            "sys": sys_value,
-            "dia": dia_value,
-            "pulse": pulse_value,
-            "annotatedImage": encoded
-        }))
-
-    except Exception as e:
-        import traceback
-        print(json.dumps({"error": str(e) + "\n" + traceback.format_exc()}))
-
-
-# --- MAIN ENTRY POINT ---
-if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        image_path = sys.argv[1]
-        process_image(image_path)
-    else:
-        print(json.dumps({"error": "Incorrect number of arguments passed to Python script."}))
+if __name__=='__main__':
+    try: result=process_image(sys.argv[1]) if len(sys.argv)==2 else {'error':'One image path is required.'}
+    except Exception as error:
+        print(type(error).__name__+': '+str(error),file=sys.stderr)
+        result={'error':'Image processing failed. Please retake the photo.'}
+    print(json.dumps(result))
