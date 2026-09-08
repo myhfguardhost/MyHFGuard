@@ -110,7 +110,9 @@ export default function AdminDashboard() {
         weightKg: latestWeight ? Number(latestWeight.value) : null,
         stepsToday: todaySteps ? Number(todaySteps.count) : null,
         latestSteps: latestSteps ? Number(latestSteps.count) : null,
-        lastSyncTs: lastObservation,
+        lastSyncTs:
+          rawSummary?.summary?.lastSyncTs ||
+          lastObservation,
       },
     };
   };
