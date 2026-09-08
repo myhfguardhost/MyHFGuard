@@ -63,11 +63,35 @@ def process_image(image_path):
         if detected:
             x, y, w, h = detected
         else:
-            # Fallback for vertically photographed Omron-style monitors.
-            x = int(resized_w * 0.25)
-            y = int(resized_h * 0.14)
-            w = int(resized_w * 0.50)
-            h = int(resized_h * 0.64)
+            # Find the LCD border locally. This avoids treating printed SYS,
+            # DIA and PULSE labels as digits on different monitor models.
+            gray_for_lcd = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+            edges = cv2.Canny(cv2.GaussianBlur(gray_for_lcd, (5, 5), 0), 35, 110)
+            candidates = []
+            for contour in cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)[0]:
+                area = cv2.contourArea(contour)
+                if area < resized_w * resized_h * 0.04 or area > resized_w * resized_h * 0.38:
+                    continue
+                perimeter = cv2.arcLength(contour, True)
+                polygon = cv2.approxPolyDP(contour, 0.03 * perimeter, True)
+                if len(polygon) != 4:
+                    continue
+                bx, by, bw, bh = cv2.boundingRect(polygon)
+                aspect = bw / float(max(bh, 1))
+                centre_x, centre_y = bx + bw / 2, by + bh / 2
+                if 0.42 <= aspect <= 1.45 and resized_w * .20 < centre_x < resized_w * .80 and resized_h * .12 < centre_y < resized_h * .78:
+                    candidates.append((area, bx, by, bw, bh))
+            if candidates:
+                _, x, y, w, h = max(candidates, key=lambda item: item[0])
+                pad_x, pad_y = int(w * .03), int(h * .03)
+                x -= pad_x; y -= pad_y; w += pad_x * 2; h += pad_y * 2
+            else:
+                # A conservative centre crop remains available for monitors
+                # whose LCD border is too faint to form an edge contour.
+                x = int(resized_w * 0.27)
+                y = int(resized_h * 0.18)
+                w = int(resized_w * 0.46)
+                h = int(resized_h * 0.58)
 
         x = max(0, x); y = max(0, y)
         w = min(w, resized_w - x); h = min(h, resized_h - y)
