@@ -11,6 +11,10 @@ def read_digit(mask, box):
     if w/h<.30:
         return '1', .9
     a=cv2.resize(a,(60,100),interpolation=cv2.INTER_AREA)/255.
+    # All seven-segment numerals have background between horizontal bars.
+    # A filled shadow or LCD border must not be classified as an eight.
+    if max(a[23:37,24:36].mean(),a[63:77,24:36].mean())>.40:
+        return None,0
     # Sample segment centres, excluding corner junctions.
     regions=[(15,0,45,17),(0,18,20,44),(40,18,60,44),(15,43,45,57),(0,57,20,83),(40,57,60,83),(15,83,45,100)]
     strengths=np.array([a[t:b,l:r].mean() for l,t,r,b in regions])
@@ -23,8 +27,8 @@ def read_digit(mask, box):
     if costs[0][0]>.22 or costs[1][0]-costs[0][0]<.015:return None,0
     return costs[0][1],1-costs[0][0]
 
-def recognize(image):
-    scale=1000/image.shape[0]
+def recognize(image, target_height=1000):
+    scale=target_height/image.shape[0]
     image=cv2.resize(image,None,fx=scale,fy=scale)
     gray=cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
     votes=defaultdict(list)
@@ -34,7 +38,7 @@ def recognize(image):
       contrast=cv2.subtract(bg,gray)
       for threshold in (5,8,12,20,30,45,65):
        binary=cv2.threshold(contrast,threshold,255,cv2.THRESH_BINARY)[1]
-       for join in (3,5,9,13):
+       for join in (3,5,9,13,17,21):
         mask=cv2.morphologyEx(binary,cv2.MORPH_CLOSE,np.ones((join,3),np.uint8))
         boxes=[]
         for c in cv2.findContours(mask,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[0]:
@@ -108,7 +112,7 @@ def recognize(image):
        if not (40<=vals[0]<=260 and 25<=vals[1]<=160 and 30<=vals[2]<=240 and vals[0]>vals[1]):continue
        heights=[max(z[3] for z in row) for _,row in trio]
        rights=[max(z[0]+z[2] for z in row) for _,row in trio]
-       if max(rights)-min(rights)>max(heights)*.3:continue
+       if max(rights)-min(rights)>max(heights)*.15:continue
        if any(not heights[k]*.8<trio[k+1][1][0][1]-trio[k][1][0][1]<heights[k]*1.8 for k in (0,1)):continue
        votes[vals].append(trio)
     return sorted(votes.items(),key=lambda item:len(item[1]),reverse=True), image
