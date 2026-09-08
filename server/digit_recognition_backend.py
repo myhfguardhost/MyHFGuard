@@ -8,7 +8,6 @@ from imutils import contours
 import os
 import numpy as np
 import base64
-import pytesseract
 from roboflow import Roboflow
 import dotenv
 
@@ -28,49 +27,6 @@ DIGITS_LOOKUP = {
     (1, 1, 1, 1, 1, 1, 1): 8,
     (1, 1, 1, 1, 0, 1, 1): 9
 }
-
-def tesseract_bp_fallback(full):
-    """Read clear monitor digits when the seven-segment contour reader misses.
-
-    This is deliberately a validation-gated fallback: it returns a reading only
-    when three numeric rows form a physiologically valid SYS/DIA/pulse result.
-    """
-    gray = cv2.cvtColor(full, cv2.COLOR_BGR2GRAY)
-    # Tesseract handles the supplied LCD photos most reliably at this scale.
-    if max(gray.shape) < 1400:
-        scale = 1400.0 / max(gray.shape)
-        gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-    gray = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8)).apply(gray)
-    variants = [gray, cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]]
-    options = "--psm 11 -c tessedit_char_whitelist=0123456789"
-
-    for image in variants:
-        data = pytesseract.image_to_data(image, config=options, output_type=pytesseract.Output.DICT)
-        tokens = []
-        for i, raw in enumerate(data["text"]):
-            text = raw.strip()
-            if not text.isdigit():
-                continue
-            value = int(text)
-            if not (25 <= value <= 260):
-                continue
-            try:
-                confidence = float(data["conf"][i])
-            except (ValueError, TypeError):
-                confidence = -1
-            if confidence >= 15:
-                tokens.append((value, data["top"][i], data["left"][i]))
-
-        # Read in vertical display order and test every possible triple. This
-        # excludes dates, labels and isolated indicator digits.
-        tokens.sort(key=lambda token: (token[1], token[2]))
-        for a in range(len(tokens)):
-            for b in range(a + 1, len(tokens)):
-                for c in range(b + 1, len(tokens)):
-                    sys_value, dia_value, pulse_value = tokens[a][0], tokens[b][0], tokens[c][0]
-                    if 40 <= sys_value <= 260 and 25 <= dia_value <= 160 and 30 <= pulse_value <= 220 and sys_value > dia_value:
-                        return str(sys_value), str(dia_value), str(pulse_value)
-    return None
 
 def process_image(image_path):
     try:
@@ -220,12 +176,6 @@ def process_image(image_path):
         dia_value = readings[1] if len(readings) > 1 else ""
         pulse_value = readings[2] if len(readings) > 2 else ""
 
-        # The original contour path is fast. If it cannot form all three
-        # readings, use OCR as a verified second pass over the full photo.
-        if not (sys_value.isdigit() and dia_value.isdigit() and pulse_value.isdigit()):
-            fallback = tesseract_bp_fallback(full)
-            if fallback:
-                sys_value, dia_value, pulse_value = fallback
 
         print(json.dumps({
             "sys": sys_value,
