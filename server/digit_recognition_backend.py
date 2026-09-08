@@ -30,12 +30,17 @@ DIGITS_LOOKUP = {
 }
 
 def seven_segment_tesseract(lcd):
-    enlarged = cv2.resize(lcd, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
-    raw = pytesseract.image_to_string(enlarged, config="--tessdata-dir /app/tessdata -l 7seg --psm 6 -c tessedit_char_whitelist=0123456789")
-    rows = ["".join(ch for ch in row if ch.isdigit()) for row in raw.splitlines()]
-    rows = [row for row in rows if row]
-    return (rows[0], rows[1], rows[2]) if len(rows) >= 3 else None
-
+    """Read SYS, DIA and pulse from three separate LCD rows."""
+    h, w = lcd.shape[:2]
+    values = []
+    config = "--tessdata-dir /app/tessdata -l 7seg --psm 7 -c tessedit_char_whitelist=0123456789"
+    for start, end in ((0.05, 0.36), (0.34, 0.68), (0.65, 0.98)):
+        row = lcd[int(h * start):int(h * end), int(w * 0.08):int(w * 0.96)]
+        row = cv2.resize(row, None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)
+        row = cv2.threshold(row, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+        text = pytesseract.image_to_string(row, config=config)
+        values.append("".join(ch for ch in text if ch.isdigit()))
+    return tuple(values) if all(values) else None
 def process_image(image_path):
     try:
         # --- Load full image and resize ---
