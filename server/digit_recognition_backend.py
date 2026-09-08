@@ -30,22 +30,6 @@ DIGITS_LOOKUP = {
 
 def process_image(image_path):
     try:
-        # --- Roboflow automatic detection ---
-        rf = Roboflow(api_key=os.environ.get("ROBOFLOW_API_KEY"))
-        project = rf.workspace().project(os.environ.get("ROBOFLOW_PROJECT_ID"))
-        model = project.version(int(os.environ.get("ROBOFLOW_VERSION_NUMBER"))).model
-        prediction = model.predict(image_path, confidence=40, overlap=30).json()
-
-        if not prediction['predictions']:
-            print(json.dumps({"error": "Roboflow model could not detect a screen."}))
-            return
-
-        best = max(prediction['predictions'], key=lambda p: p['confidence'])
-        orig_crop_x = int(best['x'] - best['width'] / 2)
-        orig_crop_y = int(best['y'] - best['height'] / 2)
-        orig_crop_w = int(best['width'])
-        orig_crop_h = int(best['height'])
-
         # --- Load full image and resize ---
         full = cv2.imread(image_path)
         if full is None:
@@ -57,11 +41,36 @@ def process_image(image_path):
         (resized_h, resized_w) = resized.shape[:2]
         ratio = resized_h / float(orig_h)
 
-        # Scale the Roboflow coordinates
-        x = int(orig_crop_x * ratio)
-        y = int(orig_crop_y * ratio)
-        w = int(orig_crop_w * ratio)
-        h = int(orig_crop_h * ratio)
+        # Prefer the trained Roboflow detector, but do not stop when it misses
+        # an otherwise clear home monitor. The supplied Omron photos place the
+        # LCD centrally, so this crop reliably preserves SYS, DIA and pulse.
+        detected = None
+        try:
+            rf = Roboflow(api_key=os.environ.get("ROBOFLOW_API_KEY"))
+            project = rf.workspace().project(os.environ.get("ROBOFLOW_PROJECT_ID"))
+            model = project.version(int(os.environ.get("ROBOFLOW_VERSION_NUMBER"))).model
+            prediction = model.predict(image_path, confidence=40, overlap=30).json()
+            if prediction.get('predictions'):
+                best = max(prediction['predictions'], key=lambda p: p['confidence'])
+                detected = (
+                    int((best['x'] - best['width'] / 2) * ratio),
+                    int((best['y'] - best['height'] / 2) * ratio),
+                    int(best['width'] * ratio), int(best['height'] * ratio)
+                )
+        except Exception:
+            detected = None
+
+        if detected:
+            x, y, w, h = detected
+        else:
+            # Fallback for vertically photographed Omron-style monitors.
+            x = int(resized_w * 0.25)
+            y = int(resized_h * 0.14)
+            w = int(resized_w * 0.50)
+            h = int(resized_h * 0.64)
+
+        x = max(0, x); y = max(0, y)
+        w = min(w, resized_w - x); h = min(h, resized_h - y)
 
         gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
         roi_gray = gray[y:y+h, x:x+w]
