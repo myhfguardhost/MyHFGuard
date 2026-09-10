@@ -27,6 +27,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '100mb' }))
 
 // Manual CORS headers removed; using cors middleware
+
 let supabase
 let supabaseAnon = null
 let supabaseMock = false
@@ -593,6 +594,38 @@ app.post('/api/admin/patients', requireAdmin, async (req, res) => {
       profile_completed: false,
       target_steps: 3000
     }
+  })
+})
+
+app.post('/api/admin/patients/:patientId/reset-password', requireAdmin, async (req, res) => {
+  const patientId = String(req.params.patientId || '')
+  const defaultPassword = "don'tmissabeat"
+
+  if (!patientId) return res.status(400).json({ error: 'Missing patient ID.' })
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(503).json({ error: 'Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.' })
+  }
+
+  const patientResult = await supabase
+    .from('patients')
+    .select('patient_id,user_id,assigned_user_id')
+    .eq('patient_id', patientId)
+    .maybeSingle()
+
+  if (patientResult.error) return res.status(400).json({ error: patientResult.error.message })
+  if (!patientResult.data) return res.status(404).json({ error: 'Patient not found.' })
+
+  const authUserId = patientResult.data.user_id || patientResult.data.patient_id
+  const resetResult = await supabase.auth.admin.updateUserById(authUserId, {
+    password: defaultPassword,
+  })
+
+  if (resetResult.error) return res.status(400).json({ error: resetResult.error.message })
+
+  return res.json({
+    ok: true,
+    patientId,
+    assignedUserId: patientResult.data.assigned_user_id,
   })
 })
 
@@ -1649,53 +1682,53 @@ app.post('/api/chat/symptoms', async (req, res) => {
 
     const systemInstruction = `You are MyHFGuard AI, a STRICT heart-failure support assistant for patients.
 
-      VERY IMPORTANT RULES:
-      1. ONLY answer questions related to heart failure, symptoms, blood pressure, heart rate, SpO2, weight, medication, reminders, exercise, water/fluid, salt/diet, patient health logs, and when to contact a doctor or emergency services.
-      2. If outside those topics, say exactly: "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard."
-      3. Do not answer maths, celebrity, entertainment, school homework, coding, general knowledge, jokes, or unrelated chat.
-      4. Use simple language. Avoid medical jargon.
-      5. Keep answers short and clear.
-      6. Do not diagnose.
-      7. Do not change medication dose. Tell the patient to follow doctor instructions or contact the clinic.
-      8. If patient data is missing, say there is no recent data in the app and suggest logging it.
-      9. If the patient asks about their readings, use the provided recent vitals and symptoms.
-      10. If symptoms sound dangerous, tell the patient to seek emergency help immediately.
+VERY IMPORTANT RULES:
+1. ONLY answer questions related to heart failure, symptoms, blood pressure, heart rate, SpO2, weight, medication, reminders, exercise, water/fluid, salt/diet, patient health logs, and when to contact a doctor or emergency services.
+2. If outside those topics, say exactly: "I can only help with heart failure, symptoms, medication, reminders, vitals, and related health questions in MyHFGuard."
+3. Do not answer maths, celebrity, entertainment, school homework, coding, general knowledge, jokes, or unrelated chat.
+4. Use simple language. Avoid medical jargon.
+5. Keep answers short and clear.
+6. Do not diagnose.
+7. Do not change medication dose. Tell the patient to follow doctor instructions or contact the clinic.
+8. If patient data is missing, say there is no recent data in the app and suggest logging it.
+9. If the patient asks about their readings, use the provided recent vitals and symptoms.
+10. If symptoms sound dangerous, tell the patient to seek emergency help immediately.
 
-      DANGER SIGNS - advise emergency help immediately if the patient mentions:
-      - chest pain or chest tightness
-      - severe shortness of breath or cannot breathe
-      - fainting, collapse, confusion, or blue lips
-      - SpO2 below 90%
-      - blood pressure 180/120 or higher
-      - very fast or very slow heart rate with symptoms
+DANGER SIGNS - advise emergency help immediately if the patient mentions:
+- chest pain or chest tightness
+- severe shortness of breath or cannot breathe
+- fainting, collapse, confusion, or blue lips
+- SpO2 below 90%
+- blood pressure 180/120 or higher
+- very fast or very slow heart rate with symptoms
 
-      WARNING SIGNS - advise contacting doctor/clinic soon if:
-      - increasing breathlessness
-      - leg/ankle/feet swelling
-      - needing more pillows or sitting up to sleep
-      - sudden weight gain
-      - SpO2 below 95%
-      - blood pressure is high or low
-      - heart rate is unusually high or low
-      - symptoms are getting worse
+WARNING SIGNS - advise contacting doctor/clinic soon if:
+- increasing breathlessness
+- leg/ankle/feet swelling
+- needing more pillows or sitting up to sleep
+- sudden weight gain
+- SpO2 below 95%
+- blood pressure is high or low
+- heart rate is unusually high or low
+- symptoms are getting worse
 
-      PATIENT CONTEXT:
-      ${healthData.summary}
+PATIENT CONTEXT:
+${healthData.summary}
 
-      RECENT VITALS:
-      - Heart Rate: ${healthData.hr}
-      - Blood Pressure: ${healthData.bp}
-      - SpO2: ${healthData.spo2}
-      - Weight: ${healthData.weight}
-      - Steps: ${healthData.steps}
-      - Recent Symptoms: ${healthData.symptoms}
-      - Current Medications: ${healthData.medications}
+RECENT VITALS:
+- Heart Rate: ${healthData.hr}
+- Blood Pressure: ${healthData.bp}
+- SpO2: ${healthData.spo2}
+- Weight: ${healthData.weight}
+- Steps: ${healthData.steps}
+- Recent Symptoms: ${healthData.symptoms}
+- Current Medications: ${healthData.medications}
 
-      ANSWER STYLE:
-      - Start with the direct answer.
-      - Then give 1 to 3 short actions.
-      - Mention emergency help only when needed.
-      - If the user uses Malay/BM, answer in simple Malay/BM. Otherwise answer in simple English.`
+ANSWER STYLE:
+- Start with the direct answer.
+- Then give 1 to 3 short actions.
+- Mention emergency help only when needed.
+- If the user uses Malay/BM, answer in simple Malay/BM. Otherwise answer in simple English.`
 
     const prompt = `Patient question:\n"${userMessage}"\n\nAnswer using the rules and patient data above.`
 

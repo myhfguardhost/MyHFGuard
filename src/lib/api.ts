@@ -399,6 +399,38 @@ export async function createAdminPatientAccount(payload: {
   }
 }
 
+export async function resetAdminPatientPassword(
+  patientId: string
+) {
+  const res = await fetch(
+    `${serverUrl()}/api/admin/patients/` +
+      `${encodeURIComponent(patientId)}/reset-password`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(await adminAuthHeaders()),
+      },
+      body: JSON.stringify({}),
+    }
+  )
+
+  const body = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new Error(
+      body?.error ||
+        "Failed to reset patient password"
+    )
+  }
+
+  return body as {
+    ok: boolean
+    patientId: string
+    assignedUserId?: string | null
+  }
+}
+
 export async function backfillPatientUserIds() {
   let res: Response
 

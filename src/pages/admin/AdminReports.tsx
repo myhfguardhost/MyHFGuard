@@ -142,7 +142,8 @@ type EngagementActivity = {
   timeInferred?: boolean;
 };
 
-type EngagementRangeKey = "7D" | "1M" | "3M";
+type EngagementRangeKey = "7D" | "1M" | "3M" | "CUSTOM";
+type CustomEngagementRange = { startDate: string; endDate: string };
 
 const ENGAGEMENT_TYPES: EngagementActivity["type"][] = [
   "Blood Pressure",
@@ -176,7 +177,24 @@ function dateOrdinal(value: string) {
   return Math.floor(Date.UTC(year, month - 1, day) / 86400000);
 }
 
-function engagementRangeInfo(range: EngagementRangeKey) {
+function engagementRangeInfo(
+  range: EngagementRangeKey,
+  customRange?: CustomEngagementRange | null
+) {
+  if (range === "CUSTOM" && customRange?.startDate && customRange?.endDate) {
+    const totalDays = Math.max(
+      1,
+      dateOrdinal(customRange.endDate) - dateOrdinal(customRange.startDate) + 1
+    );
+    return {
+      range,
+      startDate: customRange.startDate,
+      endDate: customRange.endDate,
+      totalDays,
+      label: "Custom date range",
+    };
+  }
+
   const end = new Date();
   const endLocal = new Date(end.getFullYear(), end.getMonth(), end.getDate());
   let startLocal: Date;
@@ -194,7 +212,7 @@ function engagementRangeInfo(range: EngagementRangeKey) {
   const startDate = dateKey(startLocal);
   const endDate = dateKey(endLocal);
   const totalDays = Math.max(1, dateOrdinal(endDate) - dateOrdinal(startDate) + 1);
-  const label = range === "7D" ? "Latest 7 days" : range === "1M" ? "Latest 1 month" : "Latest 3 months";
+  const label = range === "7D" ? "Latest 7 days" : range === "1M" || range === "CUSTOM" ? "Latest 1 month" : "Latest 3 months";
 
   return { range, startDate, endDate, totalDays, label };
 }
@@ -425,6 +443,10 @@ export default function AdminReports() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [engagementDetails, setEngagementDetails] = useState<any | null>(null);
   const [engagementRange, setEngagementRange] = useState<EngagementRangeKey>("1M");
+  const defaultCustomRange = engagementRangeInfo("1M");
+  const [customStartDate, setCustomStartDate] = useState(defaultCustomRange.startDate);
+  const [customEndDate, setCustomEndDate] = useState(defaultCustomRange.endDate);
+  const [appliedCustomRange, setAppliedCustomRange] = useState<CustomEngagementRange | null>(null);
 
   useEffect(() => {
     fetchReports();
@@ -436,7 +458,7 @@ export default function AdminReports() {
     return Number.isNaN(time) ? 0 : time;
   };
 
-  async function fetchReports() {
+  async function fetchReports(requestedRange?: CustomEngagementRange) {
     try {
       setLoading(true);
       setError("");
@@ -451,7 +473,7 @@ export default function AdminReports() {
       start.setDate(end.getDate() - 6);
       const startDate = dateKey(start);
       const endDate = dateKey(end);
-      const maxEngagementRange = engagementRangeInfo("3M");
+      const maxEngagementRange = requestedRange || engagementRangeInfo("3M");
       const engagementQueryStart = new Date(`${maxEngagementRange.startDate}T00:00:00`);
       engagementQueryStart.setDate(engagementQueryStart.getDate() - 1);
       const engagementQueryStartDate = dateKey(engagementQueryStart);
@@ -568,9 +590,38 @@ export default function AdminReports() {
   }
 
   const currentEngagementRange = useMemo(
-    () => engagementRangeInfo(engagementRange),
-    [engagementRange]
+    () => engagementRangeInfo(engagementRange, appliedCustomRange),
+    [engagementRange, appliedCustomRange]
   );
+
+  async function selectQuickRange(range: Exclude<EngagementRangeKey, "CUSTOM">) {
+    const needsDefaultData = engagementRange === "CUSTOM" && appliedCustomRange !== null;
+    setEngagementRange(range);
+    setEngagementDetails(null);
+    if (needsDefaultData) await fetchReports();
+  }
+
+  async function applyCustomRange() {
+    if (!customStartDate || !customEndDate) {
+      toast.error("Select both a start date and an end date.");
+      return;
+    }
+    if (dateOrdinal(customStartDate) > dateOrdinal(customEndDate)) {
+      toast.error("Start date cannot be after end date.");
+      return;
+    }
+    const today = dateKey(new Date());
+    if (dateOrdinal(customEndDate) > dateOrdinal(today)) {
+      toast.error("End date cannot be in the future.");
+      return;
+    }
+
+    const range = { startDate: customStartDate, endDate: customEndDate };
+    setAppliedCustomRange(range);
+    setEngagementRange("CUSTOM");
+    setEngagementDetails(null);
+    await fetchReports(range);
+  }
 
   function exportExcel() {
     const rows = summary.map((item) => {
@@ -591,7 +642,7 @@ export default function AdminReports() {
       return {
         "Patient ID": item.patientId,
         Name: getName(patient, item.patientId),
-        "Activity Period": engagementRange,
+        "Activity Period": currentEngagementRange.label,
         "App Activity Rate": `${engagement.percentage}%`,
         "Active Days": `${engagement.activeDays}/${currentEngagementRange.totalDays}`,
         "Complete Self-Check Rate": `${engagement.adherencePercentage}%`,
@@ -810,7 +861,13 @@ export default function AdminReports() {
             <AdminTopBar
               title="Reports"
               subtitle="Patient reports with app activity and complete self-check monitoring."
-              onRefresh={fetchReports}
+              onRefresh={() =>
+                fetchReports(
+                  engagementRange === "CUSTOM" && appliedCustomRange
+                    ? appliedCustomRange
+                    : undefined
+                )
+              }
               onMenuClick={() => setSidebarOpen((prev) => !prev)}
               showExport={false}
             />
@@ -870,14 +927,11 @@ export default function AdminReports() {
 
                         <div className="mt-3 flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1.5">
                           <span className="px-2 text-xs font-semibold text-slate-500">Quick Range:</span>
-                          {(["7D", "1M", "3M"] as EngagementRangeKey[]).map((range) => (
+                          {(["7D", "1M", "3M"] as const).map((range) => (
                             <button
                               key={range}
                               type="button"
-                              onClick={() => {
-                                setEngagementRange(range);
-                                setEngagementDetails(null);
-                              }}
+                              onClick={() => selectQuickRange(range)}
                               className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
                                 engagementRange === range
                                   ? "border-blue-300 bg-blue-50 text-blue-700"
@@ -887,7 +941,56 @@ export default function AdminReports() {
                               {range}
                             </button>
                           ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEngagementRange("CUSTOM");
+                              setAppliedCustomRange(null);
+                              setEngagementDetails(null);
+                            }}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+                              engagementRange === "CUSTOM"
+                                ? "border-blue-300 bg-blue-50 text-blue-700"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                            }`}
+                          >
+                            Custom
+                          </button>
                         </div>
+
+                        {engagementRange === "CUSTOM" && (
+                          <div className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+                              Start Date
+                              <input
+                                type="date"
+                                value={customStartDate}
+                                max={customEndDate || dateKey(new Date())}
+                                onChange={(event) => setCustomStartDate(event.target.value)}
+                                className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800"
+                              />
+                            </label>
+                            <label className="flex flex-col gap-1 text-xs font-semibold text-slate-600">
+                              End Date
+                              <input
+                                type="date"
+                                value={customEndDate}
+                                min={customStartDate || undefined}
+                                max={dateKey(new Date())}
+                                onChange={(event) => setCustomEndDate(event.target.value)}
+                                className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-800"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={applyCustomRange}
+                              disabled={loading}
+                              className="h-9 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              Apply
+                            </button>
+                          </div>
+                        )}
 
                         <p className="mt-2 text-xs text-slate-400">
                           {formatActivityDate(engagementAnalytics.startDate)} - {formatActivityDate(engagementAnalytics.endDate)}
@@ -927,7 +1030,7 @@ export default function AdminReports() {
                       <EngagementMetricCard
                         label="No Activity Patients"
                         value={engagementAnalytics.noActivity}
-                        detail={`0 active days in ${engagementRange}`}
+                        detail="0 active days in selected period"
                         tone="amber"
                       />
                     </div>

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { generatePatientPdf } from "@/lib/pdf";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { AdminPatientFullData, getAdminPatientFullData, PatientProfile } from "@/lib/api";
+import { AdminPatientFullData, getAdminPatientFullData, PatientProfile, resetAdminPatientPassword } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +16,7 @@ import {
   ArrowLeft,
   Calendar as CalendarIcon,
   Download,
+  KeyRound,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -287,6 +288,7 @@ export default function PatientDetail() {
 
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const pdfRef = useRef<HTMLDivElement>(null);
 
@@ -433,6 +435,25 @@ export default function PatientDetail() {
     }
   };
 
+  const resetPatientPassword = async () => {
+    if (!profile || resettingPassword) return;
+    const userId = profile.assigned_user_id || profile.patient_id;
+    const confirmed = window.confirm(
+      `Reset the password for ${userId} to don'tmissabeat? The patient's current password will stop working.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setResettingPassword(true);
+      await resetAdminPatientPassword(profile.patient_id);
+      toast.success(`Password for ${userId} was reset to don'tmissabeat.`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to reset patient password.");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const patientName = profile
     ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
       fullData?.profile?.full_name ||
@@ -507,6 +528,20 @@ export default function PatientDetail() {
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={resetPatientPassword}
+                      disabled={resettingPassword}
+                      className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                    >
+                      {resettingPassword ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <KeyRound className="mr-2 h-4 w-4" />
+                      )}
+                      Reset Password
+                    </Button>
+
                     <Button
                       variant="outline"
                       onClick={refreshPatient}
