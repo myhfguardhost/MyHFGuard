@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createAdminPatientAccount, deletePatientPermanently, getPatients, PatientProfile } from "@/lib/api";
 import {
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Lock, LockOpen, Plus, Trash2, User } from "lucide-react";
+import { Loader2, Lock, LockOpen, Plus, Search, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -35,8 +35,29 @@ export default function PatientList() {
   const [creating, setCreating] = useState(false);
   const [unlockedPatients, setUnlockedPatients] = useState<Set<string>>(new Set());
   const [deletingPatientId, setDeletingPatientId] = useState<string | null>(null);
+  const [userIdSearch, setUserIdSearch] = useState("");
+  const [userIdSort, setUserIdSort] = useState<"latest" | "asc" | "desc">("latest");
 
   const navigate = useNavigate();
+
+  const visiblePatients = useMemo(() => {
+    const query = userIdSearch.trim().toLowerCase();
+    const filtered = patients.filter((patient: any) =>
+      String(patient.assigned_user_id || "").toLowerCase().includes(query)
+    );
+
+    if (userIdSort === "latest") return filtered;
+
+    return [...filtered].sort((a: any, b: any) => {
+      const first = String(a.assigned_user_id || "");
+      const second = String(b.assigned_user_id || "");
+      const comparison = first.localeCompare(second, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
+      return userIdSort === "asc" ? comparison : -comparison;
+    });
+  }, [patients, userIdSearch, userIdSort]);
 
   useEffect(() => {
     fetchPatients();
@@ -156,13 +177,17 @@ export default function PatientList() {
                         Registered Patients
                       </CardTitle>
                       <p className="mt-1 text-sm text-slate-500">
-                        Latest registered patients are shown first.
+                        {userIdSort === "latest"
+                          ? "Latest registered patients are shown first."
+                          : "Patients are sorted by User ID."}
                       </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="w-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                        {patients.length} patients
+                        {userIdSearch.trim()
+                          ? `${visiblePatients.length} of ${patients.length} patients`
+                          : `${patients.length} patients`}
                       </div>
 
                       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
@@ -215,6 +240,32 @@ export default function PatientList() {
                       </Dialog>
                     </div>
                   </div>
+
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={userIdSearch}
+                        onChange={(event) => setUserIdSearch(event.target.value)}
+                        placeholder="Search User ID"
+                        aria-label="Search patients by User ID"
+                        className="border-slate-300 bg-white pl-9 text-slate-900"
+                      />
+                    </div>
+
+                    <select
+                      value={userIdSort}
+                      onChange={(event) =>
+                        setUserIdSort(event.target.value as "latest" | "asc" | "desc")
+                      }
+                      aria-label="Sort patients by User ID"
+                      className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    >
+                      <option value="latest">Latest joined</option>
+                      <option value="asc">User ID: A–Z</option>
+                      <option value="desc">User ID: Z–A</option>
+                    </select>
+                  </div>
                 </CardHeader>
 
                 <CardContent className="p-0">
@@ -231,17 +282,19 @@ export default function PatientList() {
                       </TableHeader>
 
                       <TableBody>
-                        {patients.length === 0 ? (
+                        {visiblePatients.length === 0 ? (
                           <TableRow>
                             <TableCell
                               colSpan={5}
                               className="py-10 text-center text-slate-500"
                             >
-                              No patients found.
+                              {userIdSearch.trim()
+                                ? "No matching User ID found."
+                                : "No patients found."}
                             </TableCell>
                           </TableRow>
                         ) : (
-                          patients.map((patient: any) => {
+                          visiblePatients.map((patient: any) => {
                             const patientName =
                               patient.full_name ||
                               patient.profile_name ||
