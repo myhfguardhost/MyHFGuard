@@ -262,8 +262,8 @@ export default function PatientList() {
                       className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                     >
                       <option value="latest">Latest joined</option>
-                      <option value="asc">User ID: A–Z</option>
-                      <option value="desc">User ID: Z–A</option>
+                      <option value="asc">Ascending</option>
+                      <option value="desc">Descending</option>
                     </select>
                   </div>
                 </CardHeader>
