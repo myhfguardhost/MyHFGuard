@@ -159,7 +159,7 @@ const Register = () => {
                 Create account
               </CardTitle>
               <CardDescription className="text-center text-base text-slate-600 dark:text-slate-300">
-                Enter your details to register with HFGuard
+                Enter your details to register with MyHFGuard
               </CardDescription>
             </CardHeader>
 

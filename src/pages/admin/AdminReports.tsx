@@ -997,15 +997,15 @@ export default function AdminReports() {
                         </p>
                         <div className="mt-3 grid w-full gap-3 md:grid-cols-2">
                           <div className="min-h-[96px] rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900">
-                            <p className="font-bold">App Activity — did the patient record anything?</p>
-                            <p className="mt-1">Counts a day when there is at least one manual Blood Pressure, Weight, Symptoms, or Water &amp; Diet record.</p>
+                            <p className="font-bold">App Activity — Did the patient record anything?</p>
+                            <p className="mt-1">Counts a day when there is at least one manual Blood Pressure, Weight, Symptoms or Water &amp; Diet record.</p>
                           </div>
                           <div className="min-h-[96px] rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
-                            <p className="font-bold">Complete Self-Check — did the patient finish all required checks?</p>
+                            <p className="font-bold">Complete Self-Check — Did the patient finish all required checks?</p>
                             <p className="mt-1">Counts a day only when Blood Pressure + Weight + Symptoms were all recorded on the same day.</p>
                           </div>
                         </div>
-                        <p className="mt-2 text-xs text-slate-500">Entries = total manual records. Passive steps, heart rate, and SpO₂ are not included.</p>
+                        <p className="mt-2 text-xs text-slate-500">Entries = total manual records. Passive steps, heart rate and SpO₂ are not included.</p>
                       </div>
                     </div>
 

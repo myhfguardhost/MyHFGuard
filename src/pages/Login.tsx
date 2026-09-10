@@ -129,7 +129,7 @@ const Login = () => {
           <div className="relative z-10">
             <div className="mb-6 inline-flex items-center gap-3 rounded-2xl bg-white/15 px-4 py-3 backdrop-blur-md border border-white/20">
               <HeartPulse className="w-7 h-7" />
-              <span className="text-xl font-semibold">HFGuard</span>
+              <span className="text-xl font-semibold">MyHFGuard</span>
             </div>
 
             <h2 className="text-4xl font-bold leading-tight mb-4">
