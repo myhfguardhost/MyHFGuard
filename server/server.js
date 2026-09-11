@@ -1818,7 +1818,7 @@ async function fetchPatientHealthData(patientId) {
     const dateStr = sevenDaysAgo.toISOString().split('T')[0]
 
     // Fetch recent vitals
-    const [hrData, bpData, spo2Data, weightData, stepsData, symptomsData, medicationsData] = await Promise.all([
+    const [hrData, bpData, spo2Data, weightData, stepsData, symptomsData, medicationsData, profileMedicationData] = await Promise.all([
       // Heart Rate - last 7 days
       supabase
         .from('hr_day')
@@ -1878,7 +1878,14 @@ async function fetchPatientHealthData(patientId) {
         .from('medication')
         .select('name, class')
         .eq('patient_id', patientId)
-        .eq('active', true)
+        .eq('active', true),
+
+      // This is the same medication list displayed on the patient My Chat page.
+      supabase
+        .from('profiles')
+        .select('current_medication')
+        .eq('user_id', patientId)
+        .maybeSingle()
     ])
 
     // Format the data
@@ -1928,9 +1935,15 @@ async function fetchPatientHealthData(patientId) {
       return symptoms.length > 0 ? symptoms.join(', ') : 'No significant symptoms'
     }
 
-    const formatMedications = (data) => {
+    const formatMedications = (data, profile) => {
+      const profileMedication = String(profile?.current_medication || '').trim()
+
+      if (profileMedication) return profileMedication
       if (!data || data.length === 0) return 'No active medications'
-      return data.map(m => `${m.name} (${m.class})`).join('; ')
+
+      return data
+        .map((m) => (m.class ? `${m.name} (${m.class})` : m.name))
+        .join('; ')
     }
 
     return {
@@ -1941,7 +1954,10 @@ async function fetchPatientHealthData(patientId) {
       weight: formatWeight(weightData.data),
       steps: formatSteps(stepsData.data),
       symptoms: formatSymptoms(symptomsData.data),
-      medications: formatMedications(medicationsData.data)
+      medications: formatMedications(
+        medicationsData.data,
+        profileMedicationData.data
+      )
     }
 
   } catch (error) {
