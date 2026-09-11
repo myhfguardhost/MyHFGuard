@@ -84,12 +84,23 @@ export default function SymptomChecker() {
       const effectivePatientId = patientData?.patient_id || userId
 
 
-      const [{ data: latestWeight }, { data: latestBp }] = await Promise.all([
+      const [
+        { data: latestWeight },
+        { data: latestWeightSample },
+        { data: latestBp },
+      ] = await Promise.all([
         supabase
           .from("weight_day")
           .select("date, kg_avg, kg_min, kg_max")
           .eq("patient_id", effectivePatientId)
           .order("date", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("weight_sample")
+          .select("time_ts, kg")
+          .eq("patient_id", effectivePatientId)
+          .order("time_ts", { ascending: false })
           .limit(1)
           .maybeSingle(),
         supabase
@@ -104,8 +115,21 @@ export default function SymptomChecker() {
 
 
       const dryWeight = Number(profileData?.dry_weight)
+      const latestSampleTimestamp = Date.parse(latestWeightSample?.time_ts || "")
+      const latestSampleDate = Number.isFinite(latestSampleTimestamp)
+        ? new Date(latestSampleTimestamp + 480 * 60 * 1000)
+            .toISOString()
+            .slice(0, 10)
+        : null
+      const useLatestSample = Boolean(
+        latestWeightSample &&
+          latestSampleDate &&
+          (!latestWeight?.date || latestSampleDate >= latestWeight.date)
+      )
       const latestWeightValue = Number(
-        latestWeight?.kg_avg ?? latestWeight?.kg_max ?? latestWeight?.kg_min
+        useLatestSample
+          ? latestWeightSample?.kg
+          : latestWeight?.kg_avg ?? latestWeight?.kg_max ?? latestWeight?.kg_min
       )
 
 
@@ -116,7 +140,9 @@ export default function SymptomChecker() {
           dry_weight: Number.isFinite(dryWeight) ? dryWeight : null,
           current_medication: profileData.current_medication,
           latest_weight: Number.isFinite(latestWeightValue) ? latestWeightValue : null,
-          latest_weight_date: latestWeight?.date ?? null,
+          latest_weight_date: useLatestSample
+            ? latestWeightSample?.time_ts ?? null
+            : latestWeight?.date ?? null,
           weight_change:
             Number.isFinite(latestWeightValue) && Number.isFinite(dryWeight)
               ? latestWeightValue - dryWeight

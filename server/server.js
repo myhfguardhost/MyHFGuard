@@ -1818,7 +1818,7 @@ async function fetchPatientHealthData(patientId) {
     const dateStr = sevenDaysAgo.toISOString().split('T')[0]
 
     // Fetch recent vitals
-    const [hrData, bpData, spo2Data, weightData, stepsData, symptomsData, medicationsData, profileMedicationData] = await Promise.all([
+    const [hrData, bpData, spo2Data, weightData, weightSampleData, stepsData, symptomsData, medicationsData, profileMedicationData] = await Promise.all([
       // Heart Rate - last 7 days
       supabase
         .from('hr_day')
@@ -1854,6 +1854,15 @@ async function fetchPatientHealthData(patientId) {
         .gte('date', dateStr)
         .order('date', { ascending: false })
         .limit(7),
+
+      // Raw mobile weight readings, used when newer than weight_day.
+      supabase
+        .from('weight_sample')
+        .select('time_ts, kg')
+        .eq('patient_id', patientId)
+        .gte('time_ts', new Date(`${dateStr}T00:00:00+08:00`).toISOString())
+        .order('time_ts', { ascending: false })
+        .limit(20),
 
       // Steps - last 7 days
       supabase
@@ -1907,12 +1916,35 @@ async function fetchPatientHealthData(patientId) {
       return `Latest: ${latest.spo2_avg}% (range: ${latest.spo2_min}-${latest.spo2_max}%), ${data.length} days recorded`
     }
 
-    const formatWeight = (data) => {
-      if (!data || data.length === 0) return 'No recent data'
-      const latest = data[0]
-      const oldest = data[data.length - 1]
-      const change = latest.kg_avg - oldest.kg_avg
-      return `Latest: ${latest.kg_avg} kg, Change over week: ${change > 0 ? '+' : ''}${change.toFixed(1)} kg`
+    const formatWeight = (dayData, sampleData) => {
+      const valuesByDate = new Map()
+
+      for (const row of dayData || []) {
+        const value = Number(row.kg_avg ?? row.kg_max ?? row.kg_min)
+        if (row.date && Number.isFinite(value)) valuesByDate.set(row.date, value)
+      }
+
+      const sampleDates = new Set()
+      for (const row of sampleData || []) {
+        const value = Number(row.kg)
+        const date = row.time_ts ? toDateWithOffset(row.time_ts, 480) : null
+        if (!date || !Number.isFinite(value) || sampleDates.has(date)) continue
+
+        // Samples are newest first. Prefer the newest raw mobile reading for a day.
+        valuesByDate.set(date, value)
+        sampleDates.add(date)
+      }
+
+      const entries = [...valuesByDate.entries()].sort(([dateA], [dateB]) =>
+        dateB.localeCompare(dateA)
+      )
+      if (entries.length === 0) return 'No recent data'
+
+      const latestWeight = entries[0][1]
+      const oldestWeight = entries[entries.length - 1][1]
+      const change = latestWeight - oldestWeight
+
+      return `Latest: ${latestWeight} kg, Change over week: ${change > 0 ? '+' : ''}${change.toFixed(1)} kg`
     }
 
     const formatSteps = (data) => {
@@ -1951,7 +1983,7 @@ async function fetchPatientHealthData(patientId) {
       hr: formatHR(hrData.data),
       bp: formatBP(bpData.data),
       spo2: formatSpO2(spo2Data.data),
-      weight: formatWeight(weightData.data),
+      weight: formatWeight(weightData.data, weightSampleData.data),
       steps: formatSteps(stepsData.data),
       symptoms: formatSymptoms(symptomsData.data),
       medications: formatMedications(
