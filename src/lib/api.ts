@@ -428,6 +428,37 @@ export async function resetAdminPatientPassword(
     ok: boolean
     patientId: string
     assignedUserId?: string | null
+    passwordHelpResolved?: boolean
+  }
+}
+
+export type PasswordHelpRequest = {
+  id: string
+  patient_id: string
+  assigned_user_id: string
+  status: "pending" | "resolved"
+  created_at: string
+}
+
+export async function getAdminPasswordHelpRequests() {
+  const res = await fetch(
+    `${serverUrl()}/api/admin/password-help`,
+    {
+      headers: await adminAuthHeaders(),
+    }
+  )
+
+  const body = await res.json().catch(() => ({}))
+
+  if (!res.ok) {
+    throw new Error(
+      body?.error ||
+        "Failed to load password-help requests"
+    )
+  }
+
+  return body as {
+    requests: PasswordHelpRequest[]
   }
 }
 

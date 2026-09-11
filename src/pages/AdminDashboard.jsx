@@ -16,6 +16,7 @@ import AdminRecentAlerts from "@/components/admin/AdminRecentAlerts";
 import AdminSummaryPanels from "@/components/admin/AdminSummaryPanels";
 import AdminActivityFeed from "@/components/admin/AdminActivityFeed";
 import AdminKeyMetricsPanel from "@/components/admin/AdminKeyMetricsPanel";
+import PasswordHelpRequests from "@/components/admin/PasswordHelpRequests";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -501,6 +502,8 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <>
+                  <PasswordHelpRequests />
+
                   <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
                     <AdminRecentAlerts
                       alertsToShow={alertsToShow}

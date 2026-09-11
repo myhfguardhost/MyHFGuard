@@ -622,11 +622,72 @@ app.post('/api/admin/patients/:patientId/reset-password', requireAdmin, async (r
 
   if (resetResult.error) return res.status(400).json({ error: resetResult.error.message })
 
+  const helpResult = await supabase
+    .from('password_help_requests')
+    .update({ status: 'resolved' })
+    .eq('patient_id', patientId)
+    .eq('status', 'pending')
+
+  if (helpResult.error) {
+    console.error('[admin/reset-password] password-help update failed:', helpResult.error.message)
+  }
+
   return res.json({
     ok: true,
     patientId,
     assignedUserId: patientResult.data.assigned_user_id,
+    passwordHelpResolved: !helpResult.error,
   })
+})
+
+app.post('/api/patient/password-help', async (req, res) => {
+  const assignedUserId = normalizeAssignedUserId(req.body && req.body.userId)
+  if (!isValidAssignedUserId(assignedUserId)) {
+    return res.status(400).json({ error: 'A valid User ID is required.' })
+  }
+
+  const patientResult = await supabase
+    .from('patients')
+    .select('patient_id,assigned_user_id')
+    .ilike('assigned_user_id', assignedUserId)
+    .maybeSingle()
+
+  if (patientResult.error) return res.status(400).json({ error: patientResult.error.message })
+  if (!patientResult.data) return res.status(404).json({ error: 'Patient User ID was not found.' })
+
+  const existingResult = await supabase
+    .from('password_help_requests')
+    .select('id,patient_id,assigned_user_id,status,created_at')
+    .eq('patient_id', patientResult.data.patient_id)
+    .eq('status', 'pending')
+    .maybeSingle()
+
+  if (existingResult.error) return res.status(400).json({ error: existingResult.error.message })
+  if (existingResult.data) return res.json({ ok: true, request: existingResult.data })
+
+  const insertResult = await supabase
+    .from('password_help_requests')
+    .insert({
+      patient_id: patientResult.data.patient_id,
+      assigned_user_id: patientResult.data.assigned_user_id,
+      status: 'pending',
+    })
+    .select('id,patient_id,assigned_user_id,status,created_at')
+    .single()
+
+  if (insertResult.error) return res.status(400).json({ error: insertResult.error.message })
+  return res.status(201).json({ ok: true, request: insertResult.data })
+})
+
+app.get('/api/admin/password-help', requireAdmin, async (req, res) => {
+  const result = await supabase
+    .from('password_help_requests')
+    .select('id,patient_id,assigned_user_id,status,created_at')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+
+  if (result.error) return res.status(400).json({ error: result.error.message })
+  return res.json({ requests: result.data || [] })
 })
 
 
