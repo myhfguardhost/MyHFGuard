@@ -2007,11 +2007,18 @@ app.get('/patient/daily-status', async (req, res) => {
     if (supabaseMock) {
       return res.json({ has_weight: false, has_bp: false, has_symptoms: false })
     }
-    const w = await supabase.from('weight_day').select('date').eq('patient_id', patientId).eq('date', date).maybeSingle()
-    const bp = await supabase.from('bp_readings').select('reading_date').eq('patient_id', patientId).eq('reading_date', date).maybeSingle()
-    const s = await supabase.from('symptom_log').select('date').eq('patient_id', patientId).eq('date', date).maybeSingle()
+    const sampleStart = new Date(`${date}T00:00:00+08:00`)
+    const sampleEnd = new Date(sampleStart)
+    sampleEnd.setUTCDate(sampleEnd.getUTCDate() + 1)
+
+    const [w, weightSamples, bp, s] = await Promise.all([
+      supabase.from('weight_day').select('date').eq('patient_id', patientId).eq('date', date).maybeSingle(),
+      supabase.from('weight_sample').select('time_ts').eq('patient_id', patientId).gte('time_ts', sampleStart.toISOString()).lt('time_ts', sampleEnd.toISOString()).limit(1),
+      supabase.from('bp_readings').select('reading_date').eq('patient_id', patientId).eq('reading_date', date).maybeSingle(),
+      supabase.from('symptom_log').select('date').eq('patient_id', patientId).eq('date', date).maybeSingle(),
+    ])
     return res.json({
-      has_weight: !!(w && w.data),
+      has_weight: !!(w && w.data) || (weightSamples.data || []).length > 0,
       has_bp: !!(bp && bp.data),
       has_symptoms: !!(s && s.data)
     })
@@ -2050,8 +2057,13 @@ app.get('/patient/weekly-status', async (req, res) => {
       return res.json(map)
     }
 
-    const [w, bp, symptoms] = await Promise.all([
+    const sampleStart = new Date(`${startStr}T00:00:00+08:00`)
+    const sampleEnd = new Date(`${endStr}T00:00:00+08:00`)
+    sampleEnd.setUTCDate(sampleEnd.getUTCDate() + 1)
+
+    const [w, weightSamples, bp, symptoms] = await Promise.all([
       supabase.from('weight_day').select('date').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr),
+      supabase.from('weight_sample').select('time_ts').eq('patient_id', patientId).gte('time_ts', sampleStart.toISOString()).lt('time_ts', sampleEnd.toISOString()),
       supabase.from('bp_readings').select('reading_date').eq('patient_id', patientId).gte('reading_date', startStr).lte('reading_date', endStr),
       supabase.from('symptom_log').select('date').eq('patient_id', patientId).gte('date', startStr).lte('date', endStr),
     ])
@@ -2074,6 +2086,11 @@ app.get('/patient/weekly-status', async (req, res) => {
 
     ;(w.data || []).forEach((x) => {
       if (map[x.date]) map[x.date].has_weight = true
+    })
+
+    ;(weightSamples.data || []).forEach((x) => {
+      const key = toDateWithOffset(x.time_ts, 480)
+      if (map[key]) map[key].has_weight = true
     })
 
     ;(bp.data || []).forEach((x) => {

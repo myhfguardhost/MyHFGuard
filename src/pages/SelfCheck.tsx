@@ -318,13 +318,26 @@ const SelfCheck = () => {
     const trendMap = new Map(days.map((d) => [d.date, d]))
 
     try {
-      const { data: weightRows } = await supabase
-        .from("weight_day")
-        .select("date, kg_avg, kg_min, kg_max")
-        .eq("patient_id", patientId)
-        .gte("date", startStr)
-        .lte("date", endStr)
-        .order("date", { ascending: true })
+      const sampleStart = new Date(`${startStr}T00:00:00+08:00`).toISOString()
+      const sampleEnd = new Date(`${endStr}T00:00:00+08:00`)
+      sampleEnd.setUTCDate(sampleEnd.getUTCDate() + 1)
+
+      const [{ data: weightRows }, { data: weightSamples }] = await Promise.all([
+        supabase
+          .from("weight_day")
+          .select("date, kg_avg, kg_min, kg_max")
+          .eq("patient_id", patientId)
+          .gte("date", startStr)
+          .lte("date", endStr)
+          .order("date", { ascending: true }),
+        supabase
+          .from("weight_sample")
+          .select("time_ts, kg")
+          .eq("patient_id", patientId)
+          .gte("time_ts", sampleStart)
+          .lt("time_ts", sampleEnd.toISOString())
+          .order("time_ts", { ascending: true }),
+      ])
 
       weightRows?.forEach((item: any) => {
         const row = trendMap.get(item.date)
@@ -332,6 +345,29 @@ const SelfCheck = () => {
 
         if (row && !Number.isNaN(weightValue)) {
           row.weight = weightValue
+        }
+      })
+
+      const sampleTotals = new Map<string, { total: number; count: number }>()
+
+      weightSamples?.forEach((item: any) => {
+        const timestamp = Date.parse(item.time_ts)
+        const weightValue = Number(item.kg)
+        if (!Number.isFinite(timestamp) || !Number.isFinite(weightValue)) return
+
+        const date = new Date(timestamp + 480 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10)
+        const current = sampleTotals.get(date) || { total: 0, count: 0 }
+        current.total += weightValue
+        current.count += 1
+        sampleTotals.set(date, current)
+      })
+
+      sampleTotals.forEach((value, date) => {
+        const row = trendMap.get(date)
+        if (row && row.weight === undefined && value.count > 0) {
+          row.weight = Number((value.total / value.count).toFixed(1))
         }
       })
 
