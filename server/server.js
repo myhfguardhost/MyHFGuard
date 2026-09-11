@@ -1718,6 +1718,8 @@ app.post('/api/chat/symptoms', async (req, res) => {
       'activity', 'senaman', 'berjalan', 'langkah',
       'medication', 'medicine', 'drug', 'pill', 'tablet', 'capsule', 'ubat',
       'dose', 'dosage', 'side effect', 'makan ubat',
+      'tonight', 'night', 'malam', 'noon', 'tengah hari', '10pm', '10 pm',
+      '12pm', '12 pm', 'same time',
       'reminder', 'appointment', 'doctor', 'clinic', 'hospital',
       'peringatan', 'janji temu', 'doktor', 'klinik',
       'reading', 'readings', 'vitals', 'result', 'results', 'summary', 'trend',
@@ -1754,6 +1756,8 @@ VERY IMPORTANT RULES:
 8. If patient data is missing, say there is no recent data in the app and suggest logging it.
 9. If the patient asks about their readings, use the provided recent vitals and symptoms.
 10. If symptoms sound dangerous, tell the patient to seek emergency help immediately.
+11. For medication reminders, treat 12pm, noon, and tengah hari as 12:00 PM.
+12. Treat 10pm, night, malam, and tonight as the 10:00 PM reminder group. When asked about tonight's medicine, list only medicines scheduled for 10:00 PM.
 
 DANGER SIGNS - advise emergency help immediately if the patient mentions:
 - chest pain or chest tightness
@@ -1967,10 +1971,37 @@ async function fetchPatientHealthData(patientId) {
       return symptoms.length > 0 ? symptoms.join(', ') : 'No significant symptoms'
     }
 
+    const normalizeProfileMedications = (raw) => {
+      return String(raw || '')
+        .split(/\n|;|,/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => {
+          const schedule = String(item.match(/\((.*?)\)/)?.[1] || '').toLowerCase()
+          const name = item.replace(/\(.*?\)/g, '').trim()
+
+          const isNoon =
+            schedule.includes('noon') ||
+            schedule.includes('12pm') ||
+            schedule.includes('12 pm') ||
+            schedule.includes('tengah hari')
+          const isNight =
+            schedule.includes('night') ||
+            schedule.includes('malam') ||
+            schedule.includes('10pm') ||
+            schedule.includes('10 pm')
+
+          if (isNoon) return `${name} (12:00 PM)`
+          if (isNight) return `${name} (10:00 PM)`
+          return item
+        })
+        .join('; ')
+    }
+
     const formatMedications = (data, profile) => {
       const profileMedication = String(profile?.current_medication || '').trim()
 
-      if (profileMedication) return profileMedication
+      if (profileMedication) return normalizeProfileMedications(profileMedication)
       if (!data || data.length === 0) return 'No active medications'
 
       return data
