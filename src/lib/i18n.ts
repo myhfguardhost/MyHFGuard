@@ -276,11 +276,12 @@ const resources = {
 
           videoSectionTitle: "Earn Coins by Watching Education Videos",
           videoSectionDescription:
-            "Watch a video for at least {{seconds}} seconds to claim {{coins}} coins. Each video can only be claimed once.",
+            "Finish a video to unlock and claim {{coins}} coins. You may pause and continue watching, and each video can only be claimed once.",
           reward: "Reward: {{coins}} coins",
           startWatching: "Start Watching for Coins",
           watchingProgress: "Watching progress",
           continueWatching: "Continue Watching",
+          finishVideoToUnlock: "Finish the video to unlock the reward",
           addingCoins: "Adding Coins...",
           claimCoins: "Claim {{coins}} Coins",
           coinsAlreadyClaimed: "Coins already claimed",
@@ -1027,11 +1028,12 @@ const resources = {
 
         videoSectionTitle: "Kumpul Syiling dengan Menonton Video Pendidikan",
         videoSectionDescription:
-          "Tonton video sekurang-kurangnya {{seconds}} saat untuk menuntut {{coins}} syiling. Setiap video hanya boleh dituntut sekali.",
+          "Habiskan video untuk membuka dan menuntut {{coins}} syiling. Anda boleh jeda dan sambung tontonan, dan setiap video hanya boleh dituntut sekali.",
         reward: "Ganjaran: {{coins}} syiling",
         startWatching: "Mula Menonton untuk Syiling",
         watchingProgress: "Kemajuan tontonan",
         continueWatching: "Teruskan Menonton",
+        finishVideoToUnlock: "Habiskan video untuk membuka ganjaran",
         addingCoins: "Sedang Menambah Syiling...",
         claimCoins: "Tuntut {{coins}} Syiling",
         coinsAlreadyClaimed: "Syiling telah dituntut",

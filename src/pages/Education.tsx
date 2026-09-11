@@ -1,465 +1,146 @@
 import { Card } from "@/components/ui/card"
 import {
-  Heart,
-  AlertCircle,
-  Activity,
-  Users,
   BookOpen,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
-  X,
   Coins,
-  CheckCircle,
   Lock,
   PlayCircle,
 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import {
-  rewardUserForVideo,
   hasVideoReward,
+  rewardUserForVideo,
   VIDEO_REWARD_COINS,
 } from "@/lib/coinService"
 
-
-type Submodule = {
-  titleKey: string
-  descriptionKey: string
-  contentKey: string
-  sourceUrl: string
-}
-
-
-type ModuleType = {
-  id: string
-  titleKey: string
-  descriptionKey: string
-  icon: React.ElementType
-  color: string
-  submodules: Submodule[]
-}
-
-
 type EducationVideo = {
   id: string
-  titleKey: string
-  descriptionKey: string
-  videoUrl: string
+  category: string
+  title: string
+  source: string
+  youtubeId: string
 }
 
+type EducationModule = {
+  id: string
+  title: string
+  categories: string[]
+}
 
 const educationVideos: EducationVideo[] = [
-  {
-    id: "heart-failure-basic",
-    titleKey: "education.videos.heartFailureBasic.title",
-    descriptionKey: "education.videos.heartFailureBasic.description",
-    videoUrl: "https://www.youtube.com/embed/9fxm85Fy4sQ",
-  },
-  {
-    id: "low-salt-diet",
-    titleKey: "education.videos.lowSaltDiet.title",
-    descriptionKey: "education.videos.lowSaltDiet.description",
-    videoUrl: "https://www.youtube.com/embed/3gD2aJgNnuk",
-  },
-  {
-    id: "fluid-management",
-    titleKey: "education.videos.fluidManagement.title",
-    descriptionKey: "education.videos.fluidManagement.description",
-    videoUrl: "https://www.youtube.com/embed/qJq5hA4pnOk",
-  },
+  { id: "J_sLTDGE70w", category: "Understanding Heart Failure", title: "What is heart failure?", source: "Heart Foundation (Australia)", youtubeId: "J_sLTDGE70w" },
+  { id: "FBD7M9GxGCQ", category: "Understanding Heart Failure", title: "How does heart failure make you feel?", source: "Heart Foundation (Australia)", youtubeId: "FBD7M9GxGCQ" },
+  { id: "1-BDMXOWMD8", category: "Understanding Heart Failure", title: "Ejection Fraction Measurement and Heart Failure", source: "American Heart Association", youtubeId: "1-BDMXOWMD8" },
+  { id: "8O4VExOSXcc", category: "Managing Heart Failure Medicines", title: "Medicines for heart failure", source: "Heart Foundation (Australia)", youtubeId: "8O4VExOSXcc" },
+  { id: "WOWLsHldqwM", category: "Managing Heart Failure Medicines", title: "How does aspirin work?", source: "British Heart Foundation", youtubeId: "WOWLsHldqwM" },
+  { id: "xIlaQuRaZmk", category: "Managing Heart Failure Medicines", title: "How do ACE inhibitors work?", source: "British Heart Foundation", youtubeId: "xIlaQuRaZmk" },
+  { id: "uiYJKvwVhEU", category: "Managing Heart Failure Medicines", title: "How do beta blockers work?", source: "British Heart Foundation", youtubeId: "uiYJKvwVhEU" },
+  { id: "qK3HFqk8ubk", category: "Managing Heart Failure Medicines", title: "The Cellular Actions of SGLT2 Inhibitors", source: "American College of Cardiology", youtubeId: "qK3HFqk8ubk" },
+  { id: "o6Oi_N5jotg", category: "Managing Heart Failure Medicines", title: "Statins, side effects and what they're used for", source: "British Heart Foundation", youtubeId: "o6Oi_N5jotg" },
+  { id: "52eMwhf8UfI", category: "Warning Signs", title: "Heart Failure Warning Signs and Symptoms", source: "American Heart Association", youtubeId: "52eMwhf8UfI" },
+  { id: "WPOAhPoLbfA", category: "Warning Signs", title: "What to do when you feel sick", source: "Heart Foundation (Australia)", youtubeId: "WPOAhPoLbfA" },
+  { id: "LU5k5zibE_g", category: "Introduction to Self-Care", title: "Things to do to make you feel better", source: "Heart Foundation (Australia)", youtubeId: "LU5k5zibE_g" },
+  { id: "uM8yQNZ0x10", category: "Managing Blood Pressure", title: "Why is too much salt bad for you?", source: "British Heart Foundation", youtubeId: "uM8yQNZ0x10" },
+  { id: "4YNdp3pRjig", category: "Managing Blood Pressure", title: "Understanding Blood Pressure", source: "British Heart Foundation", youtubeId: "4YNdp3pRjig" },
+  { id: "yVFzSmG6ZB0", category: "Managing Blood Pressure", title: "Keep your blood pressure down", source: "Heart Foundation (Australia)", youtubeId: "yVFzSmG6ZB0" },
+  { id: "wKCa9g0ob7k", category: "Managing Blood Pressure", title: "How to measure your blood pressure at home", source: "British Heart Foundation", youtubeId: "wKCa9g0ob7k" },
+  { id: "sUz-MxgnAxY", category: "Managing Blood Pressure", title: "Foods that lower blood pressure", source: "British Heart Foundation", youtubeId: "sUz-MxgnAxY" },
+  { id: "-64U9tUQA0A", category: "Managing Blood Pressure", title: "Food for people with heart failure", source: "Heart Foundation (Australia)", youtubeId: "-64U9tUQA0A" },
+  { id: "t1EnYhYDlJA", category: "Managing Blood Pressure", title: "Unpack The Salt", source: "Heart Foundation (Australia)", youtubeId: "t1EnYhYDlJA" },
+  { id: "xWmiRNfnJ4E", category: "Managing Diabetes", title: "The Heart–Kidney–Diabetes connection", source: "Heart Foundation (Australia)", youtubeId: "xWmiRNfnJ4E" },
+  { id: "oDOVXww7sSE", category: "Managing Diabetes", title: "Understanding Type 2 Diabetes", source: "British Heart Foundation", youtubeId: "oDOVXww7sSE" },
+  { id: "gbfAXCuoOSk", category: "Managing Diabetes", title: "Heart failure: Nutrition and diet considerations", source: "Ohio State Medical Center", youtubeId: "gbfAXCuoOSk" },
+  { id: "Gzz1J5FhHbU", category: "Managing Diabetes", title: "How to eat well with type 2 diabetes", source: "NHS North East London", youtubeId: "Gzz1J5FhHbU" },
+  { id: "hTX0iGAAwWY", category: "Managing Diabetes", title: "What are free sugars?", source: "British Heart Foundation", youtubeId: "hTX0iGAAwWY" },
+  { id: "Gb6pI2Grec4", category: "Managing High Cholesterol", title: "Cholesterol and heart disease", source: "Heart Foundation (Australia)", youtubeId: "Gb6pI2Grec4" },
+  { id: "UaolDzxn-vE", category: "Managing High Cholesterol", title: "What is cholesterol?", source: "Heart Foundation (Australia)", youtubeId: "UaolDzxn-vE" },
+  { id: "ZccHstNhKzU", category: "Managing High Cholesterol", title: "How to manage high cholesterol", source: "Heart Foundation (Australia)", youtubeId: "ZccHstNhKzU" },
+  { id: "yAuSs-4hXa4", category: "Managing High Cholesterol", title: "Are eggs good or bad for cholesterol?", source: "British Heart Foundation", youtubeId: "yAuSs-4hXa4" },
+  { id: "RnF3j-IvhQc", category: "Managing High Cholesterol", title: "Foods to reduce high cholesterol naturally", source: "British Heart Foundation", youtubeId: "RnF3j-IvhQc" },
+  { id: "HPk2vM6CInM", category: "Managing High Cholesterol", title: "What does fat do to your body?", source: "British Heart Foundation", youtubeId: "HPk2vM6CInM" },
+  { id: "PCgB2mCFVT0", category: "Managing High Cholesterol", title: "Healthy Cooking Oils", source: "American Heart Association", youtubeId: "PCgB2mCFVT0" },
+  { id: "o5aof7UI3yg", category: "Managing High Cholesterol", title: "Why is the Mediterranean diet good for your heart?", source: "British Heart Foundation", youtubeId: "o5aof7UI3yg" },
+  { id: "klZwKgXnzSI", category: "Physical Activity and Exercise", title: "Exercise for people with heart failure", source: "Heart Foundation (Australia)", youtubeId: "klZwKgXnzSI" },
+  { id: "wWGulLAa0O0", category: "Physical Activity and Exercise", title: "What happens inside your body when you exercise?", source: "British Heart Foundation", youtubeId: "wWGulLAa0O0" },
+  { id: "k60x24nN9CM", category: "Physical Activity and Exercise", title: "What is my target heart rate?", source: "British Heart Foundation", youtubeId: "k60x24nN9CM" },
+  { id: "-JsuNKbAAkU", category: "Physical Activity and Exercise", title: "Cardiac Rehab at Home - Level 1 Programme", source: "British Heart Foundation", youtubeId: "-JsuNKbAAkU" },
+  { id: "fgKHFLe654U", category: "Physical Activity and Exercise", title: "10 resistance band exercises you can do at home", source: "British Heart Foundation", youtubeId: "fgKHFLe654U" },
+  { id: "cBRvo0284cg", category: "Emotional Wellbeing", title: "Heart failure: Mental and emotional health", source: "Heart Foundation (Australia)", youtubeId: "cBRvo0284cg" },
+  { id: "s0f-TtfrMRk", category: "Emotional Wellbeing", title: "Anxiety with Heart Disease: Symptoms, Support and Next Steps", source: "Heart Foundation (Australia)", youtubeId: "s0f-TtfrMRk" },
+  { id: "p-SydwbwpwM", category: "Emotional Wellbeing", title: "Loneliness and Heart Health", source: "Heart Foundation (Australia)", youtubeId: "p-SydwbwpwM" },
+  { id: "DsK_gbYSSuo", category: "Emotional Wellbeing", title: "Heart Disease & Mental Health: The Heart–Mind Connection", source: "Heart Foundation (Australia)", youtubeId: "DsK_gbYSSuo" },
 ]
 
-
-const modules: ModuleType[] = [
-  {
-    id: "A",
-    titleKey: "education.modules.A.title",
-    descriptionKey: "education.modules.A.description",
-    icon: Heart,
-    color: "bg-primary/10 text-primary",
-    submodules: [
-      {
-        titleKey: "education.modules.A.submodules.introduction.title",
-        descriptionKey: "education.modules.A.submodules.introduction.description",
-        contentKey: "education.modules.A.submodules.introduction.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/understanding-heart-failure/",
-      },
-      {
-        titleKey: "education.modules.A.submodules.whatIsHF.title",
-        descriptionKey: "education.modules.A.submodules.whatIsHF.description",
-        contentKey: "education.modules.A.submodules.whatIsHF.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/understanding-heart-failure/what-is-heart-failure/",
-      },
-      {
-        titleKey: "education.modules.A.submodules.symptoms.title",
-        descriptionKey: "education.modules.A.submodules.symptoms.description",
-        contentKey: "education.modules.A.submodules.symptoms.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/understanding-heart-failure/what-are-the-symptoms-of-heart-failure/",
-      },
-      {
-        titleKey: "education.modules.A.submodules.normalHeart.title",
-        descriptionKey: "education.modules.A.submodules.normalHeart.description",
-        contentKey: "education.modules.A.submodules.normalHeart.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/understanding-heart-failure/how-does-the-heart-work/",
-      },
-      {
-        titleKey: "education.modules.A.submodules.types.title",
-        descriptionKey: "education.modules.A.submodules.types.description",
-        contentKey: "education.modules.A.submodules.types.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/understanding-heart-failure/what-do-the-different-terms-used-to-describe-heart-failure-mean/",
-      },
-    ],
-  },
-  {
-    id: "B",
-    titleKey: "education.modules.B.title",
-    descriptionKey: "education.modules.B.description",
-    icon: Activity,
-    color: "bg-secondary/10 text-secondary",
-    submodules: [
-      {
-        titleKey: "education.modules.B.submodules.introduction.title",
-        descriptionKey: "education.modules.B.submodules.introduction.description",
-        contentKey: "education.modules.B.submodules.introduction.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/heart-failure-causes-and-other-common-medical-conditions/",
-      },
-      {
-        titleKey: "education.modules.B.submodules.commonHeartConditions.title",
-        descriptionKey:
-          "education.modules.B.submodules.commonHeartConditions.description",
-        contentKey: "education.modules.B.submodules.commonHeartConditions.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/heart-failure-causes-and-other-common-medical-conditions/common-heart-conditions-that-may-cause-heart-failure/",
-      },
-      {
-        titleKey: "education.modules.B.submodules.otherMedicalConditions.title",
-        descriptionKey:
-          "education.modules.B.submodules.otherMedicalConditions.description",
-        contentKey:
-          "education.modules.B.submodules.otherMedicalConditions.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/heart-failure-causes-and-other-common-medical-conditions/other-common-medical-conditions-and-heart-failure/",
-      },
-    ],
-  },
+const videoModules: EducationModule[] = [
+  { id: "A", title: "Understanding Heart Failure", categories: ["Understanding Heart Failure"] },
+  { id: "B", title: "Managing Heart Failure Medicines", categories: ["Managing Heart Failure Medicines"] },
   {
     id: "C",
-    titleKey: "education.modules.C.title",
-    descriptionKey: "education.modules.C.description",
-    icon: BookOpen,
-    color: "bg-chart-3/10 text-warning",
-    submodules: [
-      {
-        titleKey: "education.modules.C.submodules.introduction.title",
-        descriptionKey: "education.modules.C.submodules.introduction.description",
-        contentKey: "education.modules.C.submodules.introduction.content",
-        sourceUrl: "https://www.heartfailurematters.org/what-you-can-do/",
-      },
-      {
-        titleKey: "education.modules.C.submodules.bloodPressurePulse.title",
-        descriptionKey:
-          "education.modules.C.submodules.bloodPressurePulse.description",
-        contentKey: "education.modules.C.submodules.bloodPressurePulse.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/what-you-can-do/how-to-measure-your-blood-pressure-and-heart-rate/",
-      },
-      {
-        titleKey: "education.modules.C.submodules.lifestyleChanges.title",
-        descriptionKey:
-          "education.modules.C.submodules.lifestyleChanges.description",
-        contentKey: "education.modules.C.submodules.lifestyleChanges.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/what-you-can-do/lifestyle-changes/",
-      },
-      {
-        titleKey: "education.modules.C.submodules.managingMedicines.title",
-        descriptionKey:
-          "education.modules.C.submodules.managingMedicines.description",
-        contentKey: "education.modules.C.submodules.managingMedicines.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/what-you-can-do/taking-your-medication/",
-      },
-      {
-        titleKey: "education.modules.C.submodules.supportGroups.title",
-        descriptionKey:
-          "education.modules.C.submodules.supportGroups.description",
-        contentKey: "education.modules.C.submodules.supportGroups.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/what-you-can-do/finding-support-groups-and-other-useful-organisations/",
-      },
+    title: "What You Can Do",
+    categories: [
+      "Introduction to Self-Care",
+      "Managing Blood Pressure",
+      "Managing Diabetes",
+      "Managing High Cholesterol",
     ],
   },
-  {
-    id: "D",
-    titleKey: "education.modules.D.title",
-    descriptionKey: "education.modules.D.description",
-    icon: Activity,
-    color: "bg-chart-2/10 text-secondary",
-    submodules: [
-      {
-        titleKey: "education.modules.D.submodules.introduction.title",
-        descriptionKey: "education.modules.D.submodules.introduction.description",
-        contentKey: "education.modules.D.submodules.introduction.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/living-with-heart-failure/",
-      },
-      {
-        titleKey: "education.modules.D.submodules.travel.title",
-        descriptionKey: "education.modules.D.submodules.travel.description",
-        contentKey: "education.modules.D.submodules.travel.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/living-with-heart-failure/travelling/",
-      },
-      {
-        titleKey: "education.modules.D.submodules.vaccines.title",
-        descriptionKey: "education.modules.D.submodules.vaccines.description",
-        contentKey: "education.modules.D.submodules.vaccines.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/living-with-heart-failure/vaccinations/",
-      },
-      {
-        titleKey: "education.modules.D.submodules.workAdjustments.title",
-        descriptionKey:
-          "education.modules.D.submodules.workAdjustments.description",
-        contentKey: "education.modules.D.submodules.workAdjustments.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/living-with-heart-failure/working/",
-      },
-      {
-        titleKey: "education.modules.D.submodules.emotions.title",
-        descriptionKey: "education.modules.D.submodules.emotions.description",
-        contentKey: "education.modules.D.submodules.emotions.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/living-with-heart-failure/your-emotions/",
-      },
-    ],
-  },
+  { id: "D", title: "Warning Signs", categories: ["Warning Signs"] },
   {
     id: "E",
-    titleKey: "education.modules.E.title",
-    descriptionKey: "education.modules.E.description",
-    icon: Users,
-    color: "bg-chart-5/10 text-chart-5",
-    submodules: [
-      {
-        titleKey: "education.modules.E.submodules.introduction.title",
-        descriptionKey: "education.modules.E.submodules.introduction.description",
-        contentKey: "education.modules.E.submodules.introduction.content",
-        sourceUrl: "https://www.heartfailurematters.org/for-caregivers/",
-      },
-      {
-        titleKey: "education.modules.E.submodules.howToHelp.title",
-        descriptionKey: "education.modules.E.submodules.howToHelp.description",
-        contentKey: "education.modules.E.submodules.howToHelp.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/for-caregivers/checklist/",
-      },
-      {
-        titleKey: "education.modules.E.submodules.caringStress.title",
-        descriptionKey: "education.modules.E.submodules.caringStress.description",
-        contentKey: "education.modules.E.submodules.caringStress.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/for-caregivers/caring-can-be-hard/",
-      },
-      {
-        titleKey: "education.modules.E.submodules.financialConcerns.title",
-        descriptionKey:
-          "education.modules.E.submodules.financialConcerns.description",
-        contentKey: "education.modules.E.submodules.financialConcerns.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/for-caregivers/financial-concerns/",
-      },
-      {
-        titleKey: "education.modules.E.submodules.supportServices.title",
-        descriptionKey:
-          "education.modules.E.submodules.supportServices.description",
-        contentKey: "education.modules.E.submodules.supportServices.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/for-caregivers/finding-support/",
-      },
-    ],
-  },
-  {
-    id: "F",
-    titleKey: "education.modules.H.title",
-    descriptionKey: "education.modules.H.description",
-    icon: AlertCircle,
-    color: "bg-accent/10 text-accent",
-    submodules: [
-      {
-        titleKey: "education.modules.H.submodules.introduction.title",
-        descriptionKey: "education.modules.H.submodules.introduction.description",
-        contentKey: "education.modules.H.submodules.introduction.content",
-        sourceUrl: "https://www.heartfailurematters.org/warning-signs/",
-      },
-      {
-        titleKey: "education.modules.H.submodules.shortnessOfBreath.title",
-        descriptionKey:
-          "education.modules.H.submodules.shortnessOfBreath.description",
-        contentKey: "education.modules.H.submodules.shortnessOfBreath.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/warning-signs/shortness-of-breath/",
-      },
-      {
-        titleKey: "education.modules.H.submodules.chestPain.title",
-        descriptionKey: "education.modules.H.submodules.chestPain.description",
-        contentKey: "education.modules.H.submodules.chestPain.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/warning-signs/chest-pain/",
-      },
-      {
-        titleKey: "education.modules.H.submodules.rapidWeightGain.title",
-        descriptionKey:
-          "education.modules.H.submodules.rapidWeightGain.description",
-        contentKey: "education.modules.H.submodules.rapidWeightGain.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/warning-signs/rapid-weight-gain/",
-      },
-      {
-        titleKey: "education.modules.H.submodules.swellingLegs.title",
-        descriptionKey:
-          "education.modules.H.submodules.swellingLegs.description",
-        contentKey: "education.modules.H.submodules.swellingLegs.content",
-        sourceUrl:
-          "https://www.heartfailurematters.org/warning-signs/swelling-in-legs-or-ankles/",
-      },
-    ],
+    title: "Living with Heart Failure",
+    categories: ["Physical Activity and Exercise", "Emotional Wellbeing"],
   },
 ]
-
-
-type SelectedContent = {
-  moduleId: string
-  moduleTitle: string
-  title: string
-  description: string
-  content: string
-  sourceUrl: string
-}
-
 
 export default function Education() {
   const { t } = useTranslation()
-
-
   const [query, setQuery] = React.useState("")
-  const [openModule, setOpenModule] = React.useState<string | null>(null)
-  const [selectedContent, setSelectedContent] =
-    React.useState<SelectedContent | null>(null)
-
-
-  const [selectedVideoId, setSelectedVideoId] = React.useState<string | null>(
-    null
-  )
-  const [watchSeconds, setWatchSeconds] = React.useState(0)
-  const [rewardedVideos, setRewardedVideos] = React.useState<
-    Record<string, boolean>
-  >({})
-  const [claimingVideoId, setClaimingVideoId] = React.useState<string | null>(
-    null
-  )
+  const [openModule, setOpenModule] = React.useState<string | null>("A")
+  const [completedVideos, setCompletedVideos] = React.useState<Record<string, boolean>>({})
+  const [rewardedVideos, setRewardedVideos] = React.useState<Record<string, boolean>>({})
+  const [claimingVideoId, setClaimingVideoId] = React.useState<string | null>(null)
   const [coinMessage, setCoinMessage] = React.useState("")
 
-
-  const requiredWatchSeconds = 60
-
-
-  function getVideoSrc(videoUrl: string, shouldPlay: boolean) {
-    if (!shouldPlay) return videoUrl
-
-
-    const separator = videoUrl.includes("?") ? "&" : "?"
-    return `${videoUrl}${separator}autoplay=1&mute=1`
-  }
-
-
   React.useEffect(() => {
+    async function loadRewardStatus() {
+      const result: Record<string, boolean> = {}
+
+      await Promise.all(
+        educationVideos.map(async (video) => {
+          try {
+            result[video.id] = await hasVideoReward(video.id)
+          } catch (error) {
+            console.error(error)
+            result[video.id] = false
+          }
+        })
+      )
+
+      setRewardedVideos(result)
+    }
+
     loadRewardStatus()
   }, [])
 
-
-  React.useEffect(() => {
-    if (!selectedVideoId) return
-
-
-    setWatchSeconds(0)
-    setCoinMessage("")
-
-
-    const timer = window.setInterval(() => {
-      setWatchSeconds((prev) => {
-        if (prev >= requiredWatchSeconds) {
-          window.clearInterval(timer)
-          return prev
-        }
-
-
-        return prev + 1
-      })
-    }, 1000)
-
-
-    return () => window.clearInterval(timer)
-  }, [selectedVideoId])
-
-
-  React.useEffect(() => {
-    if (!selectedVideoId) return
-    if (watchSeconds < requiredWatchSeconds) return
-    if (rewardedVideos[selectedVideoId]) return
-    if (claimingVideoId === selectedVideoId) return
-
-
-    handleClaimReward(selectedVideoId)
-  }, [watchSeconds, selectedVideoId, rewardedVideos, claimingVideoId])
-
-
-  async function loadRewardStatus() {
-    const result: Record<string, boolean> = {}
-
-
-    for (const video of educationVideos) {
-      try {
-        result[video.id] = await hasVideoReward(video.id)
-      } catch (error) {
-        console.error(error)
-        result[video.id] = false
-      }
-    }
-
-
-    setRewardedVideos(result)
-  }
-
-
   async function handleClaimReward(videoId: string) {
+    if (!completedVideos[videoId] || rewardedVideos[videoId]) return
+
     try {
       setClaimingVideoId(videoId)
       setCoinMessage("")
-
-
       const result = await rewardUserForVideo(videoId)
 
-
       if (result.success) {
+        setRewardedVideos((current) => ({ ...current, [videoId]: true }))
         setCoinMessage(
           t("education.coinsAdded", {
             coins: VIDEO_REWARD_COINS,
             defaultValue: `${VIDEO_REWARD_COINS} coins added successfully!`,
           })
         )
-
-
-        setRewardedVideos((prev) => ({
-          ...prev,
-          [videoId]: true,
-        }))
       } else {
         setCoinMessage(result.message)
       }
@@ -475,213 +156,145 @@ export default function Education() {
     }
   }
 
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredModules = videoModules
+    .map((module) => {
+      const videos = educationVideos.filter((video) => {
+        if (!module.categories.includes(video.category)) return false
+        if (!normalizedQuery) return true
 
-  const filtered = modules.filter((m) => {
-    const q = query.trim().toLowerCase()
-    if (!q) return true
+        return [module.title, video.category, video.title, video.source]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery)
+      })
 
-
-    const moduleTitle = t(m.titleKey).toLowerCase()
-    const moduleDescription = t(m.descriptionKey).toLowerCase()
-
-
-    const matchesModule =
-      m.id.toLowerCase().includes(q) ||
-      moduleTitle.includes(q) ||
-      moduleDescription.includes(q)
-
-
-    const matchesSubmodule = m.submodules.some((s) => {
-      const subTitle = t(s.titleKey).toLowerCase()
-      const subDescription = t(s.descriptionKey).toLowerCase()
-      const subContent = t(s.contentKey).toLowerCase()
-
-
-      return (
-        subTitle.includes(q) ||
-        subDescription.includes(q) ||
-        subContent.includes(q)
-      )
+      return { ...module, videos }
     })
-
-
-    return matchesModule || matchesSubmodule
-  })
-
+    .filter((module) => module.videos.length > 0)
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto max-w-7xl px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+          <h1 className="mb-2 text-3xl font-bold text-foreground">
             {t("education.pageTitle")}
           </h1>
-
-
           <p className="text-muted-foreground">
             {t("education.pageDescription")}
           </p>
         </div>
 
-
         <div className="mb-6">
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder={t("education.searchPlaceholder")}
             aria-label={t("education.searchAria")}
-            className="w-full md:w-96 px-4 py-2 rounded-md border border-border bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-md border border-border bg-card px-4 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary md:w-96"
           />
         </div>
 
-
-        {selectedContent && (
-          <Card className="mb-8 p-6 border-primary/20">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div className="flex-1">
-                <div className="text-xs font-semibold text-muted-foreground mb-1">
-                  {t("education.moduleLabel")} {selectedContent.moduleId} ·{" "}
-                  {selectedContent.moduleTitle}
-                </div>
-
-
-                <h2 className="text-2xl font-bold text-foreground mb-2">
-                  {selectedContent.title}
-                </h2>
-
-
-                <p className="text-muted-foreground">
-                  {selectedContent.description}
-                </p>
-              </div>
-
-
-              <button
-                onClick={() => setSelectedContent(null)}
-                className="p-2 rounded-md border border-border hover:bg-muted"
-                aria-label={t("education.closeContent")}
-              >
-                <X className="w-4 h-4" />
-              </button>
+        <Card className="mb-6 border-yellow-200 bg-yellow-50/60 p-5">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-yellow-100 p-3">
+              <Coins className="h-6 w-6 text-yellow-600" />
             </div>
-
-
-            <div className="rounded-lg border border-border bg-card p-5">
-              <h3 className="font-semibold text-foreground mb-3">
-                {t("education.learningContent")}
-              </h3>
-
-
-              <p className="text-sm text-muted-foreground leading-7 whitespace-pre-line">
-                {selectedContent.content}
+            <div>
+              <h2 className="font-bold text-foreground">
+                {t("education.videoSectionTitle")}
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t("education.videoSectionDescription", {
+                  coins: VIDEO_REWARD_COINS,
+                })}
               </p>
             </div>
-
-
-            <div className="mt-4">
-              <a
-                href={selectedContent.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium"
-              >
-                {t("education.viewSource")}
-              </a>
-            </div>
-          </Card>
-        )}
-
+          </div>
+        </Card>
 
         <div className="space-y-6">
-          {filtered.map((module) => {
-            const Icon = module.icon
-            const isOpen = openModule === module.id
-            const moduleTitle = t(module.titleKey)
-            const moduleDescription = t(module.descriptionKey)
-
+          {filteredModules.map((module) => {
+            const isOpen = normalizedQuery ? true : openModule === module.id
 
             return (
-              <Card key={module.id} className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className={`p-3 rounded-lg ${module.color}`}>
-                      <Icon className="w-6 h-6" />
+              <Card key={module.id} className="overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setOpenModule(isOpen ? null : module.id)}
+                  className="flex w-full items-center justify-between gap-4 p-6 text-left hover:bg-muted/40"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="rounded-lg bg-primary/10 p-3 text-primary">
+                      <BookOpen className="h-6 w-6" />
                     </div>
-
-
-                    <div className="flex-1">
-                      <div className="text-xs font-semibold text-muted-foreground mb-1">
+                    <div>
+                      <div className="text-xs font-semibold text-muted-foreground">
                         {t("education.moduleLabel")} {module.id}
                       </div>
-
-
-                      <h3 className="font-bold text-xl text-foreground mb-2">
-                        {moduleTitle}
-                      </h3>
-
-
-                      <p className="text-sm text-muted-foreground mb-4">
-                        {moduleDescription}
+                      <h2 className="text-xl font-bold text-foreground">
+                        {module.title}
+                      </h2>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {module.videos.length} videos
                       </p>
-
-
-                      <button
-                        onClick={() => setOpenModule(isOpen ? null : module.id)}
-                        className="px-4 py-2 rounded-md border border-border text-sm font-medium flex items-center gap-2"
-                      >
-                        {isOpen ? (
-                          <>
-                            {t("education.hideSubmodules")}
-                            <ChevronUp className="w-4 h-4" />
-                          </>
-                        ) : (
-                          <>
-                            {t("education.showSubmodules")}
-                            <ChevronDown className="w-4 h-4" />
-                          </>
-                        )}
-                      </button>
                     </div>
                   </div>
-                </div>
-
+                  {isOpen ? (
+                    <ChevronUp className="h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" />
+                  )}
+                </button>
 
                 {isOpen && (
-                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {module.submodules.map((sub, index) => {
-                      const subTitle = t(sub.titleKey)
-                      const subDescription = t(sub.descriptionKey)
-                      const subContent = t(sub.contentKey)
-
+                  <div className="border-t border-border p-6">
+                    {module.categories.map((category) => {
+                      const categoryVideos = module.videos.filter(
+                        (video) => video.category === category
+                      )
+                      if (categoryVideos.length === 0) return null
 
                       return (
-                        <Card key={index} className="p-4 border border-border">
-                          <h4 className="font-semibold text-foreground mb-2">
-                            {subTitle}
-                          </h4>
-
-
-                          <p className="text-sm text-muted-foreground mb-4">
-                            {subDescription}
-                          </p>
-
-
-                          <button
-                            onClick={() =>
-                              setSelectedContent({
-                                moduleId: module.id,
-                                moduleTitle,
-                                title: subTitle,
-                                description: subDescription,
-                                content: subContent,
-                                sourceUrl: sub.sourceUrl,
-                              })
-                            }
-                            className="px-3 py-2 rounded-md bg-secondary text-secondary-foreground text-sm"
-                          >
-                            {t("education.readContent")}
-                          </button>
-                        </Card>
+                        <section key={category} className="mb-8 last:mb-0">
+                          {module.categories.length > 1 && (
+                            <h3 className="mb-4 text-lg font-semibold text-foreground">
+                              {category}
+                            </h3>
+                          )}
+                          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+                            {categoryVideos.map((video) => (
+                              <Card key={video.id} className="overflow-hidden bg-card">
+                                <YouTubeCompletionPlayer
+                                  video={video}
+                                  onCompleted={() => {
+                                    setCompletedVideos((current) => ({
+                                      ...current,
+                                      [video.id]: true,
+                                    }))
+                                    setCoinMessage("")
+                                  }}
+                                />
+                                <div className="p-4">
+                                  <h4 className="mb-2 flex items-start gap-2 font-semibold text-foreground">
+                                    <PlayCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                                    {video.title}
+                                  </h4>
+                                  <p className="mb-4 text-sm text-muted-foreground">
+                                    {video.source}
+                                  </p>
+                                  <VideoCoinReward
+                                    videoId={video.id}
+                                    completed={Boolean(completedVideos[video.id])}
+                                    rewardedVideos={rewardedVideos}
+                                    claiming={claimingVideoId === video.id}
+                                    onClaim={() => handleClaimReward(video.id)}
+                                  />
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </section>
                       )
                     })}
                   </div>
@@ -691,231 +304,140 @@ export default function Education() {
           })}
         </div>
 
-
-        <Card className="mt-8 p-6 bg-primary/5 border-primary/20">
-          <div className="flex items-start gap-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <BookOpen className="w-6 h-6 text-primary" />
-            </div>
-
-
-            <div className="flex-1">
-              <h3 className="font-bold text-lg text-foreground mb-2">
-                {t("education.featuresTitle")}
-              </h3>
-
-
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                  {t("education.features.guides")}
-                </li>
-
-
-                <li className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-primary" />
-                  {t("education.features.structured")}
-                </li>
-
-
-                <li className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-primary" />
-                  {t("education.features.warning")}
-                </li>
-              </ul>
-
-
-              <p className="text-xs text-muted-foreground mt-4">
-                {t("education.featuresFooter")}
-              </p>
-            </div>
+        {coinMessage && (
+          <div className="mt-5 rounded-md border border-green-200 bg-green-50 px-4 py-3">
+            <p className="text-center text-sm font-medium text-green-700">
+              {coinMessage}
+            </p>
           </div>
-        </Card>
-
-
-        <Card className="mt-8 p-6 border-yellow-200 bg-yellow-50/60">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <Coins className="w-6 h-6 text-yellow-600" />
-            </div>
-
-
-            <div>
-              <h3 className="font-bold text-lg text-foreground mb-1">
-                {t("education.videoSectionTitle")}
-              </h3>
-
-
-              <p className="text-sm text-muted-foreground">
-                {t("education.videoSectionDescription", {
-                  seconds: requiredWatchSeconds,
-                  coins: VIDEO_REWARD_COINS,
-                })}
-              </p>
-            </div>
-          </div>
-
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {educationVideos.map((video) => (
-              <Card key={video.id} className="overflow-hidden bg-card">
-                <div className="aspect-video w-full bg-black">
-                  <iframe
-                    className="w-full h-full"
-                    src={getVideoSrc(
-                      video.videoUrl,
-                      selectedVideoId === video.id
-                    )}
-                    title={t(video.titleKey)}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-
-
-                <div className="p-4">
-                  <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                    <PlayCircle className="w-5 h-5 text-primary" />
-                    {t(video.titleKey)}
-                  </h4>
-
-
-                  <p className="text-sm text-muted-foreground mb-4">
-                    {t(video.descriptionKey)}
-                  </p>
-
-
-                  <VideoCoinReward
-                    videoId={video.id}
-                    selectedVideoId={selectedVideoId}
-                    setSelectedVideoId={setSelectedVideoId}
-                    watchSeconds={watchSeconds}
-                    requiredWatchSeconds={requiredWatchSeconds}
-                    rewardedVideos={rewardedVideos}
-                    claiming={claimingVideoId === video.id}
-                  />
-                </div>
-              </Card>
-            ))}
-          </div>
-
-
-          {coinMessage && (
-            <div className="mt-5 rounded-md border border-green-200 bg-green-50 px-4 py-3">
-              <p className="text-sm font-medium text-green-700 text-center">
-                {coinMessage}
-              </p>
-            </div>
-          )}
-        </Card>
+        )}
       </div>
     </div>
   )
 }
 
+let youtubeApiPromise: Promise<any> | null = null
 
-type VideoCoinRewardProps = {
-  videoId: string
-  selectedVideoId: string | null
-  setSelectedVideoId: (id: string) => void
-  watchSeconds: number
-  requiredWatchSeconds: number
-  rewardedVideos: Record<string, boolean>
-  claiming: boolean
+function loadYouTubeApi() {
+  const browserWindow = window as any
+
+  if (browserWindow.YT?.Player) return Promise.resolve(browserWindow.YT)
+
+  if (!youtubeApiPromise) {
+    youtubeApiPromise = new Promise((resolve) => {
+      const previousReadyHandler = browserWindow.onYouTubeIframeAPIReady
+
+      browserWindow.onYouTubeIframeAPIReady = () => {
+        previousReadyHandler?.()
+        resolve(browserWindow.YT)
+      }
+
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const script = document.createElement("script")
+        script.src = "https://www.youtube.com/iframe_api"
+        document.head.appendChild(script)
+      }
+    })
+  }
+
+  return youtubeApiPromise
 }
 
+function YouTubeCompletionPlayer({
+  video,
+  onCompleted,
+}: {
+  video: EducationVideo
+  onCompleted: () => void
+}) {
+  const playerHostRef = React.useRef<HTMLDivElement | null>(null)
+  const playerRef = React.useRef<any>(null)
+  const onCompletedRef = React.useRef(onCompleted)
+
+  React.useEffect(() => {
+    onCompletedRef.current = onCompleted
+  }, [onCompleted])
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    loadYouTubeApi().then((YT) => {
+      if (cancelled || !playerHostRef.current) return
+
+      playerRef.current = new YT.Player(playerHostRef.current, {
+        videoId: video.youtubeId,
+        playerVars: { controls: 1, playsinline: 1, rel: 0 },
+        events: {
+          onStateChange: (event: { data: number }) => {
+            if (event.data === YT.PlayerState.ENDED) {
+              onCompletedRef.current()
+            }
+          },
+        },
+      })
+    })
+
+    return () => {
+      cancelled = true
+      playerRef.current?.destroy?.()
+      playerRef.current = null
+    }
+  }, [video.youtubeId])
+
+  return (
+    <div className="aspect-video w-full bg-black">
+      <div ref={playerHostRef} className="h-full w-full" aria-label={video.title} />
+    </div>
+  )
+}
 
 function VideoCoinReward({
   videoId,
-  selectedVideoId,
-  setSelectedVideoId,
-  watchSeconds,
-  requiredWatchSeconds,
+  completed,
   rewardedVideos,
   claiming,
-}: VideoCoinRewardProps) {
+  onClaim,
+}: {
+  videoId: string
+  completed: boolean
+  rewardedVideos: Record<string, boolean>
+  claiming: boolean
+  onClaim: () => void
+}) {
   const { t } = useTranslation()
-
-
-  const isSelected = selectedVideoId === videoId
   const isRewarded = rewardedVideos[videoId]
 
-
-  const progress = isSelected
-    ? Math.min((watchSeconds / requiredWatchSeconds) * 100, 100)
-    : 0
-
-
   return (
-    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 space-y-3">
+    <div className="space-y-3 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
       <div className="flex items-center gap-2 text-sm font-medium">
-        <Coins className="w-4 h-4 text-yellow-600" />
-        <span>
-          {t("education.reward", {
-            coins: VIDEO_REWARD_COINS,
-          })}
-        </span>
+        <Coins className="h-4 w-4 text-yellow-600" />
+        <span>{t("education.reward", { coins: VIDEO_REWARD_COINS })}</span>
       </div>
 
-
-      {!isSelected && !isRewarded && (
+      {!isRewarded && (
         <button
-          onClick={() => setSelectedVideoId(videoId)}
-          className="w-full px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 flex items-center justify-center gap-2"
+          type="button"
+          onClick={onClaim}
+          disabled={!completed || claiming}
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
         >
-          <PlayCircle className="w-4 h-4" />
-          {t("education.collectPointAndPlay", {
-            defaultValue: "Collect Point & Play Video",
-          })}
+          {completed ? <Coins className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+          {claiming
+            ? t("education.addingCoins")
+            : completed
+              ? t("education.claimCoins", { coins: VIDEO_REWARD_COINS })
+              : t("education.finishVideoToUnlock", {
+                  defaultValue: "Finish the video to unlock the reward",
+                })}
         </button>
       )}
 
-
-      {isSelected && !isRewarded && (
-        <>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{t("education.watchingProgress")}</span>
-            <span>
-              {Math.min(watchSeconds, requiredWatchSeconds)} /{" "}
-              {requiredWatchSeconds} {t("education.seconds")}
-            </span>
-          </div>
-
-
-          <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-green-500 transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-
-          <div className="w-full px-4 py-2 rounded-md border border-yellow-300 bg-yellow-100 text-yellow-800 text-sm font-medium flex items-center justify-center gap-2">
-            {claiming ? (
-              t("education.addingCoins")
-            ) : watchSeconds >= requiredWatchSeconds ? (
-              <>
-                <Coins className="w-4 h-4" />
-                {t("education.addingCoins")}
-              </>
-            ) : (
-              <>
-                <Lock className="w-4 h-4" />
-                {t("education.continueWatching")}
-              </>
-            )}
-          </div>
-        </>
-      )}
-
-
       {isRewarded && (
-        <div className="flex items-center justify-center gap-2 text-green-700 font-medium text-sm">
-          <CheckCircle className="w-4 h-4" />
+        <div className="flex items-center justify-center gap-2 text-sm font-medium text-green-700">
+          <CheckCircle className="h-4 w-4" />
           {t("education.coinsAlreadyClaimed")}
         </div>
       )}
     </div>
   )
 }
-
