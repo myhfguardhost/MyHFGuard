@@ -227,6 +227,7 @@ export default function AdminAlerts() {
       start.setDate(end.getDate() - 6);
       const startDate = dateKey(start);
       const endDate = dateKey(end);
+      const evaluatedAt = new Date().toISOString();
 
       const allAlerts = await Promise.all(
         patientRows.map(async (patient: any) => {
@@ -259,8 +260,6 @@ export default function AdminAlerts() {
             patient.full_name ||
             patient.name ||
             "Unknown Patient";
-
-          const evaluatedAt = new Date().toISOString();
 
           const patientAlerts = buildAlerts({
             patientId,
