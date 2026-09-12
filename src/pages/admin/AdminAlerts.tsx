@@ -270,9 +270,7 @@ export default function AdminAlerts() {
             demoMode: false,
           });
 
-          return patientAlerts
-            .filter((alert: any) => alert.level !== "stable")
-            .map((alert: any) => {
+          return patientAlerts.map((alert: any) => {
               const recordTime = getAlertRecordTime(
                 fullData,
                 String(alert.id || ""),
@@ -300,15 +298,15 @@ export default function AdminAlerts() {
       };
 
       const flattened = allAlerts.flat().sort((a: any, b: any) => {
-        const timeDifference =
-          getDateTime(b.createdAt) - getDateTime(a.createdAt);
-
-        if (timeDifference !== 0) return timeDifference;
-
         const levelDifference =
           (levelRank[b.level] || 0) - (levelRank[a.level] || 0);
 
         if (levelDifference !== 0) return levelDifference;
+
+        const timeDifference =
+          getDateTime(b.createdAt) - getDateTime(a.createdAt);
+
+        if (timeDifference !== 0) return timeDifference;
 
         return String(a.patientName || "").localeCompare(
           String(b.patientName || "")
@@ -435,7 +433,7 @@ export default function AdminAlerts() {
                     Active Alerts
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Alerts are sorted by latest activity, severity, then patient name.
+                    Alerts are sorted by severity (Critical, Warning, Stable), then by latest record time.
                   </p>
                 </div>
 
@@ -474,7 +472,7 @@ export default function AdminAlerts() {
                   No active alerts found.
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
-                  Warning and critical alerts will appear here.
+                  Patient alerts will appear here.
                 </p>
               </div>
             ) : (
