@@ -1075,26 +1075,6 @@ const Exercise = () => {
             </CardContent>
           </Card>
         </div>
-
-        <Card className="mt-6 rounded-3xl border border-border bg-card shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-                <Activity className="h-5 w-5 text-primary" />
-              </div>
-
-              <div>
-                <h2 className="text-lg font-semibold">
-                  {t("exerciseNotes")}
-                </h2>
-
-                <p className="mt-2 leading-6 text-muted-foreground">
-                  {t("exerciseNotesDesc")}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

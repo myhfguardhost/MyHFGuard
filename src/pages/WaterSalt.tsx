@@ -387,9 +387,6 @@ export default function WaterSalt() {
         <h1 className="text-3xl font-bold">
           {t("waterDiet.description", "Track daily fluid intake and follow a heart-healthy diet")}
         </h1>
-        <p className="text-muted-foreground">
-          {t("waterDiet.subtitle", "Please submit daily or at least 3 times per week.")}
-        </p>
       </div>
 
       <div className="mb-4 overflow-x-auto pb-2">

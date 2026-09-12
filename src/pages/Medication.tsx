@@ -400,14 +400,6 @@ const Medication = () => {
         </p>
 
 
-        <Alert className="mb-6">
-          <Info className="w-4 h-4" />
-          <AlertDescription>
-            {t("medicationPageInfo")}
-          </AlertDescription>
-        </Alert>
-
-
         <Card className="mb-6">
           <CardHeader>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

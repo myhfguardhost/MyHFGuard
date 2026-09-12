@@ -58,7 +58,7 @@ const resources = {
       selfCheck: {
         appName: "MyHFGuard",
         title: "Self Check Toolkits",
-        description: "Log your daily measurements, symptoms, and blood pressure readings",
+        description: "Log your daily measurements, symptoms and blood pressure readings",
         today: "today",
         missing: "Missing",
         completed: "Completed",
@@ -609,7 +609,6 @@ const resources = {
       waterDiet: {
         title: "My Water and Low Salt Diet",
         description: "Track daily fluid intake and follow a heart-healthy diet.",
-        subtitle: "Please submit daily or at least 3 times per week.",
         today: "today",
         buttons: {
           saving: "Saving...",
@@ -812,7 +811,7 @@ const resources = {
       selfCheck: {
         appName: "MyHFGuard",
         title: "Alat Pemeriksaan Kendiri",
-        description: "Catat ukuran harian, simptom, dan bacaan tekanan darah anda",
+        description: "Catat ukuran harian, simptom dan bacaan tekanan darah anda",
         today: "hari ini",
         missing: "Belum lengkap",
         completed: "Selesai",
@@ -1361,7 +1360,6 @@ const resources = {
       waterDiet: {
           title: "Air & Diet Garam Rendah Saya",
           description: "Pantau pengambilan cecair harian dan amalkan diet yang sihat untuk jantung.",
-          subtitle: "Sila hantar setiap hari atau sekurang-kurangnya 3 kali seminggu.",
           today: "hari ini",
           buttons: {
             saving: "Menyimpan...",

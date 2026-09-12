@@ -105,8 +105,6 @@ const translations: Record<Language, Record<string, string>> = {
     distanceDesc: "Distance accumulated in a day",
     exerciseTimeDesc: "Estimated active exercise duration today",
     spo2Desc: "Current average SpO₂ from smart band/device",
-    exerciseNotes: "Exercise Module Notes",
-    exerciseNotesDesc: "This module currently reads exercise-related data from the latest synced summary data in the system. In the final Android companion app phase, the Collect Data flow can be connected back to direct device synchronization.",
     goalBetterSleep: "Better sleep",
     goalBoostedEnergy: "Boosted daytime energy",
     goalWalkWithEase: "Able to walk with ease without frequent pauses",
@@ -150,11 +148,8 @@ const translations: Record<Language, Record<string, string>> = {
     // medication
     medicationReminderDesc: "Medication entered in profile will appear here automatically.",
     totalMedications: "Total medications",
-    medicationPageInfo:
-    "This page displays medication from the profile page and groups them into 12:00 PM and 10:00 PM reminders.",
     medicationFromProfile: "Medication from Profile",
-    medicationFromProfileDesc:
-    "This list is pulled automatically from current medication in profile.",
+    medicationFromProfileDesc: "This list is pulled automatically from current medication in profile.",
     noMedicationFoundInProfile: "No medication found in profile yet.",
     noonReminder: "Noon Reminder",
     nightReminder: "Night Reminder",
@@ -300,8 +295,6 @@ const translations: Record<Language, Record<string, string>> = {
     distanceDesc: "Jumlah jarak dalam sehari",
     exerciseTimeDesc: "Anggaran tempoh senaman hari ini",
     spo2Desc: "Purata SpO₂ semasa daripada peranti",
-    exerciseNotes: "Nota Modul Senaman",
-    exerciseNotesDesc: "Modul ini menggunakan data terkini daripada sistem. Pada fasa aplikasi Android nanti, fungsi ini boleh disambungkan terus ke smart band.",
     goalBetterSleep: "Tidur lebih baik",
     goalBoostedEnergy: "Lebih bertenaga pada waktu siang",
     goalWalkWithEase: "Boleh berjalan dengan lebih mudah tanpa kerap berhenti",
@@ -342,8 +335,6 @@ const translations: Record<Language, Record<string, string>> = {
     //medication
     medicationReminderDesc: "Ubat yang dimasukkan dalam profil akan dipaparkan di sini secara automatik.",
     totalMedications: "Jumlah ubat",
-    medicationPageInfo:
-    "Halaman ini memaparkan ubat daripada halaman profil dan mengelompokkannya kepada peringatan 12:00 PM dan 10:00 PM.",
     medicationFromProfile: "Ubat daripada Profil",
     medicationFromProfileDesc:
     "Senarai ini diambil secara automatik daripada ubat semasa dalam profil.",
