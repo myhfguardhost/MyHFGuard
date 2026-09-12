@@ -564,6 +564,26 @@ const resources = {
           "This app is for self-management support only and does not replace professional medical advice, diagnosis or treatment."
       },
 
+      changePasswordPage: {
+        title: "Change Password",
+        description: "Enter your current password before choosing a new password.",
+        currentPassword: "Current Password",
+        newPassword: "New Password",
+        confirmPassword: "Confirm New Password",
+        minimumCharacters: "At least 8 characters",
+        changing: "Changing Password...",
+        submit: "Change Password",
+        success: "Password changed successfully.",
+        errors: {
+          minimumLength: "New password must contain at least 8 characters.",
+          notMatch: "New password and confirmation do not match.",
+          mustBeDifferent: "New password must be different from the current password.",
+          sessionExpired: "Your login session has expired. Please sign in again.",
+          incorrectCurrent: "Current password is incorrect.",
+          failed: "Failed to change password."
+        }
+      },
+
 
       medication: {
         title: "Medication",
@@ -1309,6 +1329,26 @@ const resources = {
 
         disclaimer:
           "Aplikasi ini hanya untuk sokongan penjagaan diri dan tidak menggantikan nasihat, diagnosis atau rawatan perubatan profesional."
+      },
+
+      changePasswordPage: {
+        title: "Tukar Kata Laluan",
+        description: "Masukkan kata laluan semasa sebelum memilih kata laluan baharu.",
+        currentPassword: "Kata Laluan Semasa",
+        newPassword: "Kata Laluan Baharu",
+        confirmPassword: "Sahkan Kata Laluan Baharu",
+        minimumCharacters: "Sekurang-kurangnya 8 aksara",
+        changing: "Sedang Menukar Kata Laluan...",
+        submit: "Tukar Kata Laluan",
+        success: "Kata laluan berjaya ditukar.",
+        errors: {
+          minimumLength: "Kata laluan baharu mesti mengandungi sekurang-kurangnya 8 aksara.",
+          notMatch: "Kata laluan baharu dan pengesahan tidak sepadan.",
+          mustBeDifferent: "Kata laluan baharu mesti berbeza daripada kata laluan semasa.",
+          sessionExpired: "Sesi log masuk anda telah tamat. Sila log masuk semula.",
+          incorrectCurrent: "Kata laluan semasa tidak betul.",
+          failed: "Gagal menukar kata laluan."
+        }
       },
 
 
