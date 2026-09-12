@@ -435,7 +435,7 @@ export default function AdminAlerts() {
                     Active Alerts
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Only the latest patient records are used, sorted from newest to oldest.
+                    Alerts are sorted by latest activity, severity, then patient name.
                   </p>
                 </div>
 
