@@ -540,33 +540,28 @@ const resources = {
         title: "Help & Support",
         subtitle: "Get support, emergency guidance and help for using MyHFGuard.",
 
-
         aboutTitle: "About MyHFGuard",
-        aboutBody: "MyHFGuard helps heart failure patients monitor symptoms, manage reminders, record daily health data and learn self-care more easily.",
-
+        aboutBody:
+          "MyHFGuard helps heart failure patients monitor symptoms, manage reminders, record daily health data and learn self-care more easily.",
 
         contactUs: "Contact Us",
         needHelp: "Choose the most suitable support option below.",
 
-
-        emergencyContact: "Emergency Contact",
-        emergencyBody: "If you have severe shortness of breath, chest pain, fainting or any urgent medical condition, please contact emergency services immediately. Do not rely on this app for urgent treatment.",
-
-
         supportTitle: "Email Support",
-        supportBody: "For technical issues or general system support, contact the MyHFGuard support team by email.",
-
+        supportBody:
+          "For technical issues or general system support, contact the MyHFGuard support team by email.",
 
         whatsappTitle: "WhatsApp Support",
-        whatsappBody: "For quick communication, you may also contact support through WhatsApp.",
+        whatsappBody:
+          "For quick communication, you may also contact support through WhatsApp.",
 
-
-        callButton: "Call Emergency (999)",
         emailButton: "Email Support",
         whatsappButton: "Open WhatsApp",
+        emergencyNotice:
+          "For a medical emergency, call 999 using your phone.",
 
-
-        disclaimer: "This app is for self-management support only and does not replace professional medical advice, diagnosis or treatment."
+        disclaimer:
+          "This app is for self-management support only and does not replace professional medical advice, diagnosis or treatment."
       },
 
 
@@ -1289,35 +1284,31 @@ const resources = {
 
       helpSupport: {
         title: "Bantuan & Sokongan",
-        subtitle: "Dapatkan bantuan, panduan kecemasan dan sokongan penggunaan MyHFGuard.",
-
+        subtitle:
+          "Dapatkan bantuan, panduan kecemasan dan sokongan penggunaan MyHFGuard.",
 
         aboutTitle: "Tentang MyHFGuard",
-        aboutBody: "MyHFGuard membantu pesakit kegagalan jantung memantau simptom, mengurus peringatan, merekod data kesihatan harian dan mempelajari penjagaan diri dengan lebih mudah.",
-
+        aboutBody:
+          "MyHFGuard membantu pesakit kegagalan jantung memantau simptom, mengurus peringatan, merekod data kesihatan harian dan mempelajari penjagaan diri dengan lebih mudah.",
 
         contactUs: "Hubungi Kami",
         needHelp: "Pilih kaedah bantuan yang sesuai di bawah.",
 
-
-        emergencyContact: "Hubungan Kecemasan",
-        emergencyBody: "Jika anda mengalami sesak nafas teruk, sakit dada, pengsan atau keadaan kecemasan lain, sila hubungi perkhidmatan kecemasan dengan segera. Jangan bergantung pada aplikasi ini untuk rawatan segera.",
-
-
         supportTitle: "Sokongan Emel",
-        supportBody: "Untuk masalah teknikal atau sokongan sistem, sila hubungi pasukan sokongan MyHFGuard melalui emel.",
-
+        supportBody:
+          "Untuk masalah teknikal atau sokongan sistem, sila hubungi pasukan sokongan MyHFGuard melalui emel.",
 
         whatsappTitle: "Sokongan WhatsApp",
-        whatsappBody: "Untuk komunikasi pantas, anda juga boleh menghubungi sokongan melalui WhatsApp.",
+        whatsappBody:
+          "Untuk komunikasi pantas, anda juga boleh menghubungi sokongan melalui WhatsApp.",
 
-
-        callButton: "Hubungi Kecemasan (999)",
         emailButton: "Emel Sokongan",
         whatsappButton: "Buka WhatsApp",
+        emergencyNotice:
+          "Untuk kecemasan perubatan, hubungi 999 menggunakan telefon anda.",
 
-
-        disclaimer: "Aplikasi ini hanya untuk sokongan penjagaan diri dan tidak menggantikan nasihat, diagnosis atau rawatan perubatan profesional."
+        disclaimer:
+          "Aplikasi ini hanya untuk sokongan penjagaan diri dan tidak menggantikan nasihat, diagnosis atau rawatan perubatan profesional."
       },
 
 

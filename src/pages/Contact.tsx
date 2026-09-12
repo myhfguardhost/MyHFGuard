@@ -6,11 +6,6 @@ import { useTranslation } from "react-i18next"
 export default function Contact() {
   const { t } = useTranslation()
 
-  const handleEmergencyCall = () => {
-    alert("Redirecting to emergency call...")
-    window.location.href = "tel:999"
-  }
-
   const handleEmailSupport = () => {
     window.location.href =
       "mailto:myhfguard.host@gmail.com?subject=MyHFGuard Support Request&body=Hello,%0D%0A%0D%0AUser Issue:%0D%0A%0D%0AProblem:%0D%0A"
@@ -68,32 +63,6 @@ export default function Contact() {
 
             <CardContent className="space-y-4">
 
-              {/* 🚨 Emergency */}
-              <div className="rounded-xl border border-red-300 bg-red-50 p-4">
-                <div className="flex items-start gap-3">
-                  <Phone className="mt-1 h-5 w-5 text-red-600" />
-
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-red-700">
-                      {t("helpSupport.emergencyContact")}
-                    </h3>
-
-                    <p className="mt-1 text-sm text-red-700/90">
-                      {t("helpSupport.emergencyBody")}
-                    </p>
-
-                    <div className="mt-4">
-                      <Button
-                        onClick={handleEmergencyCall}
-                        className="bg-red-600 text-white hover:bg-red-700"
-                      >
-                        {t("helpSupport.callButton")}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* 📧 Email */}
               <div className="rounded-xl border bg-muted/30 p-4">
                 <div className="flex items-start gap-3">
@@ -142,6 +111,11 @@ export default function Contact() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <Phone className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>{t("helpSupport.emergencyNotice")}</p>
               </div>
 
               {/* Disclaimer */}
