@@ -433,7 +433,7 @@ export default function AdminAlerts() {
                     Active Alerts
                   </h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Alerts are sorted by severity (Critical, Warning, Stable), then by latest record time.
+                    Alerts are sorted by severity then by latest record time.
                   </p>
                 </div>
 
