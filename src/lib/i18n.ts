@@ -17,6 +17,7 @@ const resources = {
         aiAssistant: "My Chat",
         helpSupport: "Help & Support",
         profile: "Profile",
+        changePassword: "Change Password",
         logout: "Logout"
       },
 
@@ -769,6 +770,7 @@ const resources = {
         aiAssistant: "Sembang Saya",
         helpSupport: "Bantuan & Sokongan",
         profile: "Profil",
+        changePassword: "Tukar Kata Laluan",
         quickAccess: "Akses pantas",
         logout: "Log Keluar"
       },

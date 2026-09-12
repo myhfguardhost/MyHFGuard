@@ -95,8 +95,73 @@ const videoModules: EducationModule[] = [
   },
 ]
 
+const bmCategories: Record<string, string> = {
+  "Understanding Heart Failure": "Memahami Kegagalan Jantung",
+  "Managing Heart Failure Medicines": "Mengurus Ubat Kegagalan Jantung",
+  "Warning Signs": "Tanda Amaran",
+  "Introduction to Self-Care": "Pengenalan kepada Penjagaan Kendiri",
+  "Managing Blood Pressure": "Mengurus Tekanan Darah",
+  "Managing Diabetes": "Mengurus Diabetes",
+  "Managing High Cholesterol": "Mengurus Kolesterol Tinggi",
+  "Physical Activity and Exercise": "Aktiviti Fizikal dan Senaman",
+  "Emotional Wellbeing": "Kesejahteraan Emosi",
+}
+
+const bmModuleTitles: Record<string, string> = {
+  A: "Memahami Kegagalan Jantung",
+  B: "Mengurus Ubat Kegagalan Jantung",
+  C: "Apa yang Boleh Anda Lakukan",
+  D: "Tanda Amaran",
+  E: "Hidup dengan Kegagalan Jantung",
+}
+
+const bmVideoTitles: Record<string, string> = {
+  J_sLTDGE70w: "Apakah kegagalan jantung?",
+  FBD7M9GxGCQ: "Bagaimanakah kegagalan jantung membuat anda rasa?",
+  "1-BDMXOWMD8": "Pengukuran Pecahan Ejeksi dan Kegagalan Jantung",
+  "8O4VExOSXcc": "Ubat untuk kegagalan jantung",
+  WOWLsHldqwM: "Bagaimanakah aspirin berfungsi?",
+  xIlaQuRaZmk: "Bagaimanakah perencat ACE berfungsi?",
+  uiYJKvwVhEU: "Bagaimanakah penyekat beta berfungsi?",
+  qK3HFqk8ubk: "Tindakan Selular Perencat SGLT2",
+  o6Oi_N5jotg: "Statin, kesan sampingan dan kegunaannya",
+  "52eMwhf8UfI": "Tanda dan Gejala Amaran Kegagalan Jantung",
+  WPOAhPoLbfA: "Perkara yang perlu dilakukan apabila anda berasa sakit",
+  LU5k5zibE_g: "Perkara yang boleh dilakukan untuk berasa lebih baik",
+  uM8yQNZ0x10: "Mengapakah pengambilan garam berlebihan tidak baik?",
+  "4YNdp3pRjig": "Memahami Tekanan Darah",
+  yVFzSmG6ZB0: "Kawal tekanan darah anda",
+  wKCa9g0ob7k: "Cara mengukur tekanan darah di rumah",
+  "sUz-MxgnAxY": "Makanan yang membantu menurunkan tekanan darah",
+  "-64U9tUQA0A": "Makanan untuk pesakit kegagalan jantung",
+  t1EnYhYDlJA: "Kenali Kandungan Garam",
+  xWmiRNfnJ4E: "Hubungan Jantung–Buah Pinggang–Diabetes",
+  oDOVXww7sSE: "Memahami Diabetes Jenis 2",
+  gbfAXCuoOSk: "Kegagalan jantung: Pertimbangan pemakanan dan diet",
+  Gzz1J5FhHbU: "Cara makan secara sihat dengan diabetes jenis 2",
+  hTX0iGAAwWY: "Apakah gula bebas?",
+  Gb6pI2Grec4: "Kolesterol dan penyakit jantung",
+  "UaolDzxn-vE": "Apakah kolesterol?",
+  ZccHstNhKzU: "Cara mengurus kolesterol tinggi",
+  "yAuSs-4hXa4": "Adakah telur baik atau buruk untuk kolesterol?",
+  "RnF3j-IvhQc": "Makanan untuk mengurangkan kolesterol tinggi secara semula jadi",
+  HPk2vM6CInM: "Apakah kesan lemak terhadap tubuh anda?",
+  PCgB2mCFVT0: "Minyak Masak Sihat",
+  o5aof7UI3yg: "Mengapakah diet Mediterranean baik untuk jantung?",
+  klZwKgXnzSI: "Senaman untuk pesakit kegagalan jantung",
+  wWGulLAa0O0: "Apakah yang berlaku dalam tubuh semasa bersenam?",
+  k60x24nN9CM: "Apakah kadar denyutan jantung sasaran saya?",
+  "-JsuNKbAAkU": "Pemulihan Jantung di Rumah - Program Tahap 1",
+  fgKHFLe654U: "10 senaman jalur rintangan yang boleh dilakukan di rumah",
+  cBRvo0284cg: "Kesihatan mental dan emosi bagi pesakit kegagalan jantung",
+  "s0f-TtfrMRk": "Kebimbangan dengan Penyakit Jantung: Gejala, Sokongan dan Langkah Seterusnya",
+  "p-SydwbwpwM": "Kesunyian dan Kesihatan Jantung",
+  DsK_gbYSSuo: "Penyakit Jantung & Kesihatan Mental: Hubungan Jantung–Minda",
+}
+
 export default function Education() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const isBm = i18n.language === "ms"
   const [query, setQuery] = React.useState("")
   const [openModule, setOpenModule] = React.useState<string | null>("A")
   const [completedVideos, setCompletedVideos] = React.useState<Record<string, boolean>>({})
@@ -163,7 +228,15 @@ export default function Education() {
         if (!module.categories.includes(video.category)) return false
         if (!normalizedQuery) return true
 
-        return [module.title, video.category, video.title, video.source]
+        return [
+          module.title,
+          bmModuleTitles[module.id],
+          video.category,
+          bmCategories[video.category],
+          video.title,
+          bmVideoTitles[video.id],
+          video.source,
+        ]
           .join(" ")
           .toLowerCase()
           .includes(normalizedQuery)
@@ -233,10 +306,10 @@ export default function Education() {
                         {t("education.moduleLabel")} {module.id}
                       </div>
                       <h2 className="text-xl font-bold text-foreground">
-                        {module.title}
+                        {isBm ? bmModuleTitles[module.id] : module.title}
                       </h2>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {module.videos.length} videos
+                        {module.videos.length} {isBm ? "video" : "videos"}
                       </p>
                     </div>
                   </div>
@@ -259,7 +332,7 @@ export default function Education() {
                         <section key={category} className="mb-8 last:mb-0">
                           {module.categories.length > 1 && (
                             <h3 className="mb-4 text-lg font-semibold text-foreground">
-                              {category}
+                              {isBm ? bmCategories[category] : category}
                             </h3>
                           )}
                           <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -278,7 +351,7 @@ export default function Education() {
                                 <div className="p-4">
                                   <h4 className="mb-2 flex items-start gap-2 font-semibold text-foreground">
                                     <PlayCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                                    {video.title}
+                                    {isBm ? bmVideoTitles[video.id] : video.title}
                                   </h4>
                                   <p className="mb-4 text-sm text-muted-foreground">
                                     {video.source}

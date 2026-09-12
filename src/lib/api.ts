@@ -399,12 +399,9 @@ export async function createAdminPatientAccount(payload: {
   }
 }
 
-export async function resetAdminPatientPassword(
-  patientId: string
-) {
+export async function resetAdminPatientPassword(patientId: string) {
   const res = await fetch(
-    `${serverUrl()}/api/admin/patients/` +
-      `${encodeURIComponent(patientId)}/reset-password`,
+    `${serverUrl()}/api/admin/patients/${encodeURIComponent(patientId)}/reset-password`,
     {
       method: "POST",
       headers: {
@@ -416,20 +413,8 @@ export async function resetAdminPatientPassword(
   )
 
   const body = await res.json().catch(() => ({}))
-
-  if (!res.ok) {
-    throw new Error(
-      body?.error ||
-        "Failed to reset patient password"
-    )
-  }
-
-  return body as {
-    ok: boolean
-    patientId: string
-    assignedUserId?: string | null
-    passwordHelpResolved?: boolean
-  }
+  if (!res.ok) throw new Error(body?.error || "Failed to reset patient password")
+  return body as { ok: boolean; patientId: string; assignedUserId?: string | null }
 }
 
 export type PasswordHelpRequest = {
@@ -441,25 +426,13 @@ export type PasswordHelpRequest = {
 }
 
 export async function getAdminPasswordHelpRequests() {
-  const res = await fetch(
-    `${serverUrl()}/api/admin/password-help`,
-    {
-      headers: await adminAuthHeaders(),
-    }
-  )
+  const res = await fetch(`${serverUrl()}/api/admin/password-help`, {
+    headers: await adminAuthHeaders(),
+  })
 
   const body = await res.json().catch(() => ({}))
-
-  if (!res.ok) {
-    throw new Error(
-      body?.error ||
-        "Failed to load password-help requests"
-    )
-  }
-
-  return body as {
-    requests: PasswordHelpRequest[]
-  }
+  if (!res.ok) throw new Error(body?.error || "Failed to load password-help requests")
+  return body as { requests: PasswordHelpRequest[] }
 }
 
 export async function backfillPatientUserIds() {
@@ -1200,6 +1173,7 @@ export type PatientNotification = {
   notification_type: string
   sent_at: string
   read_at?: string | null
+  metadata?: Record<string, any> | null
 }
 
 export async function sendPatientNotification(payload: {

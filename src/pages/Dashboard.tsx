@@ -16,12 +16,13 @@ import { getPatientSummary, getPatientInfo, getPatientNotifications, markPatient
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { supabase } from "@/lib/supabase"
 import { formatDistanceToNow, format } from "date-fns"
+import { ms } from "date-fns/locale"
 import { useLanguage } from "@/contexts/LanguageContext"
 
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
 
   const ClockDisplay = memo(() => {
@@ -150,8 +151,51 @@ const Dashboard = () => {
 
   const lastSyncDisplay =
     lastSyncFromSummary && !Number.isNaN(lastSyncFromSummary.getTime())
-      ? formatDistanceToNow(lastSyncFromSummary, { addSuffix: true })
-      : summary.lastSyncTs || "unknown"
+      ? formatDistanceToNow(lastSyncFromSummary, {
+          addSuffix: true,
+          locale: language === "BM" ? ms : undefined,
+        })
+      : summary.lastSyncTs || t("unknown")
+
+  const getNotificationDisplay = (item: PatientNotification) => {
+    if (language !== "BM") {
+      return { title: item.title, message: item.message }
+    }
+
+    if (item.notification_type === "low_steps") {
+      const steps = Number(item.metadata?.steps)
+      const target = Number(item.metadata?.target)
+      return {
+        title: "Peringatan langkah harian",
+        message:
+          Number.isFinite(steps) && Number.isFinite(target)
+            ? `Anda telah merekodkan ${steps.toLocaleString("ms-MY")} daripada sasaran harian ${target.toLocaleString("ms-MY")} langkah.`
+            : "Sasaran langkah harian anda masih belum dicapai.",
+      }
+    }
+
+    if (item.notification_type === "incomplete_vitals") {
+      const missingLabels: Record<string, string> = {
+        weight: "berat badan",
+        "blood pressure": "tekanan darah",
+        symptoms: "simptom",
+      }
+      const missing = Array.isArray(item.metadata?.missing)
+        ? item.metadata.missing.map(
+            (value: string) => missingLabels[value.toLowerCase()] || value
+          )
+        : []
+      return {
+        title: "Lengkapkan log vital hari ini",
+        message:
+          missing.length > 0
+            ? `Log vital harian anda belum lengkap. Sila rekodkan: ${missing.join(", ")}.`
+            : "Log vital harian anda masih belum lengkap.",
+      }
+    }
+
+    return { title: item.title, message: item.message }
+  }
 
 
   const homeComponents = [
@@ -240,8 +284,16 @@ const Dashboard = () => {
             <AlertDescription className="space-y-3">
               {notifications.filter((item) => !item.read_at).map((item) => (
                 <div key={item.id} className="flex items-start justify-between gap-3">
-                  <div><strong>{item.title}</strong><p>{item.message}</p><small>{new Date(item.sent_at).toLocaleString()}</small></div>
-                  <Button variant="outline" size="sm" onClick={() => markNotificationRead(item.id)}><Check className="mr-1 h-4 w-4" />Mark read</Button>
+                  <div>
+                    <strong>{getNotificationDisplay(item).title}</strong>
+                    <p>{getNotificationDisplay(item).message}</p>
+                    <small>
+                      {new Date(item.sent_at).toLocaleString(
+                        language === "BM" ? "ms-MY" : "en-MY"
+                      )}
+                    </small>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => markNotificationRead(item.id)}><Check className="mr-1 h-4 w-4" />{t("markRead")}</Button>
                 </div>
               ))}
             </AlertDescription>

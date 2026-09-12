@@ -75,6 +75,8 @@ const translations: Record<Language, Record<string, string>> = {
     myChatDesc: "Chat with AI assistant for support, guidance and heart health questions.",
     patient: "Patient",
     lastSynced: "Last Synced",
+    markRead: "Mark read",
+    unknown: "unknown",
 
 
     // exercise
@@ -268,6 +270,8 @@ const translations: Record<Language, Record<string, string>> = {
     myChatDesc: "Berbual dengan pembantu AI untuk sokongan, panduan dan soalan kesihatan jantung.",
     patient: "Pesakit",
     lastSynced: "Terakhir Disegerakkan",
+    markRead: "Tandakan dibaca",
+    unknown: "tidak diketahui",
 
 
     // exercise
