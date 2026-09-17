@@ -1,3 +1,4 @@
+// Processes Tailwind and other CSS during the build
 import type { Config } from "tailwindcss"
 
 

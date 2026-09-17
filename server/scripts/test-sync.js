@@ -1,3 +1,5 @@
+// Sends sample wearable readings to the backend
+
 const http = require('http');
 
 const data = JSON.stringify({

@@ -1,3 +1,4 @@
+// This script checks the database connection and retrieves patient info for a test patient ID
 const http = require('http');
 
 http.get('http://localhost:3001/debug-db?patientId=test-patient-id-123', (res) => {

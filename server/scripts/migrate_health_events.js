@@ -1,3 +1,6 @@
+// Migrate health_events table to Supabase
+// Prints SQL needed to create the older health-events structure
+
 require('dotenv').config(); // Defaults to .env in current dir
 const { createClient } = require('@supabase/supabase-js');
 

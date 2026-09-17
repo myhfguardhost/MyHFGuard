@@ -1,3 +1,6 @@
+// Contains development-only database and test routes
+// These routes are not included in production builds
+
 module.exports = function (app, supabase, ensurePatient, supabaseMock) {
   app.post('/dev/ensure-patient', async (req, res) => {
     const pid = req.body && req.body.patientId

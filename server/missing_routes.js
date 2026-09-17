@@ -1,4 +1,4 @@
-// Add these routes to server.js after the /admin/summary route (around line 154)
+// backup route implementations
 
 // Get patient info for admin
 app.get('/admin/patient-info', async (req, res) => {

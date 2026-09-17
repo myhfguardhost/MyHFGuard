@@ -1,3 +1,5 @@
+// Smoke test script for the server. Run with `node server/scripts/smoke.js` after starting the server.
+
 const base = process.env.BASE_URL || 'http://localhost:3001'
 const pid = process.env.PID || 'mock'
 

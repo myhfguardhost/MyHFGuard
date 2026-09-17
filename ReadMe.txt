@@ -49,8 +49,6 @@ MyHFGuard_FYP_Submission/
 |       |-- gradlew
 |       `-- gradlew.bat
 `-- Videos/
-    |-- MyHFGuard_System_Demonstration.<video-format>
-    `-- MyHFGuard_Setup_or_Deployment.<video-format>
 
 The names may be adjusted, but the same main content should be included.
 
