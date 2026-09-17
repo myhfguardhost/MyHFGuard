@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
+import { serverUrl } from "@/lib/api";
 
 const PATIENT_LOGIN_DOMAIN = (
   (import.meta.env.VITE_PATIENT_LOGIN_DOMAIN as string | undefined)
@@ -45,7 +46,9 @@ const Login = () => {
 
   const [formData, setFormData] = useState({ userId: "", password: "" });
   const [error, setError] = useState("");
+  const [helpMessage, setHelpMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRequestingHelp, setIsRequestingHelp] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -118,6 +121,45 @@ const Login = () => {
 
     localStorage.setItem("profileCompleted", profileCompleted ? "true" : "false");
     navigate(profileCompleted ? "/" : "/profile");
+  };
+
+  const handlePasswordHelp = async () => {
+    const userId = formData.userId.trim();
+
+    setError("");
+    setHelpMessage("");
+
+    if (!userId) {
+      setError("Please enter your User ID first.");
+      return;
+    }
+
+    setIsRequestingHelp(true);
+
+    try {
+      const response = await fetch(`${serverUrl()}/api/patient/password-help`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body?.error || "Unable to send the password-help request.");
+      }
+
+      setHelpMessage(
+        "Request sent. Please contact the administrator for your password reset."
+      );
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to send the password-help request."
+      );
+    } finally {
+      setIsRequestingHelp(false);
+    }
   };
 
   return (
@@ -216,11 +258,29 @@ const Login = () => {
                     required
                     className="h-12 rounded-2xl border-slate-300 dark:border-white/10 bg-white dark:bg-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-400 focus-visible:ring-cyan-400"
                   />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handlePasswordHelp}
+                      disabled={isRequestingHelp}
+                      className="text-sm font-medium text-sky-600 hover:text-sky-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-cyan-300 dark:hover:text-cyan-200"
+                    >
+                      {isRequestingHelp
+                        ? "Sending request..."
+                        : "Forgot password? Ask admin for help"}
+                    </button>
+                  </div>
                 </div>
 
                 {error ? (
                   <div className="rounded-2xl border border-red-300 dark:border-red-400/30 bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-200">
                     {error}
+                  </div>
+                ) : null}
+
+                {helpMessage ? (
+                  <div className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                    {helpMessage}
                   </div>
                 ) : null}
 
