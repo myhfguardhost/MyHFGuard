@@ -38,6 +38,8 @@ import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import PatientTargetStepsControl from "@/components/admin/PatientTargetStepsControl";
 
+type DatePreset = "7D" | "1M" | "3M" | "6M" | "1Y" | "3Y";
+
 import {
   Bar,
   BarChart,
@@ -296,6 +298,7 @@ export default function PatientDetail() {
     from: subDays(new Date(), 6),
     to: new Date(),
   });
+  const [activePreset, setActivePreset] = useState<DatePreset | null>("7D");
 
   useEffect(() => {
     if (id && dateRange?.from && dateRange?.to) {
@@ -409,19 +412,29 @@ export default function PatientDetail() {
   const setSevenDayPreset = () => {
     const to = new Date();
     setDateRange({ from: subDays(to, 6), to });
+    setActivePreset("7D");
   };
 
-  const setPreset = (months: number) => {
+  const setPreset = (months: number, preset: "1M" | "3M" | "6M") => {
     const to = new Date();
     const from = subMonths(to, months);
     setDateRange({ from, to });
+    setActivePreset(preset);
   };
 
-  const setYearPreset = (years: number) => {
+  const setYearPreset = (years: number, preset: "1Y" | "3Y") => {
     const to = new Date();
     const from = subYears(to, years);
     setDateRange({ from, to });
+    setActivePreset(preset);
   };
+
+  const presetButtonClass = (preset: DatePreset) =>
+    cn(
+      activePreset === preset
+        ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+    );
 
   const refreshPatient = () => {
     if (id && dateRange?.from && dateRange?.to) {
@@ -576,12 +589,12 @@ export default function PatientDetail() {
                 <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-slate-600">Quick Range:</span>
-                    <Button variant="outline" size="sm" onClick={setSevenDayPreset} className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100">7D</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(1)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">1M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(3)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">3M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPreset(6)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">6M</Button>
-                    <Button variant="outline" size="sm" onClick={() => setYearPreset(1)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">1Y</Button>
-                    <Button variant="outline" size="sm" onClick={() => setYearPreset(3)} className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">3Y</Button>
+                    <Button variant="outline" size="sm" onClick={setSevenDayPreset} className={presetButtonClass("7D")}>7D</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreset(1, "1M")} className={presetButtonClass("1M")}>1M</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreset(3, "3M")} className={presetButtonClass("3M")}>3M</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPreset(6, "6M")} className={presetButtonClass("6M")}>6M</Button>
+                    <Button variant="outline" size="sm" onClick={() => setYearPreset(1, "1Y")} className={presetButtonClass("1Y")}>1Y</Button>
+                    <Button variant="outline" size="sm" onClick={() => setYearPreset(3, "3Y")} className={presetButtonClass("3Y")}>3Y</Button>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -603,9 +616,10 @@ export default function PatientDetail() {
                       <PopoverContent className="w-auto p-0" align="start">
                         <DateScrollPicker
                           date={dateRange?.from}
-                          setDate={(date) =>
-                            setDateRange((prev) => ({ ...prev, from: date, to: prev?.to }))
-                          }
+                          setDate={(date) => {
+                            setActivePreset(null);
+                            setDateRange((prev) => ({ ...prev, from: date, to: prev?.to }));
+                          }}
                         />
                       </PopoverContent>
                     </Popover>
@@ -628,9 +642,10 @@ export default function PatientDetail() {
                       <PopoverContent className="w-auto p-0" align="start">
                         <DateScrollPicker
                           date={dateRange?.to}
-                          setDate={(date) =>
-                            setDateRange((prev) => ({ ...prev, from: prev?.from, to: date }))
-                          }
+                          setDate={(date) => {
+                            setActivePreset(null);
+                            setDateRange((prev) => ({ ...prev, from: prev?.from, to: date }));
+                          }}
                         />
                       </PopoverContent>
                     </Popover>
