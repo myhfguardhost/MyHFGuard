@@ -17,6 +17,19 @@ function userIdFromEmail(email) {
     return normalizeUserId(value.split('@')[0]);
 }
 
+async function loadAuthUserMap(supabase) {
+    const map = new Map();
+    const perPage = 200;
+    for (let page = 1; page <= 100; page += 1) {
+        const result = await supabase.auth.admin.listUsers({ page, perPage });
+        if (result.error) throw result.error;
+        const batch = (result.data && result.data.users) || [];
+        for (const user of batch) map.set(user.id, user);
+        if (batch.length < perPage) break;
+    }
+    return map;
+}
+
 module.exports = (supabase) => async (req, res) => {
     try {
         const patientId = req.query.patientId;
@@ -47,17 +60,33 @@ module.exports = (supabase) => async (req, res) => {
             }
         }
 
+        // Load all login accounts in one go for the list page, instead of
+        // asking Supabase once per patient.
+        let authUserMap = null;
+        if (!patientId && ids.length > 1) {
+            try {
+                authUserMap = await loadAuthUserMap(supabase);
+            } catch (error) {
+                console.warn('Unable to list auth users, falling back to per-patient lookup:', error.message);
+                authUserMap = null;
+            }
+        }
+
         const transformedPatients = [];
 
         for (const patient of patients || []) {
             let profile = profileMap.get(patient.patient_id) || {};
             let authUser = null;
 
-            try {
-                const authResult = await supabase.auth.admin.getUserById(patient.patient_id);
-                if (!authResult.error) authUser = authResult.data && authResult.data.user;
-            } catch (error) {
-                console.warn(`Unable to load auth user ${patient.patient_id}:`, error.message);
+            if (authUserMap && authUserMap.has(patient.patient_id)) {
+                authUser = authUserMap.get(patient.patient_id);
+            } else {
+                try {
+                    const authResult = await supabase.auth.admin.getUserById(patient.patient_id);
+                    if (!authResult.error) authUser = authResult.data && authResult.data.user;
+                } catch (error) {
+                    console.warn(`Unable to load auth user ${patient.patient_id}:`, error.message);
+                }
             }
 
             let assignedUserId = normalizeUserId(
