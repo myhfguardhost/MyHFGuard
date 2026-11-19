@@ -452,14 +452,14 @@ export default function PatientDetail() {
     if (!profile || resettingPassword) return;
     const userId = profile.assigned_user_id || profile.patient_id;
     const confirmed = window.confirm(
-      `Reset the password for ${userId} to don'tmissabeat? The patient's current password will stop working.`
+      `Reset the password for ${userId} to the default password? The patient's current password will stop working.`
     );
     if (!confirmed) return;
 
     try {
       setResettingPassword(true);
       await resetAdminPatientPassword(profile.patient_id);
-      toast.success(`Password for ${userId} was reset to don'tmissabeat.`);
+      toast.success(`Password for ${userId} was reset to the default password.`);
     } catch (error: any) {
       toast.error(error?.message || "Failed to reset patient password.");
     } finally {

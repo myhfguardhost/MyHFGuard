@@ -599,7 +599,7 @@ app.post('/api/admin/patients', requireAdmin, async (req, res) => {
 
 app.post('/api/admin/patients/:patientId/reset-password', requireAdmin, async (req, res) => {
   const patientId = String(req.params.patientId || '')
-  const defaultPassword = "don'tmissabeat"
+  const defaultPassword = "dontmiss@beat"
 
   if (!patientId) return res.status(400).json({ error: 'Missing patient ID.' })
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
