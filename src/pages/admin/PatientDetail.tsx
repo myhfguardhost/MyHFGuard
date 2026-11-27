@@ -935,9 +935,9 @@ export default function PatientDetail() {
                   <h3 className="text-xl font-bold text-slate-900">Raw Band and Self-care Data Logs</h3>
 
                   <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Steps Log</CardTitle></CardHeader>
-                      <CardContent>
+                    <Card className="flex max-h-[380px] flex-col overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
+                      <CardHeader className="shrink-0 border-b border-slate-100 pb-4"><CardTitle className="text-slate-900">Steps Log</CardTitle></CardHeader>
+                      <CardContent className="min-h-0 flex-1 overflow-y-auto pt-2">
                         {!hasStepsData(vitals.steps) ? <MiniEmpty /> : (
                           <Table>
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Count</TableHead></TableRow></TableHeader>
@@ -949,9 +949,9 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">SpO₂ Log</CardTitle></CardHeader>
-                      <CardContent>
+                    <Card className="flex max-h-[380px] flex-col overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
+                      <CardHeader className="shrink-0 border-b border-slate-100 pb-4"><CardTitle className="text-slate-900">SpO₂ Log</CardTitle></CardHeader>
+                      <CardContent className="min-h-0 flex-1 overflow-y-auto pt-2">
                         {!hasSpo2Data(vitals.spo2) ? <MiniEmpty /> : (
                           <Table>
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Min</TableHead><TableHead>Avg</TableHead><TableHead>Max</TableHead></TableRow></TableHeader>
@@ -963,9 +963,9 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">BP Log</CardTitle></CardHeader>
-                      <CardContent>
+                    <Card className="flex max-h-[380px] flex-col overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
+                      <CardHeader className="shrink-0 border-b border-slate-100 pb-4"><CardTitle className="text-slate-900">BP Log</CardTitle></CardHeader>
+                      <CardContent className="min-h-0 flex-1 overflow-y-auto pt-2">
                         {!hasBpData(vitals.bp) ? <MiniEmpty /> : (
                           <Table>
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Sys/Dia</TableHead><TableHead>Pulse</TableHead></TableRow></TableHeader>
@@ -977,9 +977,9 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Weight Log</CardTitle></CardHeader>
-                      <CardContent>
+                    <Card className="flex max-h-[380px] flex-col overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
+                      <CardHeader className="shrink-0 border-b border-slate-100 pb-4"><CardTitle className="text-slate-900">Weight Log</CardTitle></CardHeader>
+                      <CardContent className="min-h-0 flex-1 overflow-y-auto pt-2">
                         {!hasWeightData(vitals.weight) ? <MiniEmpty /> : (
                           <Table>
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Weight</TableHead></TableRow></TableHeader>
@@ -991,9 +991,9 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="max-h-[380px] self-start overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Symptom Log</CardTitle></CardHeader>
-                      <CardContent>
+                    <Card className="flex max-h-[380px] flex-col overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm xl:col-span-2">
+                      <CardHeader className="shrink-0 border-b border-slate-100 pb-4"><CardTitle className="text-slate-900">Symptom Log</CardTitle></CardHeader>
+                      <CardContent className="min-h-0 flex-1 overflow-y-auto pt-2">
                         {!hasRows(symptoms) ? <MiniEmpty message="No symptoms logged in this period" /> : (
                           <Table>
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Total</TableHead><TableHead>Details</TableHead></TableRow></TableHeader>
@@ -1004,43 +1004,6 @@ export default function PatientDetail() {
                                 <TableCell className="max-w-[320px] text-xs text-slate-600">Breathless {row.sob_activity ?? row.breathlessness ?? 0}, Swelling {row.leg_swelling ?? row.swelling ?? 0}, Cough {row.cough ?? 0}, Sleep {row.orthopnea ?? row.sleeping ?? 0}, Abdomen {row.abd_discomfort ?? row.abdomen ?? 0}{row.notes ? ` | ${cleanNotes(row.notes)}` : ""}</TableCell>
                               </TableRow>
                             ))}</TableBody>
-                          </Table>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="max-h-[380px] self-start overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Water and Salt Diet Log</CardTitle></CardHeader>
-                      <CardContent>
-                        {!hasRows(waterSalt) ? <MiniEmpty message="No water or salt logged in this period" /> : (
-                          <Table>
-                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Water</TableHead><TableHead>Salt</TableHead></TableRow></TableHeader>
-                            <TableBody>{waterSalt.map((row: any, index: number) => {
-                              const water = numberOrNull(getRecordValue(row, ["water_intake_ml", "water_intake"]));
-                              const limit = numberOrNull(getRecordValue(row, ["water_limit_ml"]), false);
-                              const salt = numberOrNull(getRecordValue(row, ["salt_score", "salt_intake"]), false);
-                              const day = row.entry_date || row.date || row.created_at;
-                              return (
-                                <TableRow key={row.id || index}>
-                                  <TableCell className="whitespace-nowrap">{day ? `${formatDateOnly(day)} ${String(day).slice(0, 4)}` : "-"}</TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-col items-start gap-1">
-                                      <span className="font-medium text-slate-900">
-                                        {water !== null ? `${water.toLocaleString()} ml` : "-"}
-                                        {limit ? <span className="font-normal text-slate-400"> / {limit.toLocaleString()} ml</span> : null}
-                                      </span>
-                                      <DietStatusBadge kind="water" status={waterStatusOf(row, water, limit)} />
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-col items-start gap-1">
-                                      <span className="font-medium text-slate-900">{salt !== null ? `Score ${salt}` : "-"}</span>
-                                      <DietStatusBadge kind="salt" status={saltStatusOf(row, salt)} />
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}</TableBody>
                           </Table>
                         )}
                       </CardContent>
@@ -1098,7 +1061,12 @@ export default function PatientDetail() {
                                         const color = payload.saltStatus ? DIET_STATUS_STYLE[payload.saltStatus as DietStatus].color : "#f97316";
                                         return <circle key={`salt-dot-${index}`} cx={cx} cy={cy} r={6} fill={color} stroke="#ffffff" strokeWidth={2} />;
                                       }}
-                                      activeDot={{ r: 8, stroke: "#ffffff", strokeWidth: 2 }}
+                                      activeDot={(props: any) => {
+                                        const { cx, cy, payload } = props;
+                                        if (cx == null || cy == null) return <g />;
+                                        const color = payload?.saltStatus ? DIET_STATUS_STYLE[payload.saltStatus as DietStatus].color : "#f97316";
+                                        return <circle cx={cx} cy={cy} r={8} fill={color} stroke="#ffffff" strokeWidth={2} />;
+                                      }}
                                     />
                                   </ComposedChart>
                                 );
