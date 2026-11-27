@@ -3646,8 +3646,23 @@ app.post('/api/admin/patient-notifications', requireAdmin, async (req, res) => {
   if (!patientId || !title || !message) return res.status(400).json({ error: 'patientId, title and message are required' })
   const clock = malaysiaNotificationClock()
   const type = String(alertType || 'admin_alert').replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
-  const result = await insertPatientNotification({ patient_id: patientId, notification_type: type, dedupe_key: `${patientId}:${type}:${sourceAlertId || clock.date}`, title: String(title).slice(0, 120), message: String(message).slice(0, 500), notification_date: clock.date, scheduled_for: new Date().toISOString(), metadata: { source: 'admin', delivery: 'in_app' } })
+  // Every press of "Send via MyHFGuard" is a new message. The old key
+  // (patient + type + alert) never changed, so a second send of the same alert
+  // was silently skipped while the page still said it was sent.
+  const sentAt = new Date()
+  const row = {
+    patient_id: patientId,
+    notification_type: type,
+    dedupe_key: `${patientId}:${type}:${sourceAlertId || 'manual'}:${sentAt.getTime()}:${require('crypto').randomUUID()}`,
+    title: String(title).slice(0, 120),
+    message: String(message).slice(0, 500),
+    notification_date: clock.date,
+    scheduled_for: sentAt.toISOString(),
+    metadata: { source: 'admin', delivery: 'in_app', source_alert_id: sourceAlertId || null }
+  }
+  const result = await supabase.from('patient_notifications').insert(row).select().maybeSingle()
   if (result.error) return res.status(400).json({ error: result.error.message })
+  if (!result.data) return res.status(500).json({ error: 'The notification was not saved. Please try again.' })
   return res.status(201).json({ notification: result.data, delivery: 'in_app' })
 })
 

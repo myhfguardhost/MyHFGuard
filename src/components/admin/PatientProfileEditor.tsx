@@ -211,7 +211,12 @@ export default function PatientProfileEditor({
           <p className="text-xs text-slate-500">Age and BMI are worked out automatically when you save.</p>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+              className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+            >
               Cancel
             </Button>
             <Button onClick={save} disabled={saving} className="bg-blue-600 text-white hover:bg-blue-700">

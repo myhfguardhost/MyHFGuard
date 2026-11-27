@@ -45,6 +45,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -96,6 +97,33 @@ function getRecordValue(record: any, keys: string[]) {
     if (record?.[key] !== undefined && record?.[key] !== null) return record[key];
   }
   return null;
+}
+
+// One point per day, oldest first, for the admin trend chart. If a patient
+// saved more than once on a day, the latest save of that day is used.
+function buildWaterSaltTrend(rows: any[]) {
+  if (!Array.isArray(rows)) return [];
+  const byDay = new Map<string, any>();
+  for (const row of rows) {
+    const day = String(row?.entry_date || row?.date || row?.created_at || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    const previous = byDay.get(day);
+    if (!previous || String(row?.created_at || "") > String(previous?.created_at || "")) byDay.set(day, row);
+  }
+  return [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([day, row]) => {
+      const water = Number(getRecordValue(row, ["water_intake_ml", "water_intake"]));
+      const salt = Number(getRecordValue(row, ["salt_score", "salt_intake"]));
+      const limit = Number(getRecordValue(row, ["water_limit_ml"]));
+      return {
+        date: formatChartDate(day),
+        water: Number.isFinite(water) && water >= 0 ? water : null,
+        salt: Number.isFinite(salt) && salt > 0 ? salt : null,
+        limit: Number.isFinite(limit) && limit > 0 ? limit : null,
+      };
+    })
+    .filter((point) => point.water !== null || point.salt !== null);
 }
 
 function hasRows(data: any[]) {
@@ -468,9 +496,11 @@ export default function PatientDetail() {
     }
   };
 
+  // The nickname the patient typed in the app comes first. first_name and
+  // last_name are only the placeholder made when the account was created.
   const patientName = profile
-    ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
-      fullData?.profile?.full_name ||
+    ? String(fullData?.profile?.full_name || "").trim() ||
+      `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
       profile.assigned_user_id ||
       "Patient Details"
     : "Patient Details";
@@ -478,6 +508,7 @@ export default function PatientDetail() {
   const summary = fullData?.summary || {};
   const symptoms = fullData?.logs?.symptoms || [];
   const waterSalt = fullData?.logs?.waterSalt || [];
+  const waterSaltTrend = buildWaterSaltTrend(waterSalt);
   const medications = fullData?.logs?.medications || [];
   const profileMedicationText = fullData?.profile?.current_medication || fullData?.patient?.current_medication || "";
   const fallbackMedicationRows = medicationRowsFromProfile(profileMedicationText);
@@ -855,6 +886,34 @@ export default function PatientDetail() {
                               </TableRow>
                             ))}</TableBody>
                           </Table>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="text-slate-900">Water and Salt Trend</CardTitle>
+                        <p className="text-sm text-slate-500">Bars: water drunk (ml). Line: salt score for the day (3 = low, 9 = high).</p>
+                      </CardHeader>
+                      <CardContent>
+                        {waterSaltTrend.length === 0 ? (
+                          <NoData message="No water or salt data available for this period" />
+                        ) : (
+                          <ChartFrame>
+                            {(chartWidth, chartHeight) => (
+                              <ComposedChart width={chartWidth} height={chartHeight} data={waterSaltTrend} margin={{ top: 20, right: 10, left: 5, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" interval={0} angle={-35} textAnchor="end" height={55} />
+                                <YAxis yAxisId="water" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
+                                <YAxis yAxisId="salt" orientation="right" domain={[0, 9]} ticks={[0, 3, 6, 9]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
+                                <Tooltip />
+                                <Legend />
+                                <Bar yAxisId="water" dataKey="water" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Water (ml)" isAnimationActive={false} />
+                                <Line yAxisId="water" type="stepAfter" dataKey="limit" stroke="#64748b" strokeDasharray="6 4" strokeWidth={2} dot={false} name="Water limit (ml)" connectNulls isAnimationActive={false} />
+                                <Line yAxisId="salt" type="monotone" dataKey="salt" stroke="#f97316" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: "#f97316" }} activeDot={{ r: 7 }} name="Salt score" connectNulls isAnimationActive={false} />
+                              </ComposedChart>
+                            )}
+                          </ChartFrame>
                         )}
                       </CardContent>
                     </Card>
