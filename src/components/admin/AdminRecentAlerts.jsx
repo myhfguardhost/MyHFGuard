@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { patientDisplayName } from "@/lib/patientName"
 import {
   Bell,
   CircleAlert,
@@ -42,12 +43,7 @@ export default function AdminRecentAlerts({
     const patient = row?.patientInfo?.patient || {}
 
 
-    return (
-      `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
-      patient.full_name ||
-      patient.name ||
-      "Unknown Patient"
-    )
+    return patientDisplayName([patient])
   }
 
 

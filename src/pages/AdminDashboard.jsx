@@ -229,7 +229,16 @@ export default function AdminDashboard() {
 
           return {
             patientId: realPatientId,
-            patientInfo: patientInfoRes,
+            // The patient list carries the nickname and User ID; patient-info
+            // only has the account placeholder name, so merge both.
+            patientInfo: {
+              ...(patientInfoRes || {}),
+              patient: {
+                ...(patientInfoRes?.patient || {}),
+                full_name: patient.full_name || null,
+                assigned_user_id: patient.assigned_user_id || null,
+              },
+            },
             summaryData: sevenDaySummary,
             vitalsData: vitalsRes || getEmptyVitals(),
             weeklyStatus: weeklyStatusRes,

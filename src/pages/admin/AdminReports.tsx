@@ -17,6 +17,7 @@ import * as XLSX from "xlsx";
 import { toast } from "sonner";
 
 import { getAdminPatientFullData, getPatients, serverUrl } from "@/lib/api";
+import { patientDisplayName } from "@/lib/patientName";
 import { buildAlerts, pickWorstStatus } from "@/lib/adminAlertUtils";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
@@ -47,7 +48,7 @@ function latestBy(rows: any[], getter: (row: any) => any) {
 }
 
 function getName(patient: any, fallbackId: string) {
-  return `${patient?.first_name || ""} ${patient?.last_name || ""}`.trim() || patient?.full_name || fallbackId;
+  return patientDisplayName([patient], fallbackId);
 }
 
 function normalizeVitals(fullData: any) {
@@ -507,7 +508,14 @@ export default function AdminReports() {
             ),
           ]);
 
-          const patientInfo = { patient: fullData.patient || patient };
+          // Keep the nickname and User ID from the profile/list with the patient record.
+          const patientInfo = {
+            patient: {
+              ...(fullData.patient || patient),
+              full_name: fullData.profile?.full_name || patient.full_name || null,
+              assigned_user_id: patient.assigned_user_id || fullData.patient?.assigned_user_id || null,
+            },
+          };
           const summaryData = { summary: fullData.summary || {} };
           const vitalsData = normalizeVitals(fullData);
 

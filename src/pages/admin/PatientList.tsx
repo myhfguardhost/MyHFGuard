@@ -20,6 +20,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
+import { patientDisplayName } from "@/lib/patientName";
 
 function normalizeUserId(value: string) {
   return value.trim().toLowerCase();
@@ -295,13 +296,10 @@ export default function PatientList() {
                           </TableRow>
                         ) : (
                           visiblePatients.map((patient: any) => {
-                            const patientName =
-                              patient.full_name ||
-                              patient.profile_name ||
-                              `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
-                              patient.name ||
-                              patient.assigned_user_id ||
-                              "Profile Pending";
+                            const patientName = patientDisplayName(
+                              [{ ...patient, full_name: patient.full_name || patient.profile_name }],
+                              "Profile Pending"
+                            );
 
                             return (
                               <TableRow

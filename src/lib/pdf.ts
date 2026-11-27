@@ -1,6 +1,7 @@
 // src/lib/pdf.ts
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import { patientDisplayName } from "@/lib/patientName";
 
 /**
  * Generate a PDF for a patient dashboard.
@@ -29,15 +30,7 @@ export async function generatePatientPdf(
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
 
-    const combinedName = `${patient.first_name ?? ""} ${
-      patient.last_name ?? ""
-    }`.trim();
-
-    const patientName =
-      combinedName ||
-      patient.full_name ||
-      patient.assigned_user_id ||
-      "Patient";
+    const patientName = patientDisplayName([patient], "Patient");
 
     const displayId =
       patient.assigned_user_id ||

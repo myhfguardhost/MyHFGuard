@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { patientDisplayName } from "@/lib/patientName";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -252,14 +253,7 @@ export default function AdminAlerts() {
             ).then((r) => (r.ok ? r.json() : null)),
           ]);
 
-          const patientInfo = fullData?.patient || fullData?.profile || patient;
-          const patientName =
-            `${patientInfo?.first_name || ""} ${patientInfo?.last_name || ""}`.trim() ||
-            patientInfo?.full_name ||
-            patientInfo?.name ||
-            patient.full_name ||
-            patient.name ||
-            "Unknown Patient";
+          const patientName = patientDisplayName([fullData?.profile, patient, fullData?.patient]);
 
           const patientAlerts = buildAlerts({
             patientId,

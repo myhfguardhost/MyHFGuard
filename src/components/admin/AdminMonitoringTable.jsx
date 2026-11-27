@@ -1,4 +1,5 @@
 import { CircleCheckBig } from "lucide-react"
+import { patientDisplayName } from "@/lib/patientName"
 
 
 export default function AdminMonitoringTable({ summary = [], goToPatient }) {
@@ -62,11 +63,7 @@ export default function AdminMonitoringTable({ summary = [], goToPatient }) {
                 const patient = item.patientInfo?.patient || {}
 
 
-                const name =
-                  `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
-                  patient.full_name ||
-                  patient.name ||
-                  "Unknown Patient"
+                const name = patientDisplayName([patient])
 
 
                 const s = item.summaryData?.summary || {}

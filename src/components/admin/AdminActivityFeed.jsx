@@ -1,4 +1,5 @@
 import { Activity, UserCircle } from "lucide-react"
+import { patientDisplayName } from "@/lib/patientName"
 
 export default function AdminActivityFeed({ summary = [] }) {
   const feedItems = buildFeedItems(summary)
@@ -53,11 +54,7 @@ function buildFeedItems(summary) {
   summary.forEach((item) => {
     const patient = item.patientInfo?.patient || {}
 
-    const name =
-      `${patient.first_name || ""} ${patient.last_name || ""}`.trim() ||
-      patient.full_name ||
-      patient.name ||
-      item.patientId
+    const name = patientDisplayName([patient], item.patientId)
 
     const s = item.summaryData?.summary || {}
     const vitals = item.vitalsData?.vitals || {}

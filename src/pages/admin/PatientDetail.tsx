@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { generatePatientPdf } from "@/lib/pdf";
+import { patientDisplayName } from "@/lib/patientName";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AdminPatientFullData, getAdminPatientFullData, PatientProfile, resetAdminPatientPassword } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,10 +46,12 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ComposedChart,
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   Tooltip,
   XAxis,
   YAxis,
@@ -99,6 +102,45 @@ function getRecordValue(record: any, keys: string[]) {
   return null;
 }
 
+type DietStatus = "green" | "orange" | "red";
+
+const DIET_STATUS_STYLE: Record<DietStatus, { color: string; badge: string }> = {
+  green: { color: "#16a34a", badge: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  orange: { color: "#f59e0b", badge: "border-amber-200 bg-amber-50 text-amber-700" },
+  red: { color: "#dc2626", badge: "border-red-200 bg-red-50 text-red-700" },
+};
+
+function asDietStatus(value: any): DietStatus | null {
+  const v = String(value || "").toLowerCase();
+  return v === "green" || v === "orange" || v === "red" ? v : null;
+}
+
+// Same rules as the patient Water & Salt page, used when a row has no status.
+function waterStatusOf(row: any, water: number | null, limit: number | null): DietStatus | null {
+  const saved = asDietStatus(row?.water_status);
+  if (saved) return saved;
+  if (water === null || !limit) return null;
+  if (water <= limit) return "green";
+  if (water <= limit * 1.1) return "orange";
+  return "red";
+}
+
+function saltStatusOf(row: any, salt: number | null): DietStatus | null {
+  const saved = asDietStatus(row?.salt_status);
+  if (saved) return saved;
+  if (salt === null) return null;
+  if (salt <= 3) return "green";
+  if (salt <= 6) return "orange";
+  return "red";
+}
+
+function numberOrNull(value: any, allowZero = true) {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return n > 0 || (allowZero && n === 0) ? n : null;
+}
+
 // One point per day, oldest first, for the admin trend chart. If a patient
 // saved more than once on a day, the latest save of that day is used.
 function buildWaterSaltTrend(rows: any[]) {
@@ -113,17 +155,88 @@ function buildWaterSaltTrend(rows: any[]) {
   return [...byDay.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([day, row]) => {
-      const water = Number(getRecordValue(row, ["water_intake_ml", "water_intake"]));
-      const salt = Number(getRecordValue(row, ["salt_score", "salt_intake"]));
-      const limit = Number(getRecordValue(row, ["water_limit_ml"]));
+      const water = numberOrNull(getRecordValue(row, ["water_intake_ml", "water_intake"]));
+      const salt = numberOrNull(getRecordValue(row, ["salt_score", "salt_intake"]), false);
+      const limit = numberOrNull(getRecordValue(row, ["water_limit_ml"]), false);
       return {
+        day,
         date: formatChartDate(day),
-        water: Number.isFinite(water) && water >= 0 ? water : null,
-        salt: Number.isFinite(salt) && salt > 0 ? salt : null,
-        limit: Number.isFinite(limit) && limit > 0 ? limit : null,
+        water,
+        salt,
+        limit,
+        waterStatus: waterStatusOf(row, water, limit),
+        saltStatus: saltStatusOf(row, salt),
       };
     })
     .filter((point) => point.water !== null || point.salt !== null);
+}
+
+const DIET_STATUS_TEXT: Record<"water" | "salt", Record<DietStatus, string>> = {
+  water: { green: "Within limit", orange: "Slightly over", red: "Over limit" },
+  salt: { green: "Low salt", orange: "Moderate salt", red: "High salt" },
+};
+
+function DietStatusBadge({ kind, status }: { kind: "water" | "salt"; status: DietStatus | null }) {
+  if (!status) return <span className="text-slate-400">-</span>;
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium", DIET_STATUS_STYLE[status].badge)}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: DIET_STATUS_STYLE[status].color }} />
+      {DIET_STATUS_TEXT[kind][status]}
+    </span>
+  );
+}
+
+function WaterSaltTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  if (!point) return null;
+  return (
+    <div className="min-w-[180px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 shadow-lg">
+      <p className="mb-2 font-semibold text-slate-900">{formatDateOnly(point.day)} {point.day?.slice(0, 4)}</p>
+      <div className="flex items-center justify-between gap-3">
+        <span>Water</span>
+        <span className="font-medium text-slate-900">
+          {point.water !== null ? `${point.water.toLocaleString()} ml` : "-"}
+          {point.limit ? <span className="font-normal text-slate-400"> / {point.limit.toLocaleString()}</span> : null}
+        </span>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-3">
+        <span>Salt score</span>
+        <span className="font-medium text-slate-900">{point.salt ?? "-"}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <DietStatusBadge kind="water" status={point.waterStatus} />
+        <DietStatusBadge kind="salt" status={point.saltStatus} />
+      </div>
+    </div>
+  );
+}
+
+function WaterSaltSummary({ points }: { points: any[] }) {
+  const waters = points.map((p) => p.water).filter((v) => v !== null) as number[];
+  const salts = points.map((p) => p.salt).filter((v) => v !== null) as number[];
+  const overLimit = points.filter((p) => p.waterStatus === "red").length;
+  const highSalt = points.filter((p) => p.saltStatus === "red").length;
+  const avg = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+  const avgWater = avg(waters);
+  const avgSalt = avg(salts);
+  const items = [
+    { label: "Days logged", value: String(points.length) },
+    { label: "Avg water", value: avgWater !== null ? `${Math.round(avgWater).toLocaleString()} ml` : "-" },
+    { label: "Over water limit", value: `${overLimit} day${overLimit === 1 ? "" : "s"}`, alert: overLimit > 0 },
+    { label: "Avg salt score", value: avgSalt !== null ? avgSalt.toFixed(1) : "-" },
+    { label: "High-salt days", value: `${highSalt} day${highSalt === 1 ? "" : "s"}`, alert: highSalt > 0 },
+  ];
+  return (
+    <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {items.map((item) => (
+        <div key={item.label} className={cn("rounded-xl border px-3 py-2", item.alert ? "border-red-200 bg-red-50" : "border-slate-200 bg-slate-50")}>
+          <p className="text-xs text-slate-500">{item.label}</p>
+          <p className={cn("text-lg font-semibold", item.alert ? "text-red-700" : "text-slate-900")}>{item.value}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function hasRows(data: any[]) {
@@ -285,8 +398,12 @@ function NoData({ message }: { message: string }) {
   );
 }
 
-function MiniEmpty({ message = "No data" }: { message?: string }) {
-  return <p className="py-4 text-center text-slate-500">{message}</p>;
+function MiniEmpty({ message = "No records in this period" }: { message?: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">
+      {message}
+    </div>
+  );
 }
 
 function StatCard({ title, value, detail }: { title: string; value: any; detail?: string }) {
@@ -473,7 +590,11 @@ export default function PatientDetail() {
 
   const downloadPdf = () => {
     if (profile && pdfRef.current) {
-      generatePatientPdf(profile, pdfRef.current);
+      // Use the latest nickname, including one just changed in Edit Profile.
+      generatePatientPdf(
+        { ...profile, full_name: fullData?.profile?.full_name || profile.full_name },
+        pdfRef.current
+      );
     }
   };
 
@@ -499,9 +620,7 @@ export default function PatientDetail() {
   // The nickname the patient typed in the app comes first. first_name and
   // last_name are only the placeholder made when the account was created.
   const patientName = profile
-    ? String(fullData?.profile?.full_name || "").trim() ||
-      `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
-      profile.assigned_user_id ||
+    ? patientDisplayName([fullData?.profile, profile], "") ||
       "Patient Details"
     : "Patient Details";
 
@@ -872,10 +991,10 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
+                    <Card className="max-h-[380px] self-start overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
                       <CardHeader><CardTitle className="text-slate-900">Symptom Log</CardTitle></CardHeader>
                       <CardContent>
-                        {!hasRows(symptoms) ? <MiniEmpty /> : (
+                        {!hasRows(symptoms) ? <MiniEmpty message="No symptoms logged in this period" /> : (
                           <Table>
                             <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Total</TableHead><TableHead>Details</TableHead></TableRow></TableHeader>
                             <TableBody>{symptoms.map((row: any, index: number) => (
@@ -890,49 +1009,109 @@ export default function PatientDetail() {
                       </CardContent>
                     </Card>
 
-                    <Card className="overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader>
+                    <Card className="max-h-[380px] self-start overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
+                      <CardHeader><CardTitle className="text-slate-900">Water and Salt Diet Log</CardTitle></CardHeader>
+                      <CardContent>
+                        {!hasRows(waterSalt) ? <MiniEmpty message="No water or salt logged in this period" /> : (
+                          <Table>
+                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Water</TableHead><TableHead>Salt</TableHead></TableRow></TableHeader>
+                            <TableBody>{waterSalt.map((row: any, index: number) => {
+                              const water = numberOrNull(getRecordValue(row, ["water_intake_ml", "water_intake"]));
+                              const limit = numberOrNull(getRecordValue(row, ["water_limit_ml"]), false);
+                              const salt = numberOrNull(getRecordValue(row, ["salt_score", "salt_intake"]), false);
+                              const day = row.entry_date || row.date || row.created_at;
+                              return (
+                                <TableRow key={row.id || index}>
+                                  <TableCell className="whitespace-nowrap">{day ? `${formatDateOnly(day)} ${String(day).slice(0, 4)}` : "-"}</TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col items-start gap-1">
+                                      <span className="font-medium text-slate-900">
+                                        {water !== null ? `${water.toLocaleString()} ml` : "-"}
+                                        {limit ? <span className="font-normal text-slate-400"> / {limit.toLocaleString()} ml</span> : null}
+                                      </span>
+                                      <DietStatusBadge kind="water" status={waterStatusOf(row, water, limit)} />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col items-start gap-1">
+                                      <span className="font-medium text-slate-900">{salt !== null ? `Score ${salt}` : "-"}</span>
+                                      <DietStatusBadge kind="salt" status={saltStatusOf(row, salt)} />
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}</TableBody>
+                          </Table>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card className="overflow-hidden border-slate-200 bg-white text-slate-900 shadow-sm xl:col-span-2">
+                      <CardHeader className="pb-3">
                         <CardTitle className="text-slate-900">Water and Salt Trend</CardTitle>
-                        <p className="text-sm text-slate-500">Bars: water drunk (ml). Line: salt score for the day (3 = low, 9 = high).</p>
+                        <p className="text-sm text-slate-500">
+                          Bars show water drunk each day, coloured by the patient&apos;s water limit. The line shows the day&apos;s salt score (3 = low, 9 = high).
+                        </p>
                       </CardHeader>
                       <CardContent>
                         {waterSaltTrend.length === 0 ? (
                           <NoData message="No water or salt data available for this period" />
                         ) : (
-                          <ChartFrame>
-                            {(chartWidth, chartHeight) => (
-                              <ComposedChart width={chartWidth} height={chartHeight} data={waterSaltTrend} margin={{ top: 20, right: 10, left: 5, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#334155" }} stroke="#64748b" interval={0} angle={-35} textAnchor="end" height={55} />
-                                <YAxis yAxisId="water" tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
-                                <YAxis yAxisId="salt" orientation="right" domain={[0, 9]} ticks={[0, 3, 6, 9]} tick={{ fontSize: 12, fill: "#334155" }} stroke="#64748b" />
-                                <Tooltip />
-                                <Legend />
-                                <Bar yAxisId="water" dataKey="water" fill="#0ea5e9" radius={[4, 4, 0, 0]} name="Water (ml)" isAnimationActive={false} />
-                                <Line yAxisId="water" type="stepAfter" dataKey="limit" stroke="#64748b" strokeDasharray="6 4" strokeWidth={2} dot={false} name="Water limit (ml)" connectNulls isAnimationActive={false} />
-                                <Line yAxisId="salt" type="monotone" dataKey="salt" stroke="#f97316" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: "#f97316" }} activeDot={{ r: 7 }} name="Salt score" connectNulls isAnimationActive={false} />
-                              </ComposedChart>
-                            )}
-                          </ChartFrame>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card className="max-h-[380px] overflow-auto border-slate-200 bg-white text-slate-900 shadow-sm">
-                      <CardHeader><CardTitle className="text-slate-900">Water and Salt Diet Log</CardTitle></CardHeader>
-                      <CardContent>
-                        {!hasRows(waterSalt) ? <MiniEmpty /> : (
-                          <Table>
-                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Water</TableHead><TableHead>Salt</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-                            <TableBody>{waterSalt.map((row: any, index: number) => (
-                              <TableRow key={row.id || index}>
-                                <TableCell>{row.entry_date || row.date || formatDateOnly(row.created_at)}</TableCell>
-                                <TableCell>{getRecordValue(row, ["water_intake_ml", "water_intake"] ) ?? "-"} ml</TableCell>
-                                <TableCell>{getRecordValue(row, ["salt_score", "salt_intake"] ) ?? "-"}</TableCell>
-                                <TableCell>{row.water_status || row.salt_status || "-"}</TableCell>
-                              </TableRow>
-                            ))}</TableBody>
-                          </Table>
+                          <>
+                            <WaterSaltSummary points={waterSaltTrend} />
+                            <ChartFrame>
+                              {(chartWidth, chartHeight) => {
+                                const limits = waterSaltTrend.map((p: any) => p.limit).filter(Boolean);
+                                const sameLimit = limits.length > 0 && limits.every((v: number) => v === limits[0]) ? limits[0] : null;
+                                const topWater = Math.max(0, ...waterSaltTrend.map((p: any) => Math.max(p.water || 0, p.limit || 0)));
+                                const waterMax = Math.max(500, Math.ceil((topWater * 1.15) / 250) * 250);
+                                return (
+                                  <ComposedChart width={chartWidth} height={chartHeight} data={waterSaltTrend} margin={{ top: 16, right: 8, left: 0, bottom: 8 }} barCategoryGap="30%">
+                                    <CartesianGrid vertical={false} stroke="#e2e8f0" />
+                                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#475569" }} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} interval="preserveStartEnd" minTickGap={16} />
+                                    <YAxis yAxisId="water" domain={[0, waterMax]} tick={{ fontSize: 12, fill: "#475569" }} tickLine={false} axisLine={false} width={56} tickFormatter={(v) => `${v}`} label={{ value: "Water (ml)", angle: -90, position: "insideLeft", offset: 10, style: { fill: "#64748b", fontSize: 12 } }} />
+                                    <YAxis yAxisId="salt" orientation="right" domain={[0, 9]} ticks={[0, 3, 6, 9]} tick={{ fontSize: 12, fill: "#475569" }} tickLine={false} axisLine={false} width={44} label={{ value: "Salt", angle: 90, position: "insideRight", offset: 10, style: { fill: "#64748b", fontSize: 12 } }} />
+                                    <Tooltip content={<WaterSaltTooltip />} cursor={{ fill: "#f1f5f9" }} />
+                                    {sameLimit ? (
+                                      <ReferenceLine yAxisId="water" y={sameLimit} stroke="#94a3b8" strokeDasharray="6 4" label={{ value: `Limit ${sameLimit.toLocaleString()} ml`, position: "insideTopLeft", fill: "#64748b", fontSize: 12 }} />
+                                    ) : null}
+                                    <Bar yAxisId="water" dataKey="water" name="Water (ml)" fill="#0ea5e9" radius={[6, 6, 0, 0]} maxBarSize={44} isAnimationActive={false}>
+                                      {waterSaltTrend.map((p: any) => (
+                                        <Cell key={p.day} fill={p.waterStatus === "red" ? "#f87171" : p.waterStatus === "orange" ? "#fbbf24" : "#38bdf8"} />
+                                      ))}
+                                    </Bar>
+                                    {!sameLimit && limits.length > 0 ? (
+                                      <Line yAxisId="water" type="stepAfter" dataKey="limit" name="Water limit (ml)" stroke="#94a3b8" strokeDasharray="6 4" strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />
+                                    ) : null}
+                                    <Line
+                                      yAxisId="salt"
+                                      type="monotone"
+                                      dataKey="salt"
+                                      name="Salt score"
+                                      stroke="#f97316"
+                                      strokeWidth={3}
+                                      connectNulls
+                                      isAnimationActive={false}
+                                      dot={(props: any) => {
+                                        const { cx, cy, payload, index } = props;
+                                        if (cx == null || cy == null || payload?.salt == null) return <g key={`salt-dot-${index}`} />;
+                                        const color = payload.saltStatus ? DIET_STATUS_STYLE[payload.saltStatus as DietStatus].color : "#f97316";
+                                        return <circle key={`salt-dot-${index}`} cx={cx} cy={cy} r={6} fill={color} stroke="#ffffff" strokeWidth={2} />;
+                                      }}
+                                      activeDot={{ r: 8, stroke: "#ffffff", strokeWidth: 2 }}
+                                    />
+                                  </ComposedChart>
+                                );
+                              }}
+                            </ChartFrame>
+                            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-sky-400" />Within water limit</span>
+                              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />Slightly over (up to 10%)</span>
+                              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-red-400" />Over limit</span>
+                              <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-slate-400" />Water limit</span>
+                              <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-green-600" />Salt low · <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />moderate · <span className="h-2.5 w-2.5 rounded-full bg-red-600" />high</span>
+                            </div>
+                          </>
                         )}
                       </CardContent>
                     </Card>
