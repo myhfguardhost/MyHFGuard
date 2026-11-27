@@ -37,6 +37,7 @@ import { DateRange } from "react-day-picker";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import PatientTargetStepsControl from "@/components/admin/PatientTargetStepsControl";
+import PatientProfileEditor from "@/components/admin/PatientProfileEditor";
 
 type DatePreset = "7D" | "1M" | "3M" | "6M" | "1Y" | "3Y";
 
@@ -554,6 +555,18 @@ export default function PatientDetail() {
                       )}
                       Reset Password
                     </Button>
+
+                    <PatientProfileEditor
+                      patientId={profile.patient_id}
+                      profile={fullData?.profile}
+                      onUpdated={(saved) =>
+                        setFullData((current) =>
+                          current
+                            ? { ...current, profile: { ...(current.profile || {}), ...saved } }
+                            : current
+                        )
+                      }
+                    />
 
                     <Button
                       variant="outline"

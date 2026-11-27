@@ -503,6 +503,56 @@ export async function backfillPatientUserIds() {
   }
 }
 
+export type AdminProfileUpdate = {
+  fullName?: string
+  dateOfBirth?: string
+  ic?: string
+  systolicBp?: number
+  diastolicBp?: number
+  heartRate?: number
+  dryWeight?: number
+  height?: number
+}
+
+export async function updateAdminPatientProfile(
+  patientId: string,
+  changes: AdminProfileUpdate
+) {
+  let res: Response
+
+  try {
+    res = await fetch(
+      `${serverUrl()}/api/admin/patients/${encodeURIComponent(patientId)}/profile`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await adminAuthHeaders()),
+        },
+        body: JSON.stringify(changes),
+      }
+    )
+  } catch {
+    throw new Error(
+      "Cannot reach the admin backend. Redeploy the latest server and check VITE_SERVER_URL."
+    )
+  }
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    if (res.status === 404 && !body?.error) {
+      throw new Error("The deployed backend is outdated. Redeploy the latest server.")
+    }
+    throw new Error(body?.error || "Failed to update the patient profile.")
+  }
+
+  return body as {
+    patientId: string
+    assignedUserId?: string | null
+    profile: Record<string, any>
+  }
+}
+
 export async function updateAdminPatientTargetSteps(
   patientId: string,
   targetSteps: number

@@ -934,6 +934,158 @@ async function updateAdminPatientTargetSteps(req, res) {
 app.patch('/api/admin/patients/:patientId/target-steps', requireAdmin, updateAdminPatientTargetSteps)
 app.post('/api/admin/patients/:patientId/target-steps', requireAdmin, updateAdminPatientTargetSteps)
 
+// Admin correction of the locked patient profile. Patients cannot change these
+// fields after submission; the lock trigger allows only service_role (this
+// server) and the Supabase Dashboard. Run
+// database_fixes/ADMIN_CAN_EDIT_LOCKED_PROFILE.sql (mobile repo) first.
+// Only the fields present in the body are changed. Age and BMI are worked out
+// here so they always match the date of birth, weight and height.
+function malaysiaTodayIso() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }).format(new Date())
+}
+
+function ageOnDate(birthIso, todayIso) {
+  const [by, bm, bd] = birthIso.split('-').map(Number)
+  const [ty, tm, td] = todayIso.split('-').map(Number)
+  let age = ty - by
+  if (tm < bm || (tm === bm && td < bd)) age -= 1
+  return age
+}
+
+async function updateAdminPatientProfile(req, res) {
+  const patientReference = String(req.params.patientId || '').trim()
+  const normalizedReference = normalizeAssignedUserId(patientReference)
+  const body = req.body || {}
+
+  if (!patientReference) return res.status(400).json({ error: 'Missing patient ID.' })
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(503).json({ error: 'Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.' })
+  }
+
+  const has = (key) => Object.prototype.hasOwnProperty.call(body, key) && body[key] !== undefined
+  const update = {}
+  const problems = []
+
+  if (has('fullName')) {
+    const name = String(body.fullName || '').trim()
+    if (name.length < 2 || name.length > 100) problems.push('Nickname must be 2 to 100 characters.')
+    else update.full_name = name
+  }
+
+  if (has('dateOfBirth')) {
+    const dob = String(body.dateOfBirth || '').trim()
+    const today = malaysiaTodayIso()
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(dob) ? new Date(`${dob}T00:00:00Z`) : null
+    const valid = parsed && !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === dob
+    if (!valid) problems.push('Date of birth must be a real date (YYYY-MM-DD).')
+    else if (dob > today) problems.push('Date of birth cannot be in the future.')
+    else {
+      const age = ageOnDate(dob, today)
+      if (age < 1 || age > 120) problems.push('Age from the date of birth must be between 1 and 120.')
+      else {
+        update.date_of_birth = dob
+        update.age = age
+      }
+    }
+  }
+
+  if (has('ic')) {
+    const ic = String(body.ic || '').trim()
+    if (ic.length < 5 || ic.length > 30) problems.push('IC must be 5 to 30 characters.')
+    else update.ic = ic
+  }
+
+  const numberField = (key, column, label, min, max, integer) => {
+    if (!has(key)) return
+    const value = Number(body[key])
+    if (body[key] === '' || body[key] === null || !Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+      problems.push(`${label} must be ${integer ? 'a whole number ' : ''}between ${min} and ${max}.`)
+    } else {
+      update[column] = value
+    }
+  }
+  numberField('systolicBp', 'systolic_bp', 'Systolic BP', 60, 250, true)
+  numberField('diastolicBp', 'diastolic_bp', 'Diastolic BP', 30, 150, true)
+  numberField('heartRate', 'heart_rate', 'Heart rate', 30, 220, true)
+  numberField('dryWeight', 'dry_weight', 'Dry weight', 20, 300, false)
+  numberField('height', 'height', 'Height', 100, 250, false)
+
+  if (problems.length) return res.status(400).json({ error: problems.join(' ') })
+  if (!Object.keys(update).length) return res.status(400).json({ error: 'Nothing to update.' })
+
+  let patientLookup
+  if (isValidAssignedUserId(normalizedReference)) {
+    patientLookup = await supabase
+      .from('patients')
+      .select('patient_id,user_id,assigned_user_id')
+      .ilike('assigned_user_id', normalizedReference)
+      .maybeSingle()
+  } else {
+    patientLookup = await supabase
+      .from('patients')
+      .select('patient_id,user_id,assigned_user_id')
+      .eq('patient_id', patientReference)
+      .maybeSingle()
+  }
+
+  if (patientLookup.error) return res.status(400).json({ error: patientLookup.error.message })
+  if (!patientLookup.data) return res.status(404).json({ error: 'Patient account was not found.' })
+
+  const authUserId = patientLookup.data.user_id || patientLookup.data.patient_id
+  if (!authUserId) {
+    return res.status(409).json({ error: 'Patient account is not linked to a Supabase Auth user.' })
+  }
+
+  const current = await supabase
+    .from('profiles')
+    .select('user_id,dry_weight,height')
+    .eq('user_id', authUserId)
+    .maybeSingle()
+  if (current.error) return res.status(400).json({ error: current.error.message })
+  if (!current.data) return res.status(404).json({ error: 'This patient has not submitted a profile yet.' })
+
+  if ('dry_weight' in update || 'height' in update) {
+    const weight = Number(update.dry_weight ?? current.data.dry_weight)
+    const heightCm = Number(update.height ?? current.data.height)
+    if (Number.isFinite(weight) && Number.isFinite(heightCm) && weight > 0 && heightCm > 0) {
+      update.bmi = Math.round((weight / ((heightCm / 100) * (heightCm / 100))) * 10) / 10
+    }
+  }
+
+  const result = await supabase
+    .from('profiles')
+    .update(update)
+    .eq('user_id', authUserId)
+    .select('user_id,full_name,date_of_birth,age,ic,systolic_bp,diastolic_bp,heart_rate,dry_weight,height,bmi')
+    .maybeSingle()
+
+  if (result.error) {
+    const message = String(result.error.message || '')
+    if (message.includes('date_of_birth')) {
+      return res.status(409).json({
+        error: 'The date_of_birth column is missing. Run database_fixes/ADMIN_CAN_EDIT_LOCKED_PROFILE.sql in Supabase SQL Editor.'
+      })
+    }
+    if (message.includes('locked')) {
+      return res.status(409).json({
+        error: 'The profile lock is still blocking admin changes. Run database_fixes/ADMIN_CAN_EDIT_LOCKED_PROFILE.sql in Supabase SQL Editor.'
+      })
+    }
+    return res.status(400).json({ error: message })
+  }
+  if (!result.data) return res.status(500).json({ error: 'Profile was not saved.' })
+
+  return res.status(200).json({
+    patientId: patientLookup.data.patient_id,
+    assignedUserId: patientLookup.data.assigned_user_id,
+    profile: result.data
+  })
+}
+
+// PATCH for REST clients, POST for proxies that block PATCH preflight.
+app.patch('/api/admin/patients/:patientId/profile', requireAdmin, updateAdminPatientProfile)
+app.post('/api/admin/patients/:patientId/profile', requireAdmin, updateAdminPatientProfile)
+
 function adminDateOnly(value, fallback) {
   if (!value) return fallback
   const d = new Date(value)
