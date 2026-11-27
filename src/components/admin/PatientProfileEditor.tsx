@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { AdminProfileUpdate, updateAdminPatientProfile } from "@/lib/api";
 
-type FieldKey =
+export type FieldKey =
   | "fullName"
   | "dateOfBirth"
   | "ic"
@@ -24,7 +24,18 @@ type FieldKey =
   | "dryWeight"
   | "height";
 
-type FormValues = Record<FieldKey, string>;
+export type FormValues = Record<FieldKey, string>;
+
+export const EMPTY_PROFILE_VALUES: FormValues = {
+  fullName: "",
+  dateOfBirth: "",
+  ic: "",
+  systolicBp: "",
+  diastolicBp: "",
+  heartRate: "",
+  dryWeight: "",
+  height: "",
+};
 
 const NUMBER_RULES: Partial<Record<FieldKey, { label: string; min: number; max: number; integer: boolean }>> = {
   systolicBp: { label: "Systolic BP", min: 60, max: 250, integer: true },
@@ -52,11 +63,11 @@ function valuesFromProfile(profile: Record<string, any> | null | undefined): For
   };
 }
 
-function malaysiaTodayIso() {
+export function malaysiaTodayIso() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kuala_Lumpur" }).format(new Date());
 }
 
-function ageFrom(birthIso: string) {
+export function ageFrom(birthIso: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(birthIso)) return null;
   const [by, bm, bd] = birthIso.split("-").map(Number);
   const [ty, tm, td] = malaysiaTodayIso().split("-").map(Number);
@@ -65,7 +76,7 @@ function ageFrom(birthIso: string) {
   return age;
 }
 
-function checkField(key: FieldKey, raw: string): string | null {
+export function checkField(key: FieldKey, raw: string): string | null {
   const value = raw.trim();
   if (key === "fullName") return value.length < 2 || value.length > 100 ? "Nickname must be 2 to 100 characters." : null;
   if (key === "ic") return value.length < 5 || value.length > 30 ? "IC must be 5 to 30 characters." : null;
@@ -82,6 +93,61 @@ function checkField(key: FieldKey, raw: string): string | null {
     return `${rule.label} must be ${rule.integer ? "a whole number " : ""}between ${rule.min} and ${rule.max}.`;
   }
   return null;
+}
+
+/** Values as the server expects them (numbers for the number fields). */
+export function toProfileUpdate(values: FormValues, keys: FieldKey[]): AdminProfileUpdate {
+  const changes: AdminProfileUpdate = {};
+  for (const key of keys) {
+    const value = values[key].trim();
+    if (key === "fullName" || key === "dateOfBirth" || key === "ic") changes[key] = value;
+    else changes[key] = Number(value);
+  }
+  return changes;
+}
+
+export function ProfileFieldsGrid({
+  values,
+  errors,
+  onChange,
+  idPrefix = "profile",
+}: {
+  values: FormValues;
+  errors: Partial<Record<FieldKey, string>>;
+  onChange: (key: FieldKey, value: string) => void;
+  idPrefix?: string;
+}) {
+  const age = ageFrom(values.dateOfBirth);
+  const field = (key: FieldKey, label: string, props: Record<string, any> = {}) => (
+    <div className="space-y-1.5">
+      <Label htmlFor={`${idPrefix}-${key}`}>{label}</Label>
+      <Input
+        id={`${idPrefix}-${key}`}
+        value={values[key]}
+        onChange={(event) => onChange(key, event.target.value)}
+        aria-invalid={Boolean(errors[key])}
+        className={errors[key] ? "border-red-500 bg-white focus-visible:ring-red-500" : "bg-white"}
+        {...props}
+      />
+      {errors[key] && <p className="text-xs text-red-600">{errors[key]}</p>}
+    </div>
+  );
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="sm:col-span-2">{field("fullName", "Nickname", { maxLength: 100 })}</div>
+      <div>
+        {field("dateOfBirth", "Date of birth", { type: "date", max: malaysiaTodayIso() })}
+        {age !== null && !errors.dateOfBirth && <p className="mt-1 text-xs text-slate-500">Age: {age}</p>}
+      </div>
+      {field("ic", "IC", { maxLength: 30 })}
+      {field("systolicBp", "Systolic BP (mmHg)", { type: "number", inputMode: "numeric", min: 60, max: 250 })}
+      {field("diastolicBp", "Diastolic BP (mmHg)", { type: "number", inputMode: "numeric", min: 30, max: 150 })}
+      {field("heartRate", "Heart rate (bpm)", { type: "number", inputMode: "numeric", min: 30, max: 220 })}
+      {field("dryWeight", "Dry weight (kg)", { type: "number", inputMode: "decimal", step: "0.1", min: 20, max: 300 })}
+      {field("height", "Height (cm)", { type: "number", inputMode: "decimal", step: "0.1", min: 100, max: 250 })}
+    </div>
+  );
 }
 
 export default function PatientProfileEditor({
@@ -109,8 +175,6 @@ export default function PatientProfileEditor({
   const changedKeys = (Object.keys(values) as FieldKey[]).filter(
     (key) => values[key].trim() !== original[key].trim()
   );
-  const age = ageFrom(values.dateOfBirth);
-
   const setField = (key: FieldKey, value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
@@ -135,12 +199,7 @@ export default function PatientProfileEditor({
       return;
     }
 
-    const changes: AdminProfileUpdate = {};
-    for (const key of changedKeys) {
-      const value = values[key].trim();
-      if (key === "fullName" || key === "dateOfBirth" || key === "ic") changes[key] = value;
-      else changes[key] = Number(value);
-    }
+    const changes = toProfileUpdate(values, changedKeys);
 
     try {
       setSaving(true);
@@ -154,21 +213,6 @@ export default function PatientProfileEditor({
       setSaving(false);
     }
   };
-
-  const field = (key: FieldKey, label: string, props: Record<string, any> = {}) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={`profile-${key}`}>{label}</Label>
-      <Input
-        id={`profile-${key}`}
-        value={values[key]}
-        onChange={(event) => setField(key, event.target.value)}
-        aria-invalid={Boolean(errors[key])}
-        className={errors[key] ? "border-red-500 bg-white focus-visible:ring-red-500" : "bg-white"}
-        {...props}
-      />
-      {errors[key] && <p className="text-xs text-red-600">{errors[key]}</p>}
-    </div>
-  );
 
   return (
     <>
@@ -192,21 +236,7 @@ export default function PatientProfileEditor({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">{field("fullName", "Nickname", { maxLength: 100 })}</div>
-            <div>
-              {field("dateOfBirth", "Date of birth", { type: "date", max: malaysiaTodayIso() })}
-              {age !== null && !errors.dateOfBirth && (
-                <p className="mt-1 text-xs text-slate-500">Age: {age}</p>
-              )}
-            </div>
-            {field("ic", "IC", { maxLength: 30 })}
-            {field("systolicBp", "Systolic BP (mmHg)", { type: "number", inputMode: "numeric", min: 60, max: 250 })}
-            {field("diastolicBp", "Diastolic BP (mmHg)", { type: "number", inputMode: "numeric", min: 30, max: 150 })}
-            {field("heartRate", "Heart rate (bpm)", { type: "number", inputMode: "numeric", min: 30, max: 220 })}
-            {field("dryWeight", "Dry weight (kg)", { type: "number", inputMode: "decimal", step: "0.1", min: 20, max: 300 })}
-            {field("height", "Height (cm)", { type: "number", inputMode: "decimal", step: "0.1", min: 100, max: 250 })}
-          </div>
+          <ProfileFieldsGrid values={values} errors={errors} onChange={setField} />
 
           <p className="text-xs text-slate-500">Age and BMI are worked out automatically when you save.</p>
 

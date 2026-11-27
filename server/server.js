@@ -504,9 +504,34 @@ async function patientLoginHandler(req, res) {
 app.post('/api/patient/login', patientLoginHandler)
 app.post('/patient/login', patientLoginHandler)
 
+// Password given to new accounts when the admin chooses "Use default
+// password", and by Reset Password. It stays on the server only.
+const DEFAULT_PATIENT_PASSWORD = "dontmiss@beat"
+
+// The User ID the next new patient will get, shown in the Add Patient form.
+app.get('/api/admin/patients/next-user-id', requireAdmin, async (req, res) => {
+  try {
+    return res.json({ userId: (await getNextAssignedUserId()).toUpperCase() })
+  } catch (error) {
+    return res.status(400).json({ error: `Unable to generate the next User ID: ${error.message}` })
+  }
+})
+
 app.post('/api/admin/patients', requireAdmin, async (req, res) => {
-  let assignedUserId = normalizeAssignedUserId(req.body && req.body.userId)
-  const password = String((req.body && req.body.password) || '')
+  const body = req.body || {}
+  let assignedUserId = normalizeAssignedUserId(body.userId)
+  const useDefaultPassword = body.useDefaultPassword === true
+  const password = useDefaultPassword ? DEFAULT_PATIENT_PASSWORD : String(body.password || '')
+
+  // Optional: the admin fills in the whole profile for the patient. It is
+  // checked before the account is made, so a mistake creates nothing.
+  let filledProfile = null
+  if (body.profile && typeof body.profile === 'object') {
+    const { update, problems } = parseAdminProfileFields(body.profile, true)
+    if (problems.length) return res.status(400).json({ error: problems.join(' ') })
+    const bmi = bmiFrom(update.dry_weight, update.height)
+    filledProfile = { ...update, ...(bmi !== null ? { bmi } : {}), profile_completed: true, baseline_locked: true }
+  }
 
   try {
     if (!assignedUserId) assignedUserId = await getNextAssignedUserId()
@@ -586,20 +611,42 @@ app.post('/api/admin/patients', requireAdmin, async (req, res) => {
     }
   }
 
+  if (filledProfile) {
+    const filledResult = await supabase
+      .from('profiles')
+      .update(filledProfile)
+      .eq('user_id', user.id)
+      .select('user_id')
+      .maybeSingle()
+
+    if (filledResult.error || !filledResult.data) {
+      const message = filledResult.error ? filledResult.error.message : 'profile row was not found'
+      await supabase.from('profiles').delete().eq('user_id', user.id)
+      await supabase.from('patients').delete().eq('patient_id', user.id)
+      await supabase.auth.admin.deleteUser(user.id)
+      const hint = message.includes('date_of_birth')
+        ? ' Run database_fixes/ADMIN_CAN_EDIT_LOCKED_PROFILE.sql in Supabase SQL Editor.'
+        : ''
+      return res.status(400).json({ error: `Saving the patient profile failed: ${message}.${hint}` })
+    }
+  }
+
   return res.status(201).json({
     patient: {
       patient_id: user.id,
       user_id: user.id,
       assigned_user_id: assignedUserId,
-      profile_completed: false,
+      profile_completed: Boolean(filledProfile),
+      full_name: filledProfile ? filledProfile.full_name : null,
       target_steps: 3000
-    }
+    },
+    usedDefaultPassword: useDefaultPassword
   })
 })
 
 app.post('/api/admin/patients/:patientId/reset-password', requireAdmin, async (req, res) => {
   const patientId = String(req.params.patientId || '')
-  const defaultPassword = "dontmiss@beat"
+  const defaultPassword = DEFAULT_PATIENT_PASSWORD
 
   if (!patientId) return res.status(400).json({ error: 'Missing patient ID.' })
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -952,16 +999,22 @@ function ageOnDate(birthIso, todayIso) {
   return age
 }
 
-async function updateAdminPatientProfile(req, res) {
-  const patientReference = String(req.params.patientId || '').trim()
-  const normalizedReference = normalizeAssignedUserId(patientReference)
-  const body = req.body || {}
+// Checks the admin profile fields (same limits as the mobile app) and maps
+// them to profiles columns. With requireAll, every field must be given, as
+// when the admin fills in the whole profile while creating the account.
+const ADMIN_PROFILE_FIELDS = [
+  ['fullName', 'Nickname'],
+  ['dateOfBirth', 'Date of birth'],
+  ['ic', 'IC'],
+  ['systolicBp', 'Systolic BP'],
+  ['diastolicBp', 'Diastolic BP'],
+  ['heartRate', 'Heart rate'],
+  ['dryWeight', 'Dry weight'],
+  ['height', 'Height']
+]
 
-  if (!patientReference) return res.status(400).json({ error: 'Missing patient ID.' })
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(503).json({ error: 'Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.' })
-  }
-
+function parseAdminProfileFields(body, requireAll = false) {
+  body = body || {}
   const has = (key) => Object.prototype.hasOwnProperty.call(body, key) && body[key] !== undefined
   const update = {}
   const problems = []
@@ -1009,6 +1062,35 @@ async function updateAdminPatientProfile(req, res) {
   numberField('heartRate', 'heart_rate', 'Heart rate', 30, 220, true)
   numberField('dryWeight', 'dry_weight', 'Dry weight', 20, 300, false)
   numberField('height', 'height', 'Height', 100, 250, false)
+
+
+  if (requireAll) {
+    for (const [key, label] of ADMIN_PROFILE_FIELDS) {
+      if (!has(key) || body[key] === '' || body[key] === null) problems.push(`${label} is required.`)
+    }
+  }
+
+  return { update, problems: [...new Set(problems)] }
+}
+
+function bmiFrom(weightKg, heightCm) {
+  const weight = Number(weightKg)
+  const height = Number(heightCm)
+  if (!Number.isFinite(weight) || !Number.isFinite(height) || weight <= 0 || height <= 0) return null
+  return Math.round((weight / ((height / 100) * (height / 100))) * 10) / 10
+}
+
+async function updateAdminPatientProfile(req, res) {
+  const patientReference = String(req.params.patientId || '').trim()
+  const normalizedReference = normalizeAssignedUserId(patientReference)
+  const body = req.body || {}
+
+  if (!patientReference) return res.status(400).json({ error: 'Missing patient ID.' })
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(503).json({ error: 'Server setup is incomplete: add SUPABASE_SERVICE_ROLE_KEY in Render Environment and redeploy.' })
+  }
+
+  const { update, problems } = parseAdminProfileFields(body)
 
   if (problems.length) return res.status(400).json({ error: problems.join(' ') })
   if (!Object.keys(update).length) return res.status(400).json({ error: 'Nothing to update.' })
@@ -1154,6 +1236,11 @@ async function adminSafeSingle(label, query, errors) {
 
 async function adminSafeFallback(label, queryFns, errors) {
   let lastError = null
+  // True once any query ran without an error, even if it found nothing.
+  // "No records in this period" is not a failure; only report a problem when
+  // every query failed. (The later fallbacks may use a column that this
+  // table does not have, so their error must not hide an empty result.)
+  let anySucceeded = false
 
   for (const queryFn of queryFns) {
     try {
@@ -1164,6 +1251,7 @@ async function adminSafeFallback(label, queryFns, errors) {
         continue
       }
 
+      anySucceeded = true
       const data = result.data
 
       if (Array.isArray(data)) {
@@ -1177,7 +1265,7 @@ async function adminSafeFallback(label, queryFns, errors) {
     }
   }
 
-  if (lastError) {
+  if (lastError && !anySucceeded) {
     console.warn(`[admin/full-data] ${label}: ${lastError}`)
     errors[label] = lastError
   }

@@ -343,9 +343,22 @@ export async function getPatients() {
   }>
 }
 
+export async function getNextPatientUserId() {
+  const res = await fetch(`${serverUrl()}/api/admin/patients/next-user-id`, {
+    headers: await adminAuthHeaders(),
+  })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body?.error || "Unable to get the next User ID.")
+  return String(body.userId || "")
+}
+
 export async function createAdminPatientAccount(payload: {
-  userId: string
-  password: string
+  // Left out: the server gives the next User ID (P011 after P010).
+  userId?: string
+  password?: string
+  useDefaultPassword?: boolean
+  // Given when the admin fills in the whole profile for the patient.
+  profile?: AdminProfileUpdate
 }) {
   let res: Response
 

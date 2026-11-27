@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createAdminPatientAccount, deletePatientPermanently, getPatients, PatientProfile } from "@/lib/api";
+import { createAdminPatientAccount, deletePatientPermanently, getNextPatientUserId, getPatients, PatientProfile } from "@/lib/api";
 import {
   Table,
   TableBody,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Lock, LockOpen, Plus, Search, Trash2, User } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Lock, LockOpen, Plus, Search, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -21,9 +21,30 @@ import { PasswordInput } from "@/components/ui/password-input";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopBar from "@/components/admin/AdminTopBar";
 import { patientDisplayName } from "@/lib/patientName";
+import { cn } from "@/lib/utils";
+import {
+  checkField,
+  EMPTY_PROFILE_VALUES,
+  FieldKey,
+  FormValues,
+  ProfileFieldsGrid,
+  toProfileUpdate,
+} from "@/components/admin/PatientProfileEditor";
 
-function normalizeUserId(value: string) {
-  return value.trim().toLowerCase();
+function getDateTime(value: any) {
+  const time = new Date(value || 0).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+type SortColumn = "patient" | "userId" | "profile" | "joined";
+type SortState = { column: SortColumn; direction: "asc" | "desc" };
+
+const ALL_PROFILE_FIELDS = Object.keys(EMPTY_PROFILE_VALUES) as FieldKey[];
+
+function choiceClass(selected: boolean) {
+  return selected
+    ? "border-blue-500 bg-blue-50 text-blue-800 ring-1 ring-blue-500"
+    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300";
 }
 
 export default function PatientList() {
@@ -31,13 +52,19 @@ export default function PatientList() {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [newUserId, setNewUserId] = useState("");
+  const [nextUserId, setNextUserId] = useState("");
+  const [loadingNextUserId, setLoadingNextUserId] = useState(false);
+  const [passwordMode, setPasswordMode] = useState<"default" | "custom">("default");
   const [newPassword, setNewPassword] = useState("");
+  const [fillProfile, setFillProfile] = useState(false);
+  const [profileValues, setProfileValues] = useState<FormValues>(EMPTY_PROFILE_VALUES);
+  const [profileErrors, setProfileErrors] = useState<Partial<Record<FieldKey, string>>>({});
   const [creating, setCreating] = useState(false);
   const [unlockedPatients, setUnlockedPatients] = useState<Set<string>>(new Set());
   const [deletingPatientId, setDeletingPatientId] = useState<string | null>(null);
   const [userIdSearch, setUserIdSearch] = useState("");
-  const [userIdSort, setUserIdSort] = useState<"latest" | "asc" | "desc">("latest");
+  // Starts as "latest joined first", like before.
+  const [sort, setSort] = useState<SortState>({ column: "joined", direction: "desc" });
 
   const navigate = useNavigate();
 
@@ -47,27 +74,27 @@ export default function PatientList() {
       String(patient.assigned_user_id || "").toLowerCase().includes(query)
     );
 
-    if (userIdSort === "latest") return filtered;
+    const nameOf = (patient: any) =>
+      patientDisplayName([{ ...patient, full_name: patient.full_name || patient.profile_name }], "");
+    const text = (first: string, second: string) =>
+      first.localeCompare(second, undefined, { numeric: true, sensitivity: "base" });
 
     return [...filtered].sort((a: any, b: any) => {
-      const first = String(a.assigned_user_id || "");
-      const second = String(b.assigned_user_id || "");
-      const comparison = first.localeCompare(second, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      });
-      return userIdSort === "asc" ? comparison : -comparison;
+      let comparison = 0;
+      if (sort.column === "patient") comparison = text(nameOf(a), nameOf(b));
+      else if (sort.column === "userId") comparison = text(String(a.assigned_user_id || ""), String(b.assigned_user_id || ""));
+      else if (sort.column === "profile") comparison = Number(Boolean(a.profile_completed)) - Number(Boolean(b.profile_completed));
+      else comparison = getDateTime(a.created_at) - getDateTime(b.created_at);
+      // Same value: keep a stable order by User ID.
+      if (comparison === 0) comparison = text(String(a.assigned_user_id || ""), String(b.assigned_user_id || ""));
+      return sort.direction === "asc" ? comparison : -comparison;
     });
-  }, [patients, userIdSearch, userIdSort]);
+  }, [patients, userIdSearch, sort]);
 
   useEffect(() => {
     fetchPatients();
   }, []);
 
-  const getDateTime = (value: any) => {
-    const time = new Date(value || 0).getTime();
-    return Number.isNaN(time) ? 0 : time;
-  };
 
   const fetchPatients = async () => {
     try {
@@ -90,34 +117,73 @@ export default function PatientList() {
     });
   };
 
-  const createPatient = async () => {
-    const userId = normalizeUserId(newUserId);
+  const resetCreateForm = () => {
+    setPasswordMode("default");
+    setNewPassword("");
+    setFillProfile(false);
+    setProfileValues(EMPTY_PROFILE_VALUES);
+    setProfileErrors({});
+  };
 
-    if (!/^[a-z0-9][a-z0-9._-]{2,29}$/.test(userId)) {
-      toast.error(
-        "User ID must be 3-30 characters using letters, numbers, dot, dash or underscore."
-      );
+  // Show the User ID the server will give, e.g. P011 after P010.
+  const openCreateDialog = async (open: boolean) => {
+    if (creating) return;
+    setCreateOpen(open);
+    if (!open) return;
+    resetCreateForm();
+    setNextUserId("");
+    try {
+      setLoadingNextUserId(true);
+      setNextUserId(await getNextPatientUserId());
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to get the next User ID.");
+    } finally {
+      setLoadingNextUserId(false);
+    }
+  };
+
+  const setProfileField = (key: FieldKey, value: string) => {
+    setProfileValues((current) => ({ ...current, [key]: value }));
+    setProfileErrors((current) => ({ ...current, [key]: undefined }));
+  };
+
+  const createPatient = async () => {
+    if (passwordMode === "custom" && newPassword.length < 8) {
+      toast.error("Password must contain at least 8 characters.");
       return;
     }
 
-    if (newPassword.length < 8) {
-      toast.error("Password must contain at least 8 characters.");
-      return;
+    if (fillProfile) {
+      const problems: Partial<Record<FieldKey, string>> = {};
+      for (const key of ALL_PROFILE_FIELDS) {
+        const problem = checkField(key, profileValues[key]);
+        if (problem) problems[key] = problem;
+      }
+      if (Object.keys(problems).length) {
+        setProfileErrors(problems);
+        toast.error(Object.values(problems)[0] as string);
+        return;
+      }
     }
 
     try {
       setCreating(true);
 
+      // No User ID is sent: the server gives the next free one, so two admins
+      // adding patients at the same time can never get the same ID.
       const result = await createAdminPatientAccount({
-        userId,
-        password: newPassword,
+        ...(passwordMode === "default" ? { useDefaultPassword: true } : { password: newPassword }),
+        ...(fillProfile ? { profile: toProfileUpdate(profileValues, ALL_PROFILE_FIELDS) } : {}),
       });
 
-      const createdUserId = result.patient?.assigned_user_id || userId;
-      toast.success(`Patient account ${createdUserId} created.`);
+      const createdUserId = String(result.patient?.assigned_user_id || nextUserId).toUpperCase();
+      toast.success(
+        passwordMode === "default"
+          ? `Patient account ${createdUserId} created with the default password.`
+          : `Patient account ${createdUserId} created.`
+      );
       setCreateOpen(false);
-      setNewUserId("");
-      setNewPassword("");
+      resetCreateForm();
       await fetchPatients();
     } catch (error: any) {
       toast.error(error?.message || "Failed to create patient account.");
@@ -178,9 +244,7 @@ export default function PatientList() {
                         Registered Patients
                       </CardTitle>
                       <p className="mt-1 text-sm text-slate-500">
-                        {userIdSort === "latest"
-                          ? "Latest registered patients are shown first."
-                          : "Patients are sorted by User ID."}
+                        Click a column title to sort.
                       </p>
                     </div>
 
@@ -191,49 +255,90 @@ export default function PatientList() {
                           : `${patients.length} patients`}
                       </div>
 
-                      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+                      <Dialog open={createOpen} onOpenChange={openCreateDialog}>
                         <DialogTrigger asChild>
                           <Button className="bg-blue-600 text-white hover:bg-blue-700">
                             <Plus className="mr-2 h-4 w-4" />
                             Add Patient
                           </Button>
                         </DialogTrigger>
-                        <DialogContent>
+                        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white text-slate-900 sm:max-w-lg">
                           <DialogHeader>
-                            <DialogTitle>Create Patient Login</DialogTitle>
+                            <DialogTitle>Add Patient</DialogTitle>
                             <DialogDescription>
-                              Assign a User ID and temporary password. The patient completes their profile after the first login.
+                              Create a login for a new patient. You can also fill in their profile for them.
                             </DialogDescription>
                           </DialogHeader>
 
-                          <div className="space-y-4 py-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="new-user-id">User ID</Label>
-                              <Input
-                                id="new-user-id"
-                                value={newUserId}
-                                onChange={(event) => setNewUserId(event.target.value)}
-                                placeholder="patient001"
-                                autoComplete="off"
-                              />
-                              <p className="text-xs text-slate-500">3-30 characters: letters, numbers, dot, dash or underscore.</p>
+                          <div className="space-y-5 py-2">
+                            <div className="space-y-1.5">
+                              <Label>User ID</Label>
+                              <div className="flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 font-mono text-sm text-slate-900">
+                                {loadingNextUserId ? (
+                                  <span className="flex items-center gap-2 font-sans text-slate-500">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Getting next User ID...
+                                  </span>
+                                ) : (
+                                  nextUserId || "Given when the account is created"
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500">Given automatically: the next number after the latest patient.</p>
                             </div>
 
                             <div className="space-y-2">
-                              <Label htmlFor="new-password">Temporary Password</Label>
-                              <PasswordInput
-                                id="new-password"
-                                value={newPassword}
-                                onChange={(event) => setNewPassword(event.target.value)}
-                                placeholder="At least 8 characters"
-                                autoComplete="new-password"
-                              />
+                              <Label>Password</Label>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <button type="button" onClick={() => setPasswordMode("default")} className={cn("rounded-lg border px-3 py-2 text-left text-sm", choiceClass(passwordMode === "default"))}>
+                                  <span className="block font-semibold">Use default password</span>
+                                  <span className="block text-xs opacity-80">The same password that Reset Password uses.</span>
+                                </button>
+                                <button type="button" onClick={() => setPasswordMode("custom")} className={cn("rounded-lg border px-3 py-2 text-left text-sm", choiceClass(passwordMode === "custom"))}>
+                                  <span className="block font-semibold">Set a password</span>
+                                  <span className="block text-xs opacity-80">Type a temporary password.</span>
+                                </button>
+                              </div>
+                              {passwordMode === "custom" && (
+                                <PasswordInput
+                                  id="new-password"
+                                  value={newPassword}
+                                  onChange={(event) => setNewPassword(event.target.value)}
+                                  placeholder="At least 8 characters"
+                                  autoComplete="new-password"
+                                />
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Profile</Label>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <button type="button" onClick={() => setFillProfile(false)} className={cn("rounded-lg border px-3 py-2 text-left text-sm", choiceClass(!fillProfile))}>
+                                  <span className="block font-semibold">Only create account</span>
+                                  <span className="block text-xs opacity-80">The patient fills in the profile after the first login.</span>
+                                </button>
+                                <button type="button" onClick={() => setFillProfile(true)} className={cn("rounded-lg border px-3 py-2 text-left text-sm", choiceClass(fillProfile))}>
+                                  <span className="block font-semibold">Fill in profile now</span>
+                                  <span className="block text-xs opacity-80">Saved and locked; the patient skips this step.</span>
+                                </button>
+                              </div>
+                              {fillProfile && (
+                                <div className="rounded-lg border border-slate-200 p-3">
+                                  <ProfileFieldsGrid values={profileValues} errors={profileErrors} onChange={setProfileField} idPrefix="new-profile" />
+                                  <p className="mt-3 text-xs text-slate-500">Age and BMI are worked out automatically.</p>
+                                </div>
+                              )}
                             </div>
                           </div>
 
                           <DialogFooter>
-                            <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Cancel</Button>
-                            <Button onClick={createPatient} disabled={creating} className="bg-blue-600 text-white hover:bg-blue-700">
+                            <Button
+                              variant="outline"
+                              onClick={() => openCreateDialog(false)}
+                              disabled={creating}
+                              className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                            >
+                              Cancel
+                            </Button>
+                            <Button onClick={createPatient} disabled={creating || loadingNextUserId} className="bg-blue-600 text-white hover:bg-blue-700">
                               {creating ? "Creating..." : "Create Account"}
                             </Button>
                           </DialogFooter>
@@ -253,19 +358,6 @@ export default function PatientList() {
                         className="border-slate-300 bg-white pl-9 text-slate-900"
                       />
                     </div>
-
-                    <select
-                      value={userIdSort}
-                      onChange={(event) =>
-                        setUserIdSort(event.target.value as "latest" | "asc" | "desc")
-                      }
-                      aria-label="Sort patients by User ID"
-                      className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-                    >
-                      <option value="latest">Latest joined</option>
-                      <option value="asc">Ascending</option>
-                      <option value="desc">Descending</option>
-                    </select>
                   </div>
                 </CardHeader>
 
@@ -274,10 +366,10 @@ export default function PatientList() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-slate-100 hover:bg-slate-100">
-                          <TableHead className="min-w-[220px] text-slate-700">Patient</TableHead>
-                          <TableHead className="min-w-[160px] text-slate-700">User ID</TableHead>
-                          <TableHead className="min-w-[150px] text-slate-700">Profile</TableHead>
-                          <TableHead className="min-w-[160px] text-slate-700">Joined</TableHead>
+                          <SortableHead label="Patient" column="patient" sort={sort} onSort={setSort} className="min-w-[220px]" />
+                          <SortableHead label="User ID" column="userId" sort={sort} onSort={setSort} className="min-w-[160px]" />
+                          <SortableHead label="Profile" column="profile" sort={sort} onSort={setSort} className="min-w-[150px]" />
+                          <SortableHead label="Joined" column="joined" sort={sort} onSort={setSort} className="min-w-[160px]" />
                           <TableHead className="min-w-[260px] text-right text-slate-700">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -373,5 +465,40 @@ export default function PatientList() {
         />
       </div>
     </div>
+  );
+}
+
+function SortableHead({
+  label,
+  column,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  column: SortColumn;
+  sort: SortState;
+  onSort: (next: SortState) => void;
+  className?: string;
+}) {
+  const active = sort.column === column;
+  const Icon = !active ? ArrowUpDown : sort.direction === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <TableHead
+      className={cn("text-slate-700", className)}
+      aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={() => onSort({ column, direction: active && sort.direction === "asc" ? "desc" : "asc" })}
+        className={cn(
+          "-ml-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-medium hover:bg-slate-100",
+          active ? "text-slate-900" : "text-slate-700"
+        )}
+      >
+        {label}
+        <Icon className={cn("h-3.5 w-3.5", active ? "text-blue-600" : "text-slate-400")} />
+      </button>
+    </TableHead>
   );
 }
